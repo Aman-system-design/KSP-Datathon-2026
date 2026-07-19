@@ -16,5 +16,16 @@ test('pipeline emits versioned findings from inputs alone', () => {
   assert.ok(output.network.edges.length > 0);
   assert.ok(output.identityResolutions.some(row => row.status === 'CONFIRMED'));
   assert.equal(output.areaRisk.status, 'CALCULATED');
+  assert.ok(output.areaRisk.evidenceCaseIds.length > 0);
+  assert.ok(Object.values(output.areaRisk.inputs).every(Number.isFinite));
   assert.equal(JSON.stringify(output).includes('demo-truth'), false);
+});
+
+test('area risk changes when its evidence changes', () => {
+  const baseline = runIntelligencePipeline(input);
+  const changed = structuredClone(input);
+  changed.weeklySeries[0].current = 3;
+  changed.cases = changed.cases.map(row => ({ ...row, gravity: 1 }));
+  const recalculated = runIntelligencePipeline(changed);
+  assert.notEqual(recalculated.areaRisk.score, baseline.areaRisk.score);
 });

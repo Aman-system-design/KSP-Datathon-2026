@@ -6,6 +6,7 @@ import { buildEvidenceGraph } from './network.mjs';
 import { resolveIdentities } from './identity.mjs';
 import { calculateAreaRisk } from './area-risk.mjs';
 import { discoverPatterns } from './pattern-fusion.mjs';
+import { mean } from './math.mjs';
 
 export function runIntelligencePipeline(input) {
   const version = '1.0.0';
@@ -25,10 +26,26 @@ export function runIntelligencePipeline(input) {
   const network = buildEvidenceGraph(features);
   const patterns = discoverPatterns(features, { threshold: 0.65, minimumCases: 4, minimumEvidenceFamilies: 3 })
     .map(pattern => Object.freeze({ ...pattern, runId: patternRun.id }));
-  const strongestAnomaly = Math.max(0, ...anomalies.filter(row => row.isAnomaly).map(row => Math.min(100, row.deviation * 20)));
+  const hotspotEvidenceIds = hotspots.flatMap(row => row.evidenceCaseIds);
+  const riskFeatures = features.filter(row => hotspotEvidenceIds.includes(row.caseId));
+  const riskPopulation = riskFeatures.length ? riskFeatures : features.filter(row => row.eligible);
+  const anomalyEvidence = [...anomalies].sort((left, right) => right.deviation - left.deviation)[0];
+  const expected = Math.max(1, anomalyEvidence?.expected ?? 1);
+  const observed = Math.max(0, anomalyEvidence?.observed ?? 0);
+  const riskInputs = {
+    frequency: Math.min(100, observed / expected * 40),
+    severity: Math.min(100, mean(riskPopulation.map(row => row.gravity)) / 5 * 100),
+    recency: Math.max(0, mean(riskPopulation.map(row => 100 * (1 - Math.min(1, row.ageDays / 60))))),
+    trend: Math.max(0, Math.min(100, 50 + (observed - expected) / expected * 25)),
+    anomaly: Math.max(0, Math.min(100, (anomalyEvidence?.deviation ?? 0) * 20)),
+    hotspot: Math.min(100, hotspots.reduce((sum, row) => sum + row.magnitude, 0) / 5 * 80),
+    completeness: mean(riskPopulation.map(row => row.completeness)),
+  };
   const areaRisk = Object.freeze({
-    ...calculateAreaRisk({ frequency: 80, severity: 60, recency: 70, trend: 50, anomaly: strongestAnomaly, hotspot: hotspots.length ? 100 : 0, completeness: 0.9 }),
+    ...calculateAreaRisk(riskInputs),
     runId: riskRun.id,
+    inputs: riskInputs,
+    evidenceCaseIds: [...new Set([...hotspotEvidenceIds, ...(anomalyEvidence?.evidenceCaseIds ?? [])])].sort(),
   });
   return Object.freeze({
     fixtureVersion: input.fixtureVersion,
