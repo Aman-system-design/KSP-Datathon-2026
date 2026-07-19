@@ -1,0 +1,1702 @@
+{
+  "schemaVersion": "1.0.0",
+  "fixtureVersion": "1.0.0",
+  "asOf": "2026-07-01T00:00:00Z",
+  "cases": [
+    {
+      "caseId": "CASE-001",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "BURGLARY",
+      "gravity": 4,
+      "incidentAt": "2026-06-02T21:01:00+05:30",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "305"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-007-A",
+          "personId": "PERSON-007",
+          "name": "Synthetic Person 1",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-002",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "BURGLARY",
+      "gravity": 4,
+      "incidentAt": "2026-06-03T21:02:00+05:30",
+      "latitude": 12.972,
+      "longitude": 77.595,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "305"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-002",
+          "personId": "PERSON-102",
+          "name": "Synthetic Person 2",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-003",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "VEHICLE_THEFT",
+      "gravity": 3,
+      "incidentAt": "2026-06-04T21:03:00+05:30",
+      "latitude": 12.9724,
+      "longitude": 77.5953,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "303"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-003",
+          "personId": "PERSON-103",
+          "name": "Synthetic Person 3",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: parked vehicle property theft control.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-004",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "VEHICLE_THEFT",
+      "gravity": 3,
+      "incidentAt": "2026-06-05T21:04:00+05:30",
+      "latitude": 12.9709,
+      "longitude": 77.5941,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "303"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-004",
+          "personId": "PERSON-104",
+          "name": "Synthetic Person 4",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: parked vehicle property theft control.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-005",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "VEHICLE_THEFT",
+      "gravity": 3,
+      "incidentAt": "2026-06-06T21:05:00+05:30",
+      "latitude": 12.9712,
+      "longitude": 77.5956,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "303"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-005",
+          "personId": "PERSON-105",
+          "name": "Synthetic Person 5",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: parked vehicle property theft control.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-006",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "VEHICLE_THEFT",
+      "gravity": 3,
+      "incidentAt": "2026-06-07T21:06:00+05:30",
+      "latitude": 12.9728,
+      "longitude": 77.5948,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "303"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-006",
+          "personId": "PERSON-106",
+          "name": "Synthetic Person 6",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: parked vehicle property theft control.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-007",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-08T10:00:00+05:30",
+      "latitude": 13.99,
+      "longitude": 76.76,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-007",
+          "personId": "PERSON-107",
+          "name": "Synthetic Person 7",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 7.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-008",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-09T10:00:00+05:30",
+      "latitude": 14.06,
+      "longitude": 76.94,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-008",
+          "personId": "PERSON-108",
+          "name": "Synthetic Person 8",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 8.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-009",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-10T10:00:00+05:30",
+      "latitude": 14.13,
+      "longitude": 77.12,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-009",
+          "personId": "PERSON-109",
+          "name": "Synthetic Person 9",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 9.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-010",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-11T10:00:00+05:30",
+      "latitude": 14.2,
+      "longitude": 75.5,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-010",
+          "personId": "PERSON-110",
+          "name": "Synthetic Person 10",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 10.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-011",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-12T10:00:00+05:30",
+      "latitude": 14.27,
+      "longitude": 75.68,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-011",
+          "personId": "PERSON-111",
+          "name": "Synthetic Person 11",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 11.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-012",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-13T10:00:00+05:30",
+      "latitude": 14.34,
+      "longitude": 75.86,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-012",
+          "personId": "PERSON-112",
+          "name": "Synthetic Person 12",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 12.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-013",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-14T10:00:00+05:30",
+      "latitude": 14.41,
+      "longitude": 76.04,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-013",
+          "personId": "PERSON-113",
+          "name": "Synthetic Person 13",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 13.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-014",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-15T10:00:00+05:30",
+      "latitude": 14.48,
+      "longitude": 76.22,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-014",
+          "personId": "PERSON-114",
+          "name": "Synthetic Person 14",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 14.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-015",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-16T10:00:00+05:30",
+      "latitude": 14.55,
+      "longitude": 76.4,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-015",
+          "personId": "PERSON-115",
+          "name": "Synthetic Person 15",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 15.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-016",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-17T10:00:00+05:30",
+      "latitude": 14.620000000000001,
+      "longitude": 76.58,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-016",
+          "personId": "PERSON-116",
+          "name": "Synthetic Person 16",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 16.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-017",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-18T10:00:00+05:30",
+      "latitude": 14.69,
+      "longitude": 76.76,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-017",
+          "personId": "PERSON-117",
+          "name": "Synthetic Person 17",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 17.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-018",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-19T10:00:00+05:30",
+      "latitude": 14.76,
+      "longitude": 76.94,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-018",
+          "personId": "PERSON-118",
+          "name": "Synthetic Person 18",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 18.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-019",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-20T10:00:00+05:30",
+      "latitude": 14.83,
+      "longitude": 77.12,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-019",
+          "personId": "PERSON-119",
+          "name": "Synthetic Person 19",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 19.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-020",
+      "districtId": "D-BLR-U",
+      "stationId": "PS-001",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-21T10:00:00+05:30",
+      "latitude": 14.9,
+      "longitude": 75.5,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-020",
+          "personId": "PERSON-120",
+          "name": "Synthetic Person 20",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 20.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-021",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "BURGLARY",
+      "gravity": 4,
+      "incidentAt": "2026-06-02T21:21:00+05:30",
+      "latitude": 12.85,
+      "longitude": 77.6,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "305"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-007-B",
+          "personId": "PERSON-007",
+          "name": "Synthetic Person 21",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-022",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PROPERTY",
+      "crimeMinor": "BURGLARY",
+      "gravity": 4,
+      "incidentAt": "2026-06-03T21:22:00+05:30",
+      "latitude": 12.84,
+      "longitude": 77.61,
+      "acts": [
+        "BNS"
+      ],
+      "sections": [
+        "305"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-022",
+          "personId": "PERSON-122",
+          "name": "Synthetic Person 22",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-023",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-24T10:00:00+05:30",
+      "latitude": 15.11,
+      "longitude": 76.04,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-023",
+          "personId": "PERSON-123",
+          "name": "Synthetic Person 23",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 23.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-024",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-25T10:00:00+05:30",
+      "latitude": 15.18,
+      "longitude": 76.22,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-024",
+          "personId": "PERSON-124",
+          "name": "Synthetic Person 24",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 24.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-025",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-26T10:00:00+05:30",
+      "latitude": 15.25,
+      "longitude": 76.4,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-025",
+          "personId": "PERSON-125",
+          "name": "Synthetic Person 25",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 25.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-026",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-27T10:00:00+05:30",
+      "latitude": 15.32,
+      "longitude": 76.58,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-026",
+          "personId": "PERSON-126",
+          "name": "Synthetic Person 26",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 26.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-027",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-01T10:00:00+05:30",
+      "latitude": 15.39,
+      "longitude": 76.76,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-027",
+          "personId": "PERSON-127",
+          "name": "Synthetic Person 27",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 27.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-028",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-02T10:00:00+05:30",
+      "latitude": 15.46,
+      "longitude": 76.94,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-028",
+          "personId": "PERSON-128",
+          "name": "Synthetic Person 28",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 28.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-029",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-03T10:00:00+05:30",
+      "latitude": 15.530000000000001,
+      "longitude": 77.12,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-029",
+          "personId": "PERSON-129",
+          "name": "Synthetic Person 29",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 29.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-030",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-04T10:00:00+05:30",
+      "latitude": 15.6,
+      "longitude": 75.5,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-FALSE-A",
+          "personId": "PERSON-031",
+          "name": "Synthetic Same Name",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 30.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-031",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-05T10:00:00+05:30",
+      "latitude": 15.67,
+      "longitude": 75.68,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-031",
+          "personId": "PERSON-131",
+          "name": "Synthetic Person 31",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 31.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-032",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-06T10:00:00+05:30",
+      "latitude": 15.74,
+      "longitude": 75.86,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-032",
+          "personId": "PERSON-132",
+          "name": "Synthetic Person 32",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 32.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-033",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-07T10:00:00+05:30",
+      "latitude": 15.81,
+      "longitude": 76.04,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-033",
+          "personId": "PERSON-133",
+          "name": "Synthetic Person 33",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 33.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-034",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-08T10:00:00+05:30",
+      "latitude": 15.88,
+      "longitude": 76.22,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-034",
+          "personId": "PERSON-134",
+          "name": "Synthetic Person 34",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 34.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-035",
+      "districtId": "D-BLR-R",
+      "stationId": "PS-021",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-09T10:00:00+05:30",
+      "latitude": 15.95,
+      "longitude": 76.4,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-035",
+          "personId": "PERSON-135",
+          "name": "Synthetic Person 35",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 35.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-036",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-10T10:00:00+05:30",
+      "latitude": 16.02,
+      "longitude": 76.58,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-036",
+          "personId": "PERSON-136",
+          "name": "Synthetic Person 36",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 36.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-037",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-11T10:00:00+05:30",
+      "latitude": 16.09,
+      "longitude": 76.76,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-037",
+          "personId": "PERSON-137",
+          "name": "Synthetic Person 37",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 37.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-038",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-12T10:00:00+05:30",
+      "latitude": 16.16,
+      "longitude": 76.94,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-038",
+          "personId": "PERSON-138",
+          "name": "Synthetic Person 38",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 38.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-039",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-13T10:00:00+05:30",
+      "latitude": 16.23,
+      "longitude": 77.12,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-039",
+          "personId": "PERSON-139",
+          "name": "Synthetic Person 39",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 39.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-040",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-14T10:00:00+05:30",
+      "latitude": 16.3,
+      "longitude": 75.5,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-040",
+          "personId": "PERSON-140",
+          "name": "Synthetic Person 40",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 40.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-041",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-15T10:00:00+05:30",
+      "latitude": 16.37,
+      "longitude": 75.68,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-041",
+          "personId": "PERSON-141",
+          "name": "Synthetic Person 41",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 41.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-042",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-16T10:00:00+05:30",
+      "latitude": 16.44,
+      "longitude": 75.86,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-042",
+          "personId": "PERSON-142",
+          "name": "Synthetic Person 42",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 42.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-043",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-17T10:00:00+05:30",
+      "latitude": 16.51,
+      "longitude": 76.04,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-043",
+          "personId": "PERSON-143",
+          "name": "Synthetic Person 43",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 43.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-044",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-18T10:00:00+05:30",
+      "latitude": 16.58,
+      "longitude": 76.22,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-FALSE-B",
+          "personId": "PERSON-044",
+          "name": "Synthetic Same Name",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 44.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-045",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-19T10:00:00+05:30",
+      "latitude": 16.65,
+      "longitude": 76.4,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-045",
+          "personId": "PERSON-145",
+          "name": "Synthetic Person 45",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 45.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-046",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-20T10:00:00+05:30",
+      "latitude": 16.72,
+      "longitude": 76.58,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-046",
+          "personId": "PERSON-146",
+          "name": "Synthetic Person 46",
+          "age": 29,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 46.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-047",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-21T10:00:00+05:30",
+      "latitude": 16.79,
+      "longitude": 76.76,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-047",
+          "personId": "PERSON-147",
+          "name": "Synthetic Person 47",
+          "age": 30,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 47.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-048",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-22T10:00:00+05:30",
+      "latitude": 16.86,
+      "longitude": 76.94,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-048",
+          "personId": "PERSON-148",
+          "name": "Synthetic Person 48",
+          "age": 31,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 48.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-049",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "CYBER",
+      "crimeMinor": "PAYMENT_FRAUD",
+      "gravity": 2,
+      "incidentAt": "2026-05-23T10:00:00+05:30",
+      "latitude": 16.93,
+      "longitude": 77.12,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-049",
+          "personId": "PERSON-149",
+          "name": "Synthetic Person 49",
+          "age": 32,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 49.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    },
+    {
+      "caseId": "CASE-050",
+      "districtId": "D-MYS",
+      "stationId": "PS-041",
+      "crimeMajor": "PUBLIC_ORDER",
+      "crimeMinor": "NUISANCE",
+      "gravity": 2,
+      "incidentAt": "2026-05-24T10:00:00+05:30",
+      "latitude": 17,
+      "longitude": 75.5,
+      "acts": [
+        "IT_ACT"
+      ],
+      "sections": [
+        "66C"
+      ],
+      "accused": [
+        {
+          "appearanceId": "APP-050",
+          "personId": "PERSON-150",
+          "name": "Synthetic Person 50",
+          "age": 28,
+          "gender": "M"
+        }
+      ],
+      "briefFacts": "Synthetic test record: unrelated control incident number 50.",
+      "synthetic": true,
+      "quality": {
+        "coordinatesValid": true,
+        "relationshipResolved": true,
+        "completeness": 1
+      }
+    }
+  ],
+  "weeklySeries": [
+    {
+      "seriesId": "SERIES-ANOMALY",
+      "history": [
+        2,
+        2,
+        3,
+        2,
+        2,
+        3,
+        2,
+        2,
+        3,
+        2,
+        2,
+        3
+      ],
+      "current": 9,
+      "seasonalPeriod": 0,
+      "evidenceCaseIds": [
+        "CASE-001",
+        "CASE-002"
+      ]
+    },
+    {
+      "seriesId": "SERIES-SEASONAL",
+      "history": [
+        4,
+        6,
+        7,
+        8,
+        6,
+        5,
+        4,
+        6,
+        7,
+        8,
+        6,
+        5
+      ],
+      "current": 4,
+      "seasonalPeriod": 6,
+      "evidenceCaseIds": []
+    }
+  ]
+}

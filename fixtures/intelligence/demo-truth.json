@@ -1,0 +1,43 @@
+{
+  "fixtureVersion": "1.0.0",
+  "pattern": {
+    "id": "PATTERN-CROSS-DISTRICT-1",
+    "caseIds": [
+      "CASE-001",
+      "CASE-002",
+      "CASE-021",
+      "CASE-022"
+    ]
+  },
+  "hotspot": {
+    "id": "HOTSPOT-1",
+    "caseIds": [
+      "CASE-001",
+      "CASE-002",
+      "CASE-003",
+      "CASE-004",
+      "CASE-005",
+      "CASE-006"
+    ]
+  },
+  "anomaly": {
+    "seriesId": "SERIES-ANOMALY",
+    "expected": true
+  },
+  "seasonalNegativeControl": {
+    "seriesId": "SERIES-SEASONAL",
+    "expected": false
+  },
+  "repeatIdentity": {
+    "personId": "PERSON-007",
+    "appearanceIds": [
+      "APP-007-A",
+      "APP-007-B"
+    ]
+  },
+  "falseNameMatch": {
+    "personId": "PERSON-031",
+    "otherPersonId": "PERSON-044",
+    "expectedConfirmed": false
+  }
+}
