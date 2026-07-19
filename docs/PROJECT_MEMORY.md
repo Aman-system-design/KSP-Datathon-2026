@@ -137,7 +137,21 @@ Use `catalyst serve` for local testing and `catalyst deploy` for supported resou
 - Current environment: Development
 - Console entry provided: Slate
 
-The project exists, but resource creation and deployment remain gated until the product and MVP design are approved.
+The project was initially created without application resources; the approved data-foundation resources are recorded below. Production deployment remains separately gated.
+
+### Verified Catalyst Data Foundation
+
+On 2026-07-19, schema version `1.0.0` was created in the Catalyst Development environment:
+
+- 29 application tables: 26 PDF-aligned `SRC_` tables and 3 ingestion-control `TRN_` tables
+- 391 manifest-defined columns, in addition to Catalyst's four default columns per table
+- original PDF business identifiers and column spellings preserved
+- Catalyst `*Ref` Foreign Keys linked to parent `ROWID` values with `On Delete = Null`
+- mandatory synthetic-data provenance, rejected-record visibility, key mapping, and PII/ePHI classifications
+
+Catalyst IaC export job `43492000000049001` produced `project-template-1.0.0.json`. The automated export comparer returned: `PASS: Catalyst Development schema matches source-schema.json.`
+
+No FIR records, synthetic records, Production resources, API Gateway changes, or real-person data were created in this phase.
 
 ## Decisions
 

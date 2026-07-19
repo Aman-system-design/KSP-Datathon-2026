@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { validateSchema } from '../../scripts/schema/validate-schema.mjs';
 import { generateRunbook } from '../../scripts/schema/generate-console-runbook.mjs';
+import { compareCatalystExport } from '../../scripts/schema/compare-catalyst-export.mjs';
 
 const root = new URL('../../', import.meta.url);
 const loadJson = async (path) => JSON.parse(await readFile(new URL(path, root), 'utf8'));
@@ -174,4 +175,103 @@ test('console runbook is deterministic and covers every effective column', async
       assert.ok(first.includes(`\`${column.name}\``), `${table.name}.${column.name} missing`);
     }
   }
+});
+
+function buildCatalystTemplate(schema) {
+  const datastore = [];
+  for (const table of schema.tables) {
+    datastore.push({
+      type: 'table',
+      name: table.name,
+      properties: { table_name: table.name },
+      dependsOn: [],
+    });
+    const columns = table.includeStandardSourceColumns
+      ? [...schema.standardSourceColumns, ...table.columns]
+      : table.columns;
+    for (const column of columns) {
+      datastore.push({
+        type: 'column',
+        name: `${table.name}-${column.name}`,
+        properties: {
+          audit_consent: column.pii ?? false,
+          column_name: column.name,
+          data_type: column.type === 'foreign_key' ? 'foreign key' : column.type,
+          is_unique: column.unique ?? false,
+          is_mandatory: column.mandatory,
+          search_index_enabled: column.indexed ?? false,
+          table_name: table.name,
+          max_length: column.type === 'varchar' ? column.maxLength : undefined,
+          default_value: column.default === undefined ? undefined : String(column.default),
+          parent_table: column.parentTable,
+          parent_column: column.type === 'foreign_key' ? 'ROWID' : undefined,
+          constraint_type: column.type === 'foreign_key' ? 'ON-DELETE-SET-NULL' : undefined,
+        },
+        dependsOn: [],
+      });
+    }
+  }
+  return { components: { Datastore: datastore } };
+}
+
+test('Catalyst export comparer accepts an exact manifest projection', async () => {
+  const schema = await loadJson('schema/catalyst/source-schema.json');
+  assert.deepEqual(compareCatalystExport(schema, buildCatalystTemplate(schema)), []);
+});
+
+test('Catalyst export comparer reports missing and unexpected tables', async () => {
+  const schema = await loadJson('schema/catalyst/source-schema.json');
+  const template = buildCatalystTemplate(schema);
+  template.components.Datastore = template.components.Datastore
+    .filter(({ name }) => name !== 'SRC_Act');
+  template.components.Datastore.push({
+    type: 'table',
+    name: 'UnexpectedTable',
+    properties: { table_name: 'UnexpectedTable' },
+  });
+
+  const differences = compareCatalystExport(schema, template);
+  assert.ok(differences.some((item) => item.includes('missing table SRC_Act')));
+  assert.ok(differences.some((item) => item.includes('unexpected table UnexpectedTable')));
+});
+
+test('Catalyst export comparer reports column and constraint differences', async () => {
+  const schema = await loadJson('schema/catalyst/source-schema.json');
+  const template = buildCatalystTemplate(schema);
+  const victimName = template.components.Datastore.find(
+    ({ name }) => name === 'SRC_Victim-VictimName',
+  );
+  victimName.properties.data_type = 'text';
+  victimName.properties.is_mandatory = false;
+  victimName.properties.search_index_enabled = false;
+  victimName.properties.audit_consent = false;
+  victimName.properties.max_length = 12;
+  const victimTableIndex = template.components.Datastore.findIndex(
+    ({ name }) => name === 'SRC_Victim-VictimPolice',
+  );
+  template.components.Datastore.splice(victimTableIndex, 1);
+
+  const differences = compareCatalystExport(schema, template);
+  assert.ok(differences.some((item) => item.includes('missing column SRC_Victim.VictimPolice')));
+  assert.ok(differences.some((item) => item.includes('SRC_Victim.VictimName data_type')));
+  assert.ok(differences.some((item) => item.includes('SRC_Victim.VictimName is_mandatory')));
+  assert.ok(differences.some((item) => item.includes('SRC_Victim.VictimName search_index_enabled')));
+  assert.ok(differences.some((item) => item.includes('SRC_Victim.VictimName audit_consent')));
+  assert.ok(differences.some((item) => item.includes('SRC_Victim.VictimName max_length')));
+});
+
+test('Catalyst export comparer reports wrong Foreign Key metadata', async () => {
+  const schema = await loadJson('schema/catalyst/source-schema.json');
+  const template = buildCatalystTemplate(schema);
+  const caseReference = template.components.Datastore.find(
+    ({ name }) => name === 'SRC_Accused-CaseMasterRef',
+  );
+  caseReference.properties.parent_table = 'SRC_State';
+  caseReference.properties.parent_column = 'CREATORID';
+  caseReference.properties.constraint_type = 'ON-DELETE-CASCADE';
+
+  const differences = compareCatalystExport(schema, template);
+  assert.ok(differences.some((item) => item.includes('SRC_Accused.CaseMasterRef parent_table')));
+  assert.ok(differences.some((item) => item.includes('SRC_Accused.CaseMasterRef parent_column')));
+  assert.ok(differences.some((item) => item.includes('SRC_Accused.CaseMasterRef constraint_type')));
 });

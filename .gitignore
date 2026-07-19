@@ -3,6 +3,7 @@
 node_modules/
 tmp/
 artifacts/catalyst-schema-export/
+export_*.zip
 *.log
 # Local credentials and environment overrides
 .env
