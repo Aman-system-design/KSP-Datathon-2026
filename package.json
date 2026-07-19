@@ -1,0 +1,15 @@
+{
+  "name": "ksp-crime-decision-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "schema:validate": "node scripts/schema/validate-schema.mjs",
+    "schema:runbook": "node scripts/schema/generate-console-runbook.mjs",
+    "schema:compare": "node scripts/schema/compare-catalyst-export.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
