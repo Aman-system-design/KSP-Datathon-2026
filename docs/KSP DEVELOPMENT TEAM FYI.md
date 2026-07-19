@@ -334,6 +334,8 @@ KSP confirmation required:
 
 The MVP will demonstrate hotspots, anomalies, repeat-offender/link analysis, district context correlation, area-risk signals, and cross-jurisdiction pattern discovery.
 
+The complete MVP method, evaluation, explanation, safety, and Catalyst-service contract is maintained in `docs/architecture/ai-ml-intelligence-strategy.md`. Its thresholds and weights are synthetic-MVP starting values, not proposed KSP operational policy.
+
 Before production, KSP subject-matter experts must confirm:
 
 - Operational definition of a useful hotspot

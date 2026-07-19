@@ -83,3 +83,9 @@ No challenge requirement may be considered complete solely because a screen or l
 CCTV alerts, public/social signals, major-event priorities, Command Centre presentation mode, case-ageing summaries, and expanded field-device experiences are permitted future extensions. They are not substitutes for any CH02 requirement and cannot be used as proof that hotspot, anomaly, network, repeat-offender, correlation, area-risk, or pattern-detection behavior works.
 
 The deferred direction is maintained in [`deferred-signal-and-operational-expansion.md`](deferred-signal-and-operational-expansion.md). If an extension competes with unfinished Challenge 02 behavior, the extension is deferred.
+
+## AI/ML proof standard
+
+The authoritative AI/ML design is maintained in [`ai-ml-intelligence-strategy.md`](ai-ml-intelligence-strategy.md). A capability counts as implemented only when its method executes on accepted data, persists a versioned result, links to evidence, exposes limitations, passes its positive and negative fixtures, and appears in the approved end-to-end journey.
+
+An LLM-written alert, hard-coded fixture result, chart label, or unexecuted model design is not acceptable proof.

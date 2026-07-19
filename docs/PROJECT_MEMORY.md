@@ -92,7 +92,7 @@ Deployment through **Catalyst by Zoho** is mandatory. Prefer Catalyst-native ser
 - Relational operational and analytics data: Catalyst Data Store and ZCQL
 - Files and generated artifacts: Catalyst Stratus
 - Authentication and roles: Catalyst Authentication
-- ML pipelines and model endpoints: Catalyst QuickML and Zia AutoML where practical
+- ML pipelines and model endpoints: Catalyst QuickML; Zia AutoML is excluded from the committed India-project MVP because Catalyst currently documents it as unavailable in the India data centre
 - Text assistance/RAG: Catalyst QuickML, limited to grounded summaries and explanations
 - Scheduled refresh and alert generation: Catalyst Cron or Job Scheduling
 - Ingestion-triggered refresh: Catalyst Signals and Event Functions
@@ -176,6 +176,7 @@ No FIR records, synthetic records, Production resources, API Gateway changes, or
 - Challenge cross-check approved three corrections: visibly unify separate synthetic source extracts rather than starting from one clean database; add an aggregate, non-causal District Context Lens for socio-economic correlation; and strictly limit full MVP implementation to State Leadership, District/Division Leadership, and Crime Analyst, with lighter operational and governance demonstrations for other roles.
 - Physical data architecture approved: use one Catalyst Data Store with logical `SRC_`, `TRN_`, `INT_`, and `WF_` zones plus Stratus raw landing. `SRC_` tables preserve every PDF-defined column and original business identifier. Catalyst-native relationships use additional `*Ref` Foreign Key columns that point to parent `ROWID`s. Do not create a complete transformed copy of the FIR database; persist only key mappings, reusable features, versioned intelligence and accountable workflow records. The authoritative design is `docs/superpowers/specs/2026-07-19-catalyst-physical-data-architecture-design.md`.
 - Deferred expansion approved: retain authorized CCTV-derived alerts, verified public/social signals, major-event priorities, a shared Command Centre presentation mode, leadership and station operational indicators, and a responsive investigator tablet experience in the architecture. These remain supporting inputs and delivery surfaces around the Crime Analytics Engine. They must not displace or be presented as proof of any Challenge 02 capability. The boundary and entry criteria are defined in `docs/architecture/deferred-signal-and-operational-expansion.md`.
+- AI/ML strategy approved: compete on an explainable Cross-District Crime Pattern Fusion Engine that combines spatial hotspots, temporal anomalies, governed identity resolution, evidence graphs, text-derived modus-operandi features, area risk, and aggregate district context. Every method is labelled accurately, evaluated on hidden positive and negative synthetic fixtures, versioned, evidence-linked, human-reviewable, and Catalyst-native where available. The authoritative design is `docs/architecture/ai-ml-intelligence-strategy.md`.
 
 ## Open Questions
 

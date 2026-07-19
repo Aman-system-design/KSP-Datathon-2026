@@ -71,7 +71,7 @@ flowchart TB
         C2["Serverless Functions<br/>Node.js"]
         C3["API Gateway & Authentication"]
         C4["Data Store & Stratus"]
-        C5["QuickML / Zia AutoML"]
+        C5["QuickML Pipelines / LLM Serving"]
         C6["Cron • Jobs • Signals • Event Functions"]
     end
 
@@ -476,11 +476,13 @@ Catalyst Data Store holds structured FIR data, analytical features, alerts, expl
 
 Catalyst Stratus holds larger files such as imports, generated reports, or exported evidence packs when required.
 
-### QuickML and Zia AutoML → Intelligence
+### QuickML Pipelines and LLM Serving → Intelligence
 
-These services support suitable ML workflows. They should only be used where they add measurable value and fit the final design.
+QuickML supports the selected ML pipeline, model endpoint, structured text extraction, and evidence-grounded brief generation. It should only be used where it adds measurable value and where evaluation evidence is available.
 
 Simple and explainable calculations may remain in Serverless Functions rather than forcing every feature into an ML model.
+
+Catalyst currently documents Zia AutoML as unavailable in the India data centre, so it is not part of the committed MVP architecture. The authoritative analytical design is maintained in [`ai-ml-intelligence-strategy.md`](ai-ml-intelligence-strategy.md).
 
 ### Cron, Jobs, Signals, and Event Functions → Operations
 
