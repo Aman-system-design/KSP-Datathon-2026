@@ -523,6 +523,14 @@ Neither role receives unrestricted district or statewide access.
 
 A station receives an alert concerning three evening burglaries. The SHO reviews the local hotspot and assigns verification to an investigating officer. The officer identifies one unsupported similarity, records the findings, and requests analyst review. The analyst updates the working hypothesis, and district leadership receives the verified conclusion and station response.
 
+## Shared Command Centre Presentation Mode
+
+The Command Centre is a future authenticated presentation mode, not a separate unrestricted role. It provides large-screen awareness of approved aggregate intelligence, alert status, analytics freshness, and—after the Challenge 02 core is complete—prioritized CCTV, verified public/social, and major-event signals.
+
+It does not expose unrestricted FIR evidence, personal details, or investigation controls on a shared display. A user who needs to investigate must open the relevant evidence through an individually authenticated and authorized workstation experience.
+
+Detailed deferred behavior is defined in [`deferred-signal-and-operational-expansion.md`](deferred-signal-and-operational-expansion.md).
+
 ## Governance Roles: Platform Administrator and Auditor
 
 The Platform Administrator and Auditor share one Governance Console, but their permissions remain strictly separated.

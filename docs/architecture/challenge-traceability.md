@@ -78,3 +78,8 @@ The final implementation plan must assign every row above:
 
 No challenge requirement may be considered complete solely because a screen or label exists.
 
+## Scope guard for future operational signals
+
+CCTV alerts, public/social signals, major-event priorities, Command Centre presentation mode, case-ageing summaries, and expanded field-device experiences are permitted future extensions. They are not substitutes for any CH02 requirement and cannot be used as proof that hotspot, anomaly, network, repeat-offender, correlation, area-risk, or pattern-detection behavior works.
+
+The deferred direction is maintained in [`deferred-signal-and-operational-expansion.md`](deferred-signal-and-operational-expansion.md). If an extension competes with unfinished Challenge 02 behavior, the extension is deferred.

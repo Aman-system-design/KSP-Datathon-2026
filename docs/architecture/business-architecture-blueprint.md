@@ -500,6 +500,14 @@ The complete sequence is:
 6. Authorized officers review, acknowledge, assign, and track actions.
 7. Outcomes are recorded for audit and future improvement.
 
+## Deferred operational and external-signal expansion
+
+The platform may later incorporate authorized CCTV-derived alerts, verified public/social signals, major-event priorities, a large-screen Command Centre mode, leadership case-ageing summaries, station operational indicators, and a responsive investigator tablet experience.
+
+These are supporting inputs and delivery surfaces around the Crime Analytics Engine. They do not replace any Challenge 02 capability and are not part of the core implementation until the fragmented-record, analytics, evidence, drilldown, and accountable-action journey is working.
+
+The approved boundary, safeguards, role experiences, future processing flow, and Catalyst service direction are defined in [`deferred-signal-and-operational-expansion.md`](deferred-signal-and-operational-expansion.md).
+
 ## Safety and trust boundaries
 
 - The platform supports human decisions; it does not autonomously direct police action.
