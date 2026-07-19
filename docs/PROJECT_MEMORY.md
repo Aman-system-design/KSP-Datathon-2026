@@ -153,6 +153,25 @@ Catalyst IaC export job `43492000000049001` produced `project-template-1.0.0.jso
 
 No FIR records, synthetic records, Production resources, API Gateway changes, or real-person data were created in this phase.
 
+### Verified Local Crime Intelligence Engine
+
+On 2026-07-20, local intelligence engine and fixture version `1.0.0` completed the first analytical delivery track:
+
+- deterministic 50-case canonical synthetic analytical fixture with hidden truth;
+- Haversine DBSCAN hotspot detection;
+- baseline-aware median/MAD anomaly detection with a seasonal negative control;
+- authoritative repeat-identity resolution and same-name false-match rejection;
+- evidence-labelled case/person and co-accused graph;
+- transparent TF-IDF text-similarity baseline;
+- area/time-only explainable risk score with completeness withholding;
+- spatial, temporal, crime, legal, text and network Pattern Fusion;
+- versioned analysis runs, evidence references, limitations and synthetic labels;
+- reproducible CLI and machine-verifiable positive/negative gates.
+
+Observed controlled-fixture result: one planted hotspot, one planted four-case/two-district pattern, 1.00 pattern precision, 1.00 pattern recall, seasonal negative control rejected, false-name confirmation rejected, four co-accused edges, and all evaluation gates passing. These results are synthetic-fixture verification only and are not operational KSP accuracy claims.
+
+Runbook: `docs/runbooks/local-intelligence-demo.md`. The next delivery track is PDF-aligned synthetic generation plus Catalyst ingestion, analytical/workflow tables, Functions, jobs and APIs.
+
 ## Decisions
 
 - Treat the FIR schema as the first source of truth.
