@@ -42,6 +42,8 @@ The nine-page artifact describes the Police FIR operational schema; it does not 
 
 Because no raw KSP records are currently available, the prototype will require privacy-safe synthetic data aligned with the supplied schema.
 
+Production-schema gaps, MVP assumptions, and questions for KSP are maintained in `docs/KSP DEVELOPMENT TEAM FYI.md`. Update that file whenever an implementation decision fills an undocumented gap in the supplied artifact.
+
 Firm decision: generate synthetic records directly against the supplied production FIR schema, preserving its entity relationships, key formats, organizational hierarchy, and realistic temporal/geospatial patterns. Synthetic records must be clearly labelled and must not imitate identifiable real people.
 
 ## Core MVP
@@ -158,6 +160,7 @@ The project exists, but resource creation and deployment remain gated until the 
 - Shared Station Command and Investigating Officer experience approved: one Operational Intelligence View with designation- and assignment-specific permissions, local alert response, case/link verification, strict geographic and case scope, and labels separating system signals from analyst findings, officer reports, confirmed records, and data-quality warnings.
 - Governance Console approved: Platform Administrator manages technical configuration and health without automatic case access; Auditor receives read-only, append-only traceability across access, alerts, decisions, evidence references, analytical versions, changes, and exports. The MVP proves governance boundaries without building a full enterprise administration suite.
 - Challenge cross-check approved three corrections: visibly unify separate synthetic source extracts rather than starting from one clean database; add an aggregate, non-causal District Context Lens for socio-economic correlation; and strictly limit full MVP implementation to State Leadership, District/Division Leadership, and Crime Analyst, with lighter operational and governance demonstrations for other roles.
+- Physical data architecture approved: use one Catalyst Data Store with logical `SRC_`, `TRN_`, `INT_`, and `WF_` zones plus Stratus raw landing. `SRC_` tables preserve every PDF-defined column and original business identifier. Catalyst-native relationships use additional `*Ref` Foreign Key columns that point to parent `ROWID`s. Do not create a complete transformed copy of the FIR database; persist only key mappings, reusable features, versioned intelligence and accountable workflow records. The authoritative design is `docs/superpowers/specs/2026-07-19-catalyst-physical-data-architecture-design.md`.
 
 ## Open Questions
 
