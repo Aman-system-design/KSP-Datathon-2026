@@ -26,7 +26,7 @@ The initial commit contains only approved architecture, project memory, challeng
 | Official challenge | PASS | All eleven capabilities are mapped to product response and MVP proof |
 | Product architecture | PASS | Approved business, role, workflow, and MVP boundaries are documented |
 | Catalyst-native services | PASS | Catalyst is mandatory throughout the architecture; no substitute implementation exists |
-| Data and schema | PASS | Synthetic schema-aligned plan and fragmented-source design are documented; confidential PDF is ignored |
+| Data and schema | PASS | Synthetic schema-aligned plan and fragmented-source design are documented; the user confirmed the publicly shared schema PDF may be versioned |
 | AI and policing safety | PASS | Individual prediction, sensitive targeting, causal overclaim, and unsupported AI briefs are prohibited |
 | Authorization and audit | PASS | Rank, designation, unit hierarchy, permission, and audit foundations are documented |
 | Verification | PASS | Skill contract, prerequisite checker, and official skill validation were executed successfully |
@@ -40,7 +40,7 @@ No blocking or warning findings for the initial documentation commit.
 - Commands run: skill contract test, required-source checker, official skill validator, Git status and ignored-file inspection
 - Tests and results: Skill contract PASS; required sources PASS; official validator reports valid
 - Fixtures inspected: Eight pressure scenarios cover deadline drift, Catalyst substitution, unsafe prediction, missing verification, neutral work, safe correlation, label-only compliance, and scope drift
-- Manual evidence inspected: Architecture, role design, project memory, challenge traceability, skill contract, and `.gitignore`
+- Manual evidence inspected: Architecture, role design, project memory, challenge traceability, supplied schema PDF, skill contract, and `.gitignore`
 
 ## Decision
 
