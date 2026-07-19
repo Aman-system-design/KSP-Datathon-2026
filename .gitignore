@@ -1,5 +1,9 @@
 .superpowers/
+.catalystrc
+node_modules/
 tmp/
+artifacts/catalyst-schema-export/
+*.log
 # Local credentials and environment overrides
 .env
 .env.*
