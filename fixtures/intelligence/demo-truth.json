@@ -39,5 +39,14 @@
     "personId": "PERSON-031",
     "otherPersonId": "PERSON-044",
     "expectedConfirmed": false
+  },
+  "coAccusedNetwork": {
+    "personId": "PERSON-008",
+    "caseIds": [
+      "CASE-001",
+      "CASE-002",
+      "CASE-021",
+      "CASE-022"
+    ]
   }
 }

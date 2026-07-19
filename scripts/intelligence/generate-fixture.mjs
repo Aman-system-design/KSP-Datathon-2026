@@ -21,6 +21,8 @@ const cases = Array.from({ length: 50 }, (_, offset) => {
   const personId = index === 1 || index === 21 ? 'PERSON-007' : index === 30 ? 'PERSON-031' : index === 44 ? 'PERSON-044' : `PERSON-${pad(index + 100)}`;
   const appearanceId = index === 1 ? 'APP-007-A' : index === 21 ? 'APP-007-B' : index === 30 ? 'APP-FALSE-A' : index === 44 ? 'APP-FALSE-B' : `APP-${pad(index)}`;
   const displayName = index === 30 || index === 44 ? 'Synthetic Same Name' : `Synthetic Person ${index}`;
+  const accused = [{ appearanceId, personId, name: displayName, age: index === 44 ? 30 : 28 + (index % 5), gender: 'M' }];
+  if (pattern) accused.push({ appearanceId: `APP-NET-${pad(index)}`, personId: 'PERSON-008', name: 'Synthetic Network Person', age: 35, gender: 'M' });
   return {
     caseId: `CASE-${pad(index)}`,
     districtId: index <= 20 ? 'D-BLR-U' : index <= 35 ? 'D-BLR-R' : 'D-MYS',
@@ -33,7 +35,7 @@ const cases = Array.from({ length: 50 }, (_, offset) => {
     longitude,
     acts: pattern || hotspot ? ['BNS'] : ['IT_ACT'],
     sections: pattern ? ['305'] : hotspot ? ['303'] : ['66C'],
-    accused: [{ appearanceId, personId, name: displayName, age: index === 44 ? 30 : 28 + (index % 5), gender: 'M' }],
+    accused,
     briefFacts: pattern
       ? 'Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.'
       : hotspot
@@ -60,6 +62,7 @@ const truth = {
   seasonalNegativeControl: { seriesId: 'SERIES-SEASONAL', expected: false },
   repeatIdentity: { personId: 'PERSON-007', appearanceIds: ['APP-007-A', 'APP-007-B'] },
   falseNameMatch: { personId: 'PERSON-031', otherPersonId: 'PERSON-044', expectedConfirmed: false },
+  coAccusedNetwork: { personId: 'PERSON-008', caseIds: ['CASE-001', 'CASE-002', 'CASE-021', 'CASE-022'] },
 };
 
 fs.mkdirSync('fixtures/intelligence', { recursive: true });

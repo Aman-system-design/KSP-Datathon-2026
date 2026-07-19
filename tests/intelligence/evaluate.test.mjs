@@ -13,6 +13,7 @@ test('passes positive and negative intelligence controls', () => {
   assert.equal(report.gates.seasonalNegativeControl, true);
   assert.equal(report.gates.crossDistrictPattern, true);
   assert.equal(report.gates.evidenceLineage, true);
+  assert.equal(report.gates.coAccusedNetwork, true);
   assert.equal(report.metrics.patternPrecision, 1);
   assert.equal(report.metrics.patternRecall, 1);
 });

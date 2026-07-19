@@ -19,4 +19,6 @@ test('hidden truth defines positive and negative controls', () => {
   assert.ok(truth.hotspot.caseIds.length >= 5);
   assert.ok(truth.seasonalNegativeControl.seriesId);
   assert.notEqual(truth.repeatIdentity.personId, truth.falseNameMatch.personId);
+  assert.ok(truth.coAccusedNetwork.caseIds.length >= 2);
+  assert.ok(input.cases.some(row => row.accused.length > 1));
 });

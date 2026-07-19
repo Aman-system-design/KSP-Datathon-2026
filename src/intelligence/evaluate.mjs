@@ -15,6 +15,7 @@ export function evaluatePipeline(output, truth) {
   const runIds = new Set(output.analysisRuns.map(run => run.id));
   const repeatedAppearances = new Set(truth.repeatIdentity.appearanceIds);
   const falseAppearances = new Set(['APP-FALSE-A', 'APP-FALSE-B']);
+  const coAccusedCases = new Set(output.network.edges.filter(edge => edge.type === 'PERSON_CO_ACCUSED').map(edge => edge.sourceCaseId));
   const gates = {
     hotspot: output.hotspots.some(row => containsAll(row.evidenceCaseIds, truth.hotspot.caseIds)),
     anomaly: output.anomalies.some(row => row.seriesId === truth.anomaly.seriesId && row.isAnomaly),
@@ -23,6 +24,7 @@ export function evaluatePipeline(output, truth) {
     patternMetricThreshold: patternPrecision >= 0.8 && patternRecall >= 0.8,
     repeatIdentity: output.identityResolutions.some(row => row.status === 'CONFIRMED' && repeatedAppearances.has(row.left) && repeatedAppearances.has(row.right)),
     falseNameNotConfirmed: !output.identityResolutions.some(row => row.status === 'CONFIRMED' && falseAppearances.has(row.left) && falseAppearances.has(row.right)),
+    coAccusedNetwork: truth.coAccusedNetwork.caseIds.every(caseId => coAccusedCases.has(caseId)),
     evidenceLineage: significantFindings.every(row => row.method && row.version && runIds.has(row.runId) && row.evidenceCaseIds.length > 0),
     syntheticLabels: output.synthetic === true && output.features.every(row => row.synthetic === true) && significantFindings.every(row => row.synthetic === true),
     areaOnlyRisk: output.areaRisk.scope === 'AREA_TIME_ONLY' && runIds.has(output.areaRisk.runId),

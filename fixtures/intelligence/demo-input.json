@@ -26,6 +26,13 @@
           "name": "Synthetic Person 1",
           "age": 29,
           "gender": "M"
+        },
+        {
+          "appearanceId": "APP-NET-001",
+          "personId": "PERSON-008",
+          "name": "Synthetic Network Person",
+          "age": 35,
+          "gender": "M"
         }
       ],
       "briefFacts": "Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.",
@@ -58,6 +65,13 @@
           "personId": "PERSON-102",
           "name": "Synthetic Person 2",
           "age": 30,
+          "gender": "M"
+        },
+        {
+          "appearanceId": "APP-NET-002",
+          "personId": "PERSON-008",
+          "name": "Synthetic Network Person",
+          "age": 35,
           "gender": "M"
         }
       ],
@@ -686,6 +700,13 @@
           "name": "Synthetic Person 21",
           "age": 29,
           "gender": "M"
+        },
+        {
+          "appearanceId": "APP-NET-021",
+          "personId": "PERSON-008",
+          "name": "Synthetic Network Person",
+          "age": 35,
+          "gender": "M"
         }
       ],
       "briefFacts": "Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.",
@@ -718,6 +739,13 @@
           "personId": "PERSON-122",
           "name": "Synthetic Person 22",
           "age": 30,
+          "gender": "M"
+        },
+        {
+          "appearanceId": "APP-NET-022",
+          "personId": "PERSON-008",
+          "name": "Synthetic Network Person",
+          "age": 35,
           "gender": "M"
         }
       ],
