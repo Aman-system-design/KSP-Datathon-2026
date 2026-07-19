@@ -1,0 +1,8 @@
+.superpowers/
+tmp/
+Police_FIR_ER_Diagram.pdf
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example

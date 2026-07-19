@@ -1,0 +1,4 @@
+interface:
+  display_name: "Challenge Alignment Review"
+  short_description: "Gate changes against Challenge 02"
+  default_prompt: "Use $reviewing-challenge-alignment to review the current change before it is pushed."
