@@ -1,6 +1,5 @@
 import fs from 'node:fs';
-import { runIntelligencePipeline } from '../../src/intelligence/pipeline.mjs';
-import { evaluatePipeline } from '../../src/intelligence/evaluate.mjs';
+import { evaluatePipeline, runIntelligencePipeline } from '@ksp/intelligence-core';
 
 const input = JSON.parse(fs.readFileSync('fixtures/intelligence/demo-input.json', 'utf8'));
 const truth = JSON.parse(fs.readFileSync('fixtures/intelligence/demo-truth.json', 'utf8'));

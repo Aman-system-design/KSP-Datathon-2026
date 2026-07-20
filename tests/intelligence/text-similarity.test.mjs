@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { textSimilarity } from '../../src/intelligence/text-similarity.mjs';
+import { textSimilarity } from '@ksp/intelligence-core/text-similarity';
 
 test('similar modus-operandi text scores above unrelated text', () => {
   const left = 'Synthetic test record: rear-window entry, jewellery targeted, motorcycle observed.';

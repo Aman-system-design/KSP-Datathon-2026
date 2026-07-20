@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateAreaRisk } from '../../src/intelligence/area-risk.mjs';
+import { calculateAreaRisk } from '@ksp/intelligence-core/area-risk';
 
 test('returns exact component contributions', () => {
   const result = calculateAreaRisk({ frequency: 80, severity: 60, recency: 70, trend: 50, anomaly: 90, hotspot: 100, completeness: 0.9 });

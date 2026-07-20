@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAnalysisRun, createFinding, assertFindingEvidence } from '../../src/intelligence/contracts.mjs';
-import { median, mad, haversineKm, clamp01 } from '../../src/intelligence/math.mjs';
+import { assertFindingEvidence, createAnalysisRun, createFinding } from '@ksp/intelligence-core/contracts';
+import { clamp01, haversineKm, mad, median } from '@ksp/intelligence-core/math';
 
 test('analysis run and finding expose versioned evidence', () => {
   const run = createAnalysisRun({ id: 'RUN-1', type: 'HOTSPOT', method: 'HAVERSINE_DBSCAN', version: '1.0.0', observedFrom: '2026-06-01', observedTo: '2026-06-30' });

@@ -18,7 +18,7 @@ On Windows, use `npm.cmd` because local PowerShell execution policy may block th
 
 - `fixtures/intelligence/demo-input.json` is the only fixture read by the production pipeline.
 - `fixtures/intelligence/demo-truth.json` is read only by the evaluation layer.
-- `src/intelligence/pipeline.mjs` does not import or read the truth file.
+- `packages/intelligence-core/src/pipeline.mjs` does not import or read the truth file.
 - `scripts/intelligence/generate-fixture.mjs` deterministically regenerates both files.
 
 The application cannot discover the planted answer by reading the expected-output fixture.

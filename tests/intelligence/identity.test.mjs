@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveIdentityPair, resolveIdentities } from '../../src/intelligence/identity.mjs';
+import { resolveIdentities, resolveIdentityPair } from '@ksp/intelligence-core/identity';
 
 test('authoritative person id confirms a repeat identity', () => {
   const result = resolveIdentityPair(

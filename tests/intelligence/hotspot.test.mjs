@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildCaseFeatures } from '../../src/intelligence/features.mjs';
-import { detectHotspots } from '../../src/intelligence/hotspot.mjs';
+import { buildCaseFeatures } from '@ksp/intelligence-core/features';
+import { detectHotspots } from '@ksp/intelligence-core/hotspot';
 
 const input = JSON.parse(fs.readFileSync('fixtures/intelligence/demo-input.json', 'utf8'));
 const truth = JSON.parse(fs.readFileSync('fixtures/intelligence/demo-truth.json', 'utf8'));

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { detectAnomaly } from '../../src/intelligence/anomaly.mjs';
+import { detectAnomaly } from '@ksp/intelligence-core/anomaly';
 
 const input = JSON.parse(fs.readFileSync('fixtures/intelligence/demo-input.json', 'utf8'));
 

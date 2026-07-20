@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { evaluatePipeline } from '../../src/intelligence/evaluate.mjs';
-import { runIntelligencePipeline } from '../../src/intelligence/pipeline.mjs';
+import { evaluatePipeline, runIntelligencePipeline } from '@ksp/intelligence-core';
 import { toIntelligenceInput } from '../../src/ingestion/to-intelligence-input.mjs';
 import { validateSourceSeed } from '../../src/ingestion/validate-source-seed.mjs';
 import { generateSourceSeed } from '../../src/synthetic/source-seed.mjs';

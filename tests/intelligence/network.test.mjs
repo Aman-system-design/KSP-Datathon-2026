@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildEvidenceGraph, connectedCaseComponents } from '../../src/intelligence/network.mjs';
+import { buildEvidenceGraph, connectedCaseComponents } from '@ksp/intelligence-core/network';
 
 test('builds evidence-labelled case-person and co-accused graph', () => {
   const graph = buildEvidenceGraph([

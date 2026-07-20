@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCaseFeature } from '../../src/intelligence/features.mjs';
+import { buildCaseFeature } from '@ksp/intelligence-core/features';
 
 test('builds cyclic, categorical and quality features without sensitive demographics', () => {
   const feature = buildCaseFeature({

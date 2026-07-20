@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { runIntelligencePipeline } from '../../src/intelligence/pipeline.mjs';
+import { runIntelligencePipeline } from '@ksp/intelligence-core';
 
 const input = JSON.parse(fs.readFileSync('fixtures/intelligence/demo-input.json', 'utf8'));
 
