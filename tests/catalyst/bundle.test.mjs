@@ -67,7 +67,8 @@ test('generated samples are replaced by explicit fail-closed stubs', () => {
   assert.match(api, /INTERNAL_ERROR/);
   assert.doesNotMatch(api, /Hello from|Hello World|status\s*\(\s*200\s*\)/i);
   const refresh = readFileSync(path.join(repositoryRoot, 'functions/intelligence_refresh/index.cjs'), 'utf8');
-  assert.match(refresh, /DATA_NOT_READY/);
+  assert.match(refresh, /createRefreshApplication/);
+  assert.match(refresh, /INTERNAL_ERROR/);
   assert.doesNotMatch(refresh, /Hello from|Hello World|closeWithSuccess/i);
 });
 

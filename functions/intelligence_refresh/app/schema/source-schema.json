@@ -1,0 +1,377 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectId": "43492000000013049",
+  "environment": "Development",
+  "syntheticOnly": true,
+  "defaultOnDelete": "NULL",
+  "zones": ["SOURCE", "TRANSFORMATION"],
+  "standardSourceColumns": [
+    { "name": "SourceBatchRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "TRN_IngestionBatch", "mandatory": true, "onDelete": "NULL" },
+    { "name": "SourceFileName", "origin": "SYSTEM", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": false, "pii": false },
+    { "name": "SourceRowNumber", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+    { "name": "SourceSchemaVersion", "origin": "SYSTEM", "type": "varchar", "maxLength": 32, "mandatory": true, "indexed": true, "pii": false },
+    { "name": "IsSynthetic", "origin": "SYSTEM", "type": "boolean", "mandatory": true, "default": true, "indexed": true, "pii": false },
+    { "name": "SourceRecordHash", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "unique": false, "indexed": true, "pii": false },
+    { "name": "ValidationStatus", "origin": "SYSTEM", "type": "varchar", "maxLength": 16, "mandatory": true, "default": "ACCEPTED", "indexed": true, "pii": false }
+  ],
+  "tables": [
+    {
+      "name": "TRN_IngestionBatch", "zone": "TRANSFORMATION", "loadOrder": 1,
+      "columns": [
+        { "name": "BatchID", "origin": "SYSTEM", "type": "varchar", "maxLength": 36, "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "SchemaVersion", "origin": "SYSTEM", "type": "varchar", "maxLength": 32, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ManifestHash", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Status", "origin": "SYSTEM", "type": "varchar", "maxLength": 16, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SourceFileCount", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+        { "name": "SourceRowCount", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+        { "name": "AcceptedRowCount", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+        { "name": "WarningRowCount", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+        { "name": "RejectedRowCount", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+        { "name": "StartedAt", "origin": "SYSTEM", "type": "datetime", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CompletedAt", "origin": "SYSTEM", "type": "datetime", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "IsSynthetic", "origin": "SYSTEM", "type": "boolean", "mandatory": true, "default": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "TRN_RejectedRecord", "zone": "TRANSFORMATION", "loadOrder": 2,
+      "columns": [
+        { "name": "RejectedRecordID", "origin": "SYSTEM", "type": "varchar", "maxLength": 36, "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "BatchRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "TRN_IngestionBatch", "mandatory": true, "onDelete": "NULL" },
+        { "name": "SourceFileName", "origin": "SYSTEM", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": false, "pii": false },
+        { "name": "SourceRowNumber", "origin": "SYSTEM", "type": "int", "mandatory": true, "indexed": false, "pii": false },
+        { "name": "SourceEntity", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ReasonCode", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ReasonDetail", "origin": "SYSTEM", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": false, "pii": false },
+        { "name": "PayloadObjectPath", "origin": "SYSTEM", "type": "varchar", "maxLength": 255, "mandatory": false, "indexed": false, "pii": false },
+        { "name": "RejectedAt", "origin": "SYSTEM", "type": "datetime", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "IsSynthetic", "origin": "SYSTEM", "type": "boolean", "mandatory": true, "default": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "TRN_SourceKeyMap", "zone": "TRANSFORMATION", "loadOrder": 2,
+      "logicalUnique": [["SourceEntity", "SourceBusinessKey"]],
+      "columns": [
+        { "name": "MappingID", "origin": "SYSTEM", "type": "varchar", "maxLength": 36, "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "BatchRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "TRN_IngestionBatch", "mandatory": true, "onDelete": "NULL" },
+        { "name": "SourceEntity", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SourceBusinessKey", "origin": "SYSTEM", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CatalystTable", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CatalystROWID", "origin": "SYSTEM", "type": "bigint", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SourceRecordHash", "origin": "SYSTEM", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "MappingStatus", "origin": "SYSTEM", "type": "varchar", "maxLength": 16, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "IsSynthetic", "origin": "SYSTEM", "type": "boolean", "mandatory": true, "default": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_CaseMaster", "sourceName": "CaseMaster", "zone": "SOURCE", "loadOrder": 50, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CrimeNo", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseNo", "origin": "PDF", "type": "varchar", "maxLength": 16, "mandatory": true, "unique": false, "indexed": true, "pii": false },
+        { "name": "CrimeRegisteredDate", "origin": "PDF", "type": "date", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "PolicePersonID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "PoliceStationID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CaseCategoryID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "GravityOffenceID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "CrimeMajorHeadID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CrimeMinorHeadID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CaseStatusID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CourtID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "IncidentFromDate", "origin": "PDF", "type": "datetime", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "IncidentToDate", "origin": "PDF", "type": "datetime", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "InfoReceivedPSDate", "origin": "PDF", "type": "datetime", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "latitude", "origin": "PDF", "type": "double", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "longitude", "origin": "PDF", "type": "double", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "BriefFacts", "origin": "PDF", "type": "text", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "PolicePersonRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Employee", "mandatory": false, "onDelete": "NULL" },
+        { "name": "PoliceStationRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Unit", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CaseCategoryRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseCategory", "mandatory": false, "onDelete": "NULL" },
+        { "name": "GravityOffenceRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_GravityOffence", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CrimeMajorHeadRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CrimeHead", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CrimeMinorHeadRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CrimeSubHead", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CaseStatusRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseStatusMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CourtRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Court", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_ComplainantDetails", "sourceName": "ComplainantDetails", "zone": "SOURCE", "loadOrder": 60, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "ComplainantID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ComplainantName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": true },
+        { "name": "AgeYear", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "OccupationID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "ReligionID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "CasteID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "GenderID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "CaseMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "OccupationRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_OccupationMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "ReligionRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_ReligionMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CasteRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CasteMaster", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_ActSectionAssociation", "sourceName": "ActSectionAssociation", "zone": "SOURCE", "loadOrder": 60, "includeStandardSourceColumns": true,
+      "logicalUnique": [["CaseMasterID", "ActID", "SectionID", "ActOrderID", "SectionOrderID"]],
+      "columns": [
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ActID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SectionID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ActOrderID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "SectionOrderID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "CaseMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "ActRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Act", "mandatory": false, "onDelete": "NULL" },
+        { "name": "SectionRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Section", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_Victim", "sourceName": "Victim", "zone": "SOURCE", "loadOrder": 60, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "VictimMasterID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "VictimName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": true },
+        { "name": "AgeYear", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "GenderID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "VictimPolice", "origin": "PDF", "type": "varchar", "maxLength": 1, "mandatory": false, "indexed": false, "pii": false },
+        { "name": "CaseMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseMaster", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_Accused", "sourceName": "Accused", "zone": "SOURCE", "loadOrder": 60, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "AccusedMasterID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "AccusedName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": true },
+        { "name": "AgeYear", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "GenderID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "PersonID", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": false, "indexed": true, "pii": true },
+        { "name": "CaseMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseMaster", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_ArrestSurrender", "sourceName": "ArrestSurrender", "zone": "SOURCE", "loadOrder": 70, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "ArrestSurrenderID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ArrestSurrenderTypeID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "ArrestSurrenderDate", "origin": "PDF", "type": "date", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ArrestSurrenderStateId", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "ArrestSurrenderDistrictId", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "PoliceStationID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "IOID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "CourtID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "AccusedMasterID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "IsAccused", "origin": "PDF", "type": "boolean", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "IsComplainantAccused", "origin": "PDF", "type": "boolean", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "CaseMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "ArrestSurrenderStateRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_State", "mandatory": false, "onDelete": "NULL" },
+        { "name": "ArrestSurrenderDistrictRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_District", "mandatory": false, "onDelete": "NULL" },
+        { "name": "PoliceStationRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Unit", "mandatory": false, "onDelete": "NULL" },
+        { "name": "IORef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Employee", "mandatory": false, "onDelete": "NULL" },
+        { "name": "CourtRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Court", "mandatory": false, "onDelete": "NULL" },
+        { "name": "AccusedMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Accused", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_Act", "sourceName": "Act", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "ActCode", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "ActDescription", "origin": "PDF", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": false, "pii": false },
+        { "name": "ShortName", "origin": "PDF", "type": "varchar", "maxLength": 64, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_Section", "sourceName": "Section", "zone": "SOURCE", "loadOrder": 20, "includeStandardSourceColumns": true,
+      "logicalUnique": [["ActCode", "SectionCode"]],
+      "columns": [
+        { "name": "ActCode", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SectionCode", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SectionDescription", "origin": "PDF", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": false, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ActRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Act", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_CrimeHeadActSection", "sourceName": "CrimeHeadActSection", "zone": "SOURCE", "loadOrder": 30, "includeStandardSourceColumns": true,
+      "logicalUnique": [["CrimeHeadID", "ActCode", "SectionCode"]],
+      "columns": [
+        { "name": "CrimeHeadID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ActCode", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SectionCode", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CrimeHeadRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CrimeHead", "mandatory": false, "onDelete": "NULL" },
+        { "name": "ActRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Act", "mandatory": false, "onDelete": "NULL" },
+        { "name": "SectionRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Section", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_CrimeHead", "sourceName": "CrimeHead", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CrimeHeadID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CrimeGroupName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_CrimeSubHead", "sourceName": "CrimeSubHead", "zone": "SOURCE", "loadOrder": 20, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CrimeSubHeadID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CrimeHeadID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CrimeHeadName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SeqID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": false },
+        { "name": "CrimeHeadRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CrimeHead", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_CasteMaster", "sourceName": "CasteMaster", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "caste_master_id", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "caste_master_name", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_ReligionMaster", "sourceName": "ReligionMaster", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "ReligionID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "ReligionName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_OccupationMaster", "sourceName": "OccupationMaster", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "OccupationID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "OccupationName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_CaseStatusMaster", "sourceName": "CaseStatusMaster", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CaseStatusID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseStatusName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_Court", "sourceName": "Court", "zone": "SOURCE", "loadOrder": 30, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CourtID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CourtName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "DistrictID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "StateID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "DistrictRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_District", "mandatory": false, "onDelete": "NULL" },
+        { "name": "StateRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_State", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_District", "sourceName": "District", "zone": "SOURCE", "loadOrder": 20, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "DistrictID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "DistrictName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "StateID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "StateRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_State", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_State", "sourceName": "State", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "StateID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "StateName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "NationalityID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_Unit", "sourceName": "Unit", "zone": "SOURCE", "loadOrder": 30, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "UnitID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "UnitName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "TypeID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "ParentUnit", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "NationalityID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "StateID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "DistrictID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "UnitTypeRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_UnitType", "mandatory": false, "onDelete": "NULL" },
+        { "name": "ParentUnitRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Unit", "mandatory": false, "onDelete": "NULL" },
+        { "name": "StateRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_State", "mandatory": false, "onDelete": "NULL" },
+        { "name": "DistrictRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_District", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_UnitType", "sourceName": "UnitType", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "UnitTypeID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "UnitTypeName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "CityDistState", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": false, "indexed": true, "pii": false },
+        { "name": "Hierarchy", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_Rank", "sourceName": "Rank", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "RankID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "RankName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Hierarchy", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_Designation", "sourceName": "Designation", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "DesignationID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "DesignationName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": false },
+        { "name": "Active", "origin": "PDF", "type": "boolean", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "SortOrder", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_Employee", "sourceName": "Employee", "zone": "SOURCE", "loadOrder": 40, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "EmployeeID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "DistrictID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "UnitID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "RankID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "DesignationID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "KGID", "origin": "PDF", "type": "varchar", "maxLength": 32, "mandatory": true, "unique": true, "indexed": true, "pii": true },
+        { "name": "FirstName", "origin": "PDF", "type": "varchar", "maxLength": 150, "mandatory": true, "indexed": true, "pii": true },
+        { "name": "EmployeeDOB", "origin": "PDF", "type": "date", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "GenderID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": true },
+        { "name": "BloodGroupID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "PhysicallyChallenged", "origin": "PDF", "type": "boolean", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "AppointmentDate", "origin": "PDF", "type": "date", "mandatory": false, "indexed": false, "pii": true },
+        { "name": "DistrictRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_District", "mandatory": false, "onDelete": "NULL" },
+        { "name": "UnitRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Unit", "mandatory": false, "onDelete": "NULL" },
+        { "name": "RankRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Rank", "mandatory": false, "onDelete": "NULL" },
+        { "name": "DesignationRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Designation", "mandatory": false, "onDelete": "NULL" }
+      ]
+    },
+    {
+      "name": "SRC_CaseCategory", "sourceName": "CaseCategory", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CaseCategoryID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "LookupValue", "origin": "PDF", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_GravityOffence", "sourceName": "GravityOffence", "zone": "SOURCE", "loadOrder": 10, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "GravityOffenceID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "LookupValue", "origin": "PDF", "type": "varchar", "maxLength": 255, "mandatory": true, "indexed": true, "pii": false }
+      ]
+    },
+    {
+      "name": "SRC_ChargesheetDetails", "sourceName": "ChargesheetDetails", "zone": "SOURCE", "loadOrder": 60, "includeStandardSourceColumns": true,
+      "columns": [
+        { "name": "CSID", "origin": "PDF", "type": "int", "mandatory": true, "unique": true, "indexed": true, "pii": false },
+        { "name": "CaseMasterID", "origin": "PDF", "type": "int", "mandatory": true, "indexed": true, "pii": false },
+        { "name": "csdate", "origin": "PDF", "type": "datetime", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "cstype", "origin": "PDF", "type": "varchar", "maxLength": 1, "mandatory": false, "indexed": true, "pii": false },
+        { "name": "PolicePersonID", "origin": "PDF", "type": "int", "mandatory": false, "indexed": true, "pii": false },
+        { "name": "CaseMasterRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_CaseMaster", "mandatory": false, "onDelete": "NULL" },
+        { "name": "PolicePersonRef", "origin": "SYSTEM", "type": "foreign_key", "parentTable": "SRC_Employee", "mandatory": false, "onDelete": "NULL" }
+      ]
+    }
+  ]
+}

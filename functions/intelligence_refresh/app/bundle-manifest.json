@@ -14,6 +14,26 @@
       "bytes": 43999
     },
     {
+      "path": "schema/source-schema.json",
+      "sha256": "e9134bfc53730e8270aeeab111cd4e9fbe3c3f047e484ac284b8e02f79f6497e",
+      "bytes": 34569
+    },
+    {
+      "path": "scripts/catalyst/source-row-projector.mjs",
+      "sha256": "57be6035f3a1d38db1e4fbcd16d7751549b0716f87be774e4db31bbb65d52f5e",
+      "bytes": 5657
+    },
+    {
+      "path": "src/backend/catalyst/refresh-bootstrap.mjs",
+      "sha256": "b02766b4860a49c1224388c808c2b208c08185da6ecd46ced8fde6c541d5d091",
+      "bytes": 2882
+    },
+    {
+      "path": "src/backend/catalyst/runtime-config.mjs",
+      "sha256": "2663294ef2d3740ce6ccb156304249a98988a669d90f8ed165de7d39a0a8661d",
+      "bytes": 1034
+    },
+    {
       "path": "src/backend/refresh/finding-projection.mjs",
       "sha256": "b19a1795cb710a77ff303ba216ccee5b7343994b27c9eaa2ce631067c95fffd1",
       "bytes": 6222
@@ -27,6 +47,36 @@
       "path": "src/backend/refresh/run-groups.mjs",
       "sha256": "2fdc1d835678f975e390840469fc65f2a114b61c57a8e63080ce73f946229b81",
       "bytes": 1632
+    },
+    {
+      "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
+      "sha256": "72647674086cb3c9edfbf675ee01f7c9f26fdee0c3762d5e0f580d3a01059697",
+      "bytes": 38043
+    },
+    {
+      "path": "src/backend/repository/catalyst/paged-table.mjs",
+      "sha256": "527c2f091299666ace3bc2091514d9b9ee414334995fce9ec6158fb86d9d0acd",
+      "bytes": 2185
+    },
+    {
+      "path": "src/backend/repository/catalyst/row-mapper.mjs",
+      "sha256": "57c7b32bec4d5e043077e005c07d696eaec1b433d4093d924de37db5bf38c2aa",
+      "bytes": 608
+    },
+    {
+      "path": "src/backend/repository/catalyst/sdk-errors.mjs",
+      "sha256": "bf32dc43d3532afe08dc7651fd21f22ac9a2212ecb767f5b5c4ac782a39b7517",
+      "bytes": 452
+    },
+    {
+      "path": "src/backend/repository/catalyst/source-writer.mjs",
+      "sha256": "38c404deaedaf16ee5aad737645dc2af31810a00295a07f02d159ee1134842ad",
+      "bytes": 6990
+    },
+    {
+      "path": "src/backend/repository/zcql-cas.mjs",
+      "sha256": "d472227caf68727c873b64b0114f81d849cc7164ab756b697401c086b01e58cf",
+      "bytes": 1086
     },
     {
       "path": "src/backend/services/errors.mjs",

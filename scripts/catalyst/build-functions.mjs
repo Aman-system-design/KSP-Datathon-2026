@@ -14,10 +14,8 @@ const TARGETS = Object.freeze({
   refresh: Object.freeze({
     runtime: 'node18',
     roots: Object.freeze([
-      'src/backend/refresh/refresh-service.mjs',
-      'src/ingestion/to-intelligence-input.mjs',
-      'src/ingestion/validate-source-seed.mjs',
-      'src/synthetic/source-seed.mjs',
+      'src/backend/catalyst/refresh-bootstrap.mjs',
+      'src/backend/catalyst/runtime-config.mjs',
     ]),
   }),
 });
@@ -95,9 +93,18 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
       repositoryRoot,
       appRoot,
       sourcePath,
-      transform: sourcePath === 'src/synthetic/source-seed.mjs'
-        ? source => source.replace('../../fixtures/intelligence/demo-input.json', '../../data/synthetic-demo-input.json')
-        : undefined,
+      transform: source => {
+        let transformed = source;
+        if (sourcePath === 'src/synthetic/source-seed.mjs') {
+          transformed = transformed.replace('../../fixtures/intelligence/demo-input.json', '../../data/synthetic-demo-input.json');
+        }
+        if (target === 'refresh' && transformed.includes("'@ksp/intelligence-core'")) {
+          let vendorPath = path.posix.relative(path.posix.dirname(sourcePath), 'vendor/intelligence-core/index.mjs');
+          if (!vendorPath.startsWith('.')) vendorPath = `./${vendorPath}`;
+          transformed = transformed.replaceAll("'@ksp/intelligence-core'", `'${vendorPath}'`);
+        }
+        return transformed;
+      },
     });
   }
   materializeFile({ repositoryRoot, appRoot, sourcePath: 'config/access-policy.json' });
@@ -108,6 +115,12 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
       appRoot,
       sourcePath: 'fixtures/intelligence/demo-input.json',
       destinationPath: 'data/synthetic-demo-input.json',
+    });
+    materializeFile({
+      repositoryRoot,
+      appRoot,
+      sourcePath: 'schema/catalyst/source-schema.json',
+      destinationPath: 'schema/source-schema.json',
     });
     const vendorFiles = collectReachable(repositoryRoot, ['packages/intelligence-core/src/pipeline.mjs']);
     for (const sourcePath of vendorFiles) {
