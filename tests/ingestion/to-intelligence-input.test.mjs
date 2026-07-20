@@ -47,3 +47,12 @@ test('adapter joins identifiers, never person names or hidden truth', async () =
   );
   assert.doesNotMatch(source, /demo-truth|VictimName|AccusedName\s*===|ComplainantName/);
 });
+
+test('adapter never treats within-case PersonID as canonical identity', () => {
+  const accepted = validateSourceSeed(generateSourceSeed(20260720)).accepted;
+  const input = toIntelligenceInput(accepted);
+  const appearances = input.cases.flatMap(row => row.accused);
+  assert.equal(appearances.some(row => /^A\d+$/u.test(row.personId)), false);
+  assert.equal(appearances.every(row => /^A\d+$/u.test(row.sourcePersonOrder)), true);
+  assert.equal(appearances.every(row => row.identityEvidenceLabel === 'SYNTHETIC_AUTHORITY'), true);
+});

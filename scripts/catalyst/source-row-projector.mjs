@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { formatKarnatakaDateTime } from '../../src/ingestion/pdf-semantic-rules.mjs';
+
 const RELATIONSHIP_OVERRIDES = Object.freeze({
   'SRC_CaseMaster.PolicePersonRef': [['PolicePersonID'], ['EmployeeID']],
   'SRC_CaseMaster.PoliceStationRef': [['PoliceStationID'], ['UnitID']],
@@ -25,6 +27,9 @@ const hash = value => createHash('sha256').update(JSON.stringify(stableObject(va
 
 function catalystTemporalValue(column, value) {
   if (!hasValue(value) || !['date', 'datetime'].includes(column.type)) return structuredClone(value);
+  if (column.type === 'datetime' && /(?:Z|[+-]\d{2}:\d{2})$/u.test(String(value))) {
+    return formatKarnatakaDateTime(value).slice(0, 19).replace('T', ' ');
+  }
   const match = String(value).match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}:\d{2}))?/u);
   if (!match || (column.type === 'datetime' && !match[2])) throw new TypeError(`Invalid ${column.type} value for ${column.name}.`);
   return column.type === 'date' ? match[1] : `${match[1]} ${match[2]}`;
@@ -95,6 +100,10 @@ export function createSourceProjector({ manifest }) {
           const rowId = keyMap.get(`${parent.name}:${parentKey}`);
           if (rowId) row[foreignKey.name] = String(rowId);
           else if (foreignKey.mandatory) throw new Error(`Unresolved mandatory parent ${parent.name}:${parentKey}.`);
+        }
+        if (table.name === 'SRC_CaseMaster'
+          && (row.IncidentFromDate > row.IncidentToDate || row.IncidentToDate > row.InfoReceivedPSDate)) {
+          throw new Error('Invalid projected CaseMaster chronology.');
         }
         return { businessKey: sourceBusinessKey(table, sourceRow), row };
       }),

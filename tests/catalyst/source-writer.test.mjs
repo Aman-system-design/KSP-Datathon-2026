@@ -35,7 +35,7 @@ test('projects all 26 entities with exact PDF columns and synthetic batch proven
   }
   const victim = projections.find(projection => projection.sourceName === 'Victim').records[0].row;
   assert.equal(typeof victim.VictimPolice, 'string');
-  assert.match(victim.VictimPolice, /^[YN]$/);
+  assert.match(victim.VictimPolice, /^[01]$/);
 });
 
 test('projects Date and DateTime values in Catalyst Data Store formats', () => {
@@ -55,6 +55,32 @@ test('projects Date and DateTime values in Catalyst Data Store formats', () => {
       }
     }
   }
+});
+
+test('projects timestamp instants into Karnataka time without reversing chronology', () => {
+  const accepted = structuredClone(validation.accepted);
+  Object.assign(accepted.CaseMaster[0], {
+    IncidentFromDate: '2026-06-02T15:31:00.000Z',
+    IncidentToDate: '2026-06-02T16:31:00.000Z',
+    InfoReceivedPSDate: '2026-06-02T17:31:00.000Z',
+  });
+  const projection = createSourceProjector({ manifest }).projectBatch({
+    batchKey: 'KSP-DEMO-20260720-V1', batchRowId: '9000001', accepted,
+  }).find(item => item.sourceName === 'CaseMaster');
+  const row = projection.records[0].row;
+  assert.equal(row.IncidentFromDate, '2026-06-02 21:01:00');
+  assert.equal(row.IncidentToDate, '2026-06-02 22:01:00');
+  assert.equal(row.InfoReceivedPSDate, '2026-06-02 23:01:00');
+  assert.equal(row.IncidentFromDate <= row.IncidentToDate, true);
+  assert.equal(row.IncidentToDate <= row.InfoReceivedPSDate, true);
+});
+
+test('rejects a CaseMaster row whose projected chronology is reversed', () => {
+  const accepted = structuredClone(validation.accepted);
+  accepted.CaseMaster[0].IncidentToDate = '2026-06-02T14:31:00.000Z';
+  assert.throws(() => createSourceProjector({ manifest }).projectBatch({
+    batchKey: 'KSP-DEMO-20260720-V1', batchRowId: '9000001', accepted,
+  }), /projected CaseMaster chronology/u);
 });
 
 test('relationship references use parent business keys and real Catalyst ROWIDs, never names', () => {

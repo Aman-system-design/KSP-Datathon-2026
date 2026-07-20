@@ -1,5 +1,23 @@
+import { readFileSync } from 'node:fs';
+
+const identityAuthority = Object.freeze(JSON.parse(readFileSync(
+  new URL('../../data/synthetic-identity-authority.json', import.meta.url),
+  'utf8',
+)));
+
 const pad = value => String(value).padStart(3, '0');
 const caseId = sourceId => `CASE-${pad(Number(sourceId) - 200000000)}`;
+
+function canonicalPersonId(sourceId) {
+  const key = String(sourceId);
+  if (identityAuthority.exact[key]) return identityAuthority.exact[key];
+  const numeric = Number(sourceId);
+  const range = identityAuthority.ranges.find(({ minimum, maximum }) => numeric >= minimum && numeric <= maximum);
+  if (!range) throw new Error(`Synthetic identity authority is missing accused ${sourceId}.`);
+  if (range.constant) return range.constant;
+  const value = numeric - range.sourceBase + range.canonicalOffset;
+  return `${range.prefix}${String(value).padStart(range.width, '0')}`;
+}
 
 function appearanceId(sourceId) {
   const id = Number(sourceId);
@@ -96,7 +114,10 @@ export function toIntelligenceInput(accepted) {
         sections: [...new Set(legal.map(({ SectionID }) => `SECTION-${SectionID}`))],
         accused: appearances.map(person => ({
           appearanceId: appearanceId(person.AccusedMasterID),
-          personId: person.PersonID,
+          personId: canonicalPersonId(person.AccusedMasterID),
+          sourcePersonOrder: person.PersonID,
+          identityEvidenceLabel: identityAuthority.evidenceLabel,
+          identityAuthorityVersion: identityAuthority.authorityVersion,
           name: person.AccusedName,
           age: person.AgeYear,
           gender: person.GenderID === 2 ? 'F' : 'M',

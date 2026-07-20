@@ -40,6 +40,51 @@ test('seed contains 50 unique cases and resolves every case child', () => {
   }
 });
 
+test('all FIR identifiers implement the PDF station-scoped format', () => {
+  const { tables } = generateSourceSeed(20260720);
+  const districtByStation = new Map(tables.Unit.map(row => [row.UnitID, row.DistrictID]));
+  const scopedSerials = new Map();
+  for (const row of tables.CaseMaster) {
+    assert.match(row.CrimeNo, /^\d{18}$/u);
+    assert.match(row.CaseNo, /^\d{9}$/u);
+    assert.equal(row.CaseNo, row.CrimeNo.slice(-9));
+    assert.equal(row.CrimeNo.slice(0, 1), String(row.CaseCategoryID));
+    assert.equal(row.CrimeNo.slice(1, 5), String(districtByStation.get(row.PoliceStationID)).padStart(4, '0'));
+    assert.equal(row.CrimeNo.slice(5, 9), String(row.PoliceStationID).padStart(4, '0'));
+    assert.equal(row.CrimeNo.slice(9, 13), row.CrimeRegisteredDate.slice(0, 4));
+    const scope = row.CrimeNo.slice(0, 13);
+    const serial = Number(row.CrimeNo.slice(13));
+    scopedSerials.set(scope, [...(scopedSerials.get(scope) ?? []), serial]);
+  }
+  for (const serials of scopedSerials.values()) {
+    assert.deepEqual([...serials].sort((left, right) => left - right), Array.from({ length: serials.length }, (_, index) => index + 1));
+  }
+});
+
+test('PDF enums, accused ordering, assignments and local chronology are preserved', () => {
+  const { tables } = generateSourceSeed(20260720);
+  assert.deepEqual(new Set(tables.ChargesheetDetails.map(row => row.cstype)), new Set(['A']));
+  assert.equal(tables.Victim.every(row => ['0', '1'].includes(row.VictimPolice)), true);
+  assert.deepEqual(tables.CaseCategory.map(row => row.LookupValue), ['FIR']);
+  assert.equal(tables.UnitType.every(row => ['City', 'District', 'State'].includes(row.CityDistState)), true);
+
+  const accusedByCase = new Map();
+  for (const row of tables.Accused) accusedByCase.set(row.CaseMasterID, [...(accusedByCase.get(row.CaseMasterID) ?? []), row]);
+  for (const rows of accusedByCase.values()) {
+    assert.deepEqual(rows.map(row => row.PersonID), rows.map((_, index) => `A${index + 1}`));
+  }
+
+  const employeeById = new Map(tables.Employee.map(row => [row.EmployeeID, row]));
+  for (const row of tables.CaseMaster) {
+    assert.equal(employeeById.get(row.PolicePersonID).UnitID, row.PoliceStationID);
+    assert.match(row.IncidentFromDate, /\+05:30$/u);
+    assert.match(row.IncidentToDate, /\+05:30$/u);
+    assert.match(row.InfoReceivedPSDate, /\+05:30$/u);
+    assert.equal(Date.parse(row.IncidentFromDate) <= Date.parse(row.IncidentToDate), true);
+    assert.equal(Date.parse(row.IncidentToDate) <= Date.parse(row.InfoReceivedPSDate), true);
+  }
+});
+
 test('person-facing names and narratives are visibly synthetic', () => {
   const { tables } = generateSourceSeed(20260720);
   const personNameFields = [

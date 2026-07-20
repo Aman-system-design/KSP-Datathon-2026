@@ -134,13 +134,17 @@ KSP confirmation required:
 - Uniqueness scope across station, category, and year
 - Whether leading zeroes must always be preserved
 
-MVP assumption: store both values as text, never numeric types.
+MVP implementation decision: store both values as text, never numeric types, so leading zeroes are preserved. Synthetic `CrimeNo` values follow the documented 18-digit composition of category, four-digit district, four-digit station, year, and station/category/year-scoped five-digit serial. `CaseNo` is the final nine digits (`YYYY` plus serial). The pre-write validator rejects any mismatch.
+
+Development correction note: the first synthetic Development batch used visibly synthetic labels inside these operational identifiers. Those rows are quarantined and must be reset before reuse; they are not accepted as PDF-semantic evidence.
 
 ## 5. Person identity and repeat-offender resolution
 
 The supplied `Accused` entity includes name, age, gender, and an `A1/A2/...` sorting value. These fields are not sufficient to reliably establish that two accused records represent the same person across FIRs.
 
 MVP synthetic data will plant controlled repeated identities for demonstration.
+
+Implementation safeguard: `Accused.PersonID` is preserved as the PDF-described within-case order (`A1`, `A2`, and so on). It is not treated as a cross-case identity. Confirmed synthetic repeat identity comes from a separate versioned synthetic authority mapping. Production confirmation requires an authorized KSP identity source not present in this PDF; otherwise a match remains possible/requires review.
 
 Production confirmation required:
 

@@ -12,11 +12,38 @@ const mutate = callback => {
 
 test('clean fragmented seed reconciles with zero rejects', () => {
   const result = validateSourceSeed(generateSourceSeed(20260720));
-  assert.equal(result.rejected.length, 0);
-  assert.equal(result.reconciliation.balanced, true);
-  assert.equal(result.reconciliation.sourceRows, result.reconciliation.acceptedRows);
+  assert.deepEqual(result.reconciliation, {
+    sourceRows: 411, acceptedRows: 411, rejectedRows: 0, balanced: true,
+  });
   assert.equal(result.accepted.CaseMaster.length, 50);
 });
+
+const semanticMutations = [
+  ['PDF-CASE-CRIME-NO', seed => { seed.tables.CaseMaster[0].CrimeNo = 'SYN-INVALID'; }],
+  ['PDF-CASE-CASE-NO', seed => { seed.tables.CaseMaster[0].CaseNo = '202699999'; }],
+  ['PDF-CASE-CHRONOLOGY', seed => { seed.tables.CaseMaster[0].InfoReceivedPSDate = '2026-06-02T20:00:00+05:30'; }],
+  ['PDF-CASE-BUSINESS-ID', seed => { seed.tables.CaseMaster[0].CaseMasterID = -1; }],
+  ['PDF-ACCUSED-ORDER', seed => { seed.tables.Accused[0].PersonID = 'PERSON-007'; }],
+  ['PDF-VICTIM-POLICE', seed => { seed.tables.Victim[0].VictimPolice = 'N'; }],
+  ['PDF-CS-TYPE', seed => { seed.tables.ChargesheetDetails[0].cstype = 'SYNTHETIC_FINAL'; }],
+  ['PDF-UNIT-HIERARCHY', seed => { seed.tables.Unit[0].ParentUnit = seed.tables.Unit[1].UnitID; }],
+  ['PDF-EMPLOYEE-SEMANTICS', seed => { seed.tables.Employee[0].DistrictID = 103; }],
+  ['PDF-COURT-SEMANTICS', seed => { seed.tables.Court[0].StateID = 30; }],
+  ['PDF-CASE-LEGAL-SEMANTICS', seed => { seed.tables.ActSectionAssociation[0].ActID = 999; }],
+  ['PDF-ACT-SEMANTICS', seed => { seed.tables.Act[0].ShortName = ''; }],
+  ['PDF-CRIME-SUBHEAD-SEMANTICS', seed => { seed.tables.CrimeSubHead[0].CrimeHeadID = 999; }],
+  ['PDF-DESIGNATION-SEMANTICS', seed => { seed.tables.Designation[0].SortOrder = 0; }],
+  ['PDF-ARREST-SEMANTICS', seed => { seed.tables.ArrestSurrender[0].IsAccused = 7; }],
+  ['PDF-CASE-CATEGORY-SEMANTICS', seed => { seed.tables.CaseCategory[0].LookupValue = 'Synthetic Category'; }],
+];
+
+for (const [ruleId, mutateSeed] of semanticMutations) {
+  test(`rejects ${ruleId}`, () => {
+    const result = mutate(mutateSeed);
+    assert.equal(result.rejected.some(row => row.reasonCode === ruleId), true);
+    assert.equal(result.reconciliation.balanced, true);
+  });
+}
 
 test('duplicate CaseMasterID is rejected', () => {
   const result = mutate(seed => {

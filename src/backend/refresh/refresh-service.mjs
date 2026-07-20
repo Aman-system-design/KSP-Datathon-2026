@@ -83,6 +83,8 @@ export function createRefreshService({
           const source = sourceGenerator(seed);
           if (source?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
           const checked = sourceValidator(source);
+          if (!checked.reconciliation?.balanced || checked.reconciliation.rejectedRows !== 0
+            || checked.reconciliation.acceptedRows !== checked.reconciliation.sourceRows) fail('DATA_NOT_READY');
           onProgress('SOURCE_PERSIST');
           validation = await repository.persistValidatedSource({ batchKey, source, ...checked });
         } else {
@@ -91,6 +93,10 @@ export function createRefreshService({
           if (!validation) fail('DATA_NOT_READY');
         }
         if (!validation.reconciliation?.balanced || validation.reconciliation.acceptedRows < 1) fail('DATA_NOT_READY');
+        if (operation === 'BOOTSTRAP_SYNTHETIC' && (
+          validation.reconciliation.rejectedRows !== 0
+          || validation.reconciliation.acceptedRows !== validation.reconciliation.sourceRows
+        )) fail('DATA_NOT_READY');
         const input = adapter(validation.accepted);
         const findings = pipeline(input);
         const publishedFindings = projectPipelineFindings({ output: findings, input });

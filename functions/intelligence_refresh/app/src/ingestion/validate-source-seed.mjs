@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { validateSemanticSeed } from './pdf-semantic-rules.mjs';
+
 const businessKeys = {
   CaseMaster: ['CaseMasterID'],
   ComplainantDetails: ['ComplainantID'],
@@ -77,6 +79,8 @@ export function validateSourceSeed(seed) {
       reject('CaseMaster', index, 'INVALID_INCIDENT_RANGE');
     }
   });
+
+  validateSemanticSeed({ tables, reject });
 
   const validCaseIds = new Set(
     (tables.CaseMaster ?? [])

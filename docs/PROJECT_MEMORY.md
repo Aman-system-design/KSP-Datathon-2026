@@ -207,6 +207,21 @@ Observed verification: 98 tests passed; Node.js 18 and Node.js 24 compatibility 
 
 This is local-core completion only. No new Catalyst tables, records, Functions, API Gateway rules, Authentication users, secrets, UI resources, or Production resources were created or deployed. The next separately gated plan must package the Catalyst SDK repositories and Functions, configure the twelve authenticated API Gateway routes, create the 21 Development tables, seed synthetic data, and collect remote acceptance evidence before claiming a deployed backend.
 
+### Verified PDF Semantic Integrity Correction (Local)
+
+On 2026-07-21, the source-data boundary was corrected after manual review found that structural schema alignment had been overstated as full PDF alignment. The local correction now includes:
+
+- a machine-readable semantic contract covering all 26 PDF entities;
+- 18-digit station-scoped `CrimeNo` generation and derived nine-digit `CaseNo` values;
+- consistent Karnataka (`+05:30`) civil-time generation and Catalyst projection with chronology preservation;
+- PDF-compatible accused ordering, victim-police indicators, case categories, unit classifications, and charge-sheet types;
+- pre-write semantic rejection for identifier, chronology, hierarchy, relationship, enum, indicator, assignment, and lookup defects;
+- a separate versioned synthetic identity authority, so `Accused.PersonID` is never misrepresented as a cross-case person identifier;
+- a zero-reject synthetic-bootstrap gate before repository persistence;
+- a non-executing, exact-project, exact-batch Development reset runbook generator.
+
+Observed local verification: 171 tests passed; both schema validators, intelligence demo, Function builds, and bundle inspections passed. Remote correction is not yet claimed. Batch `KSP-DEMO-20260720-V1` remains quarantined until read-only counts are inspected and explicit deletion approval is recorded.
+
 ## Decisions
 
 - Treat the FIR schema as the first source of truth.

@@ -126,6 +126,9 @@ test('bundle inventory excludes test/evaluation material and includes approved r
   assert.match(refreshPaths.join('\n'), /vendor\/intelligence-core\/index\.mjs/);
   assert.doesNotMatch(refreshPaths.join('\n'), /vendor\/intelligence-core\/src\/evaluate\.mjs/);
   assert.match(refreshPaths.join('\n'), /data\/synthetic-demo-input\.json/);
+  assert.match(refreshPaths.join('\n'), /data\/synthetic-identity-authority\.json/);
+  assert.match(apiPaths.join('\n'), /schema\/catalyst\/pdf-semantic-contract\.json/);
+  assert.match(refreshPaths.join('\n'), /schema\/catalyst\/pdf-semantic-contract\.json/);
   assert.match(allPaths, /config\/access-policy\.json/);
   assert.doesNotMatch(allPaths, /(?:^|\/)(?:fixtures|tests|docs|artifacts|\.git)(?:\/|$)/i);
   assert.doesNotMatch(allPaths, /hidden[-_]?truth|token|credential|secret/i);

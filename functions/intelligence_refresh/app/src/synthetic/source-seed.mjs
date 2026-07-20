@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+import { buildCrimeIdentity, formatKarnatakaDateTime } from '../ingestion/pdf-semantic-rules.mjs';
+
 const canonicalInput = JSON.parse(readFileSync(
   new URL('../../data/synthetic-demo-input.json', import.meta.url),
   'utf8',
@@ -11,10 +13,11 @@ const majorIds = { PROPERTY: 1, CYBER: 2, PUBLIC_ORDER: 3 };
 const minorIds = { BURGLARY: 11, VEHICLE_THEFT: 12, PAYMENT_FRAUD: 21, NUISANCE: 31 };
 const actIds = { BNS: 1, IT_ACT: 2 };
 const sectionIds = { '305': 305, '303': 303, '66C': 6603 };
+const officerByStation = { 1001: 9001, 1021: 9002, 1041: 9003 };
 
-const plusHours = (dateText, hours) => new Date(
+const plusHours = (dateText, hours) => formatKarnatakaDateTime(
   new Date(dateText).getTime() + hours * 60 * 60 * 1000,
-).toISOString();
+);
 const caseNumber = caseId => Number(caseId.slice(-3));
 const accusedMasterId = (appearanceId) => {
   const regular = appearanceId.match(/^APP-(\d{3})$/);
@@ -29,46 +32,70 @@ const accusedMasterId = (appearanceId) => {
 };
 
 export function generateSourceSeed(seed = 20260720) {
+  const serialByCase = new Map();
+  const counters = new Map();
+  const orderedCases = [...canonicalInput.cases].sort((left, right) => (
+    Date.parse(left.incidentAt) - Date.parse(right.incidentAt) || left.caseId.localeCompare(right.caseId)
+  ));
+  for (const row of orderedCases) {
+    const localIncidentAt = formatKarnatakaDateTime(row.incidentAt);
+    const scope = `1|${districtIds[row.districtId]}|${stationIds[row.stationId]}|${localIncidentAt.slice(0, 4)}`;
+    const serial = (counters.get(scope) ?? 0) + 1;
+    counters.set(scope, serial);
+    serialByCase.set(row.caseId, serial);
+  }
   const cases = canonicalInput.cases.map((row) => ({
     ...row,
     number: caseNumber(row.caseId),
     CaseMasterID: 200000000 + caseNumber(row.caseId),
+    localIncidentAt: formatKarnatakaDateTime(row.incidentAt),
+    PoliceStationID: stationIds[row.stationId],
+    DistrictID: districtIds[row.districtId],
+    serial: serialByCase.get(row.caseId),
   }));
   const canonicalCaseMap = Object.fromEntries(
     cases.map(({ CaseMasterID, caseId }) => [String(CaseMasterID), caseId]),
   );
 
-  const accusedRows = cases.flatMap((caseRow) => caseRow.accused.map((person) => ({
+  const accusedRows = cases.flatMap((caseRow) => caseRow.accused.map((person, index) => ({
     AccusedMasterID: accusedMasterId(person.appearanceId),
     CaseMasterID: caseRow.CaseMasterID,
     AccusedName: person.name,
     AgeYear: person.age,
     GenderID: person.gender === 'F' ? 2 : 1,
-    PersonID: person.personId,
+    PersonID: `A${index + 1}`,
   })));
   const firstAccusedByCase = new Map(accusedRows.map((row) => [row.CaseMasterID, row]));
 
   const tables = {
-    CaseMaster: cases.map((row) => ({
-      CaseMasterID: row.CaseMasterID,
-      CrimeNo: `SYN-KSP-2026-${String(row.number).padStart(4, '0')}`,
-      CaseNo: `SYN-${String(row.number).padStart(3, '0')}`,
-      CrimeRegisteredDate: row.incidentAt.slice(0, 10),
-      PolicePersonID: 9001 + (row.number % 3),
-      PoliceStationID: stationIds[row.stationId],
-      CaseCategoryID: 1,
-      GravityOffenceID: row.gravity,
-      CrimeMajorHeadID: majorIds[row.crimeMajor],
-      CrimeMinorHeadID: minorIds[row.crimeMinor],
-      CaseStatusID: row.number % 3 === 0 ? 2 : 1,
-      CourtID: 500 + districtIds[row.districtId] - 100,
-      IncidentFromDate: row.incidentAt,
-      IncidentToDate: plusHours(row.incidentAt, 1),
-      InfoReceivedPSDate: plusHours(row.incidentAt, 2),
-      latitude: row.latitude,
-      longitude: row.longitude,
-      BriefFacts: row.briefFacts,
-    })),
+    CaseMaster: cases.map((row) => {
+      const identity = buildCrimeIdentity({
+        categoryCode: 1,
+        districtId: row.DistrictID,
+        stationId: row.PoliceStationID,
+        year: Number(row.localIncidentAt.slice(0, 4)),
+        serial: row.serial,
+      });
+      return {
+        CaseMasterID: row.CaseMasterID,
+        ...identity,
+        CrimeRegisteredDate: row.localIncidentAt.slice(0, 10),
+        PolicePersonID: officerByStation[row.PoliceStationID],
+        PoliceStationID: row.PoliceStationID,
+        CaseCategoryID: 1,
+        GravityOffenceID: row.gravity,
+        CrimeMajorHeadID: majorIds[row.crimeMajor],
+        CrimeMinorHeadID: minorIds[row.crimeMinor],
+        CaseStatusID: row.number % 3 === 0 ? 2 : 1,
+        CourtID: 500 + row.DistrictID - 100,
+        IncidentFromDate: row.localIncidentAt,
+        IncidentToDate: plusHours(row.localIncidentAt, 1),
+        InfoReceivedPSDate: plusHours(row.localIncidentAt, 2),
+        latitude: row.latitude,
+        longitude: row.longitude,
+        BriefFacts: row.briefFacts,
+      };
+    }),
     ComplainantDetails: cases.map((row) => ({
       ComplainantID: 300000000 + row.number,
       CaseMasterID: row.CaseMasterID,
@@ -92,7 +119,7 @@ export function generateSourceSeed(seed = 20260720) {
       VictimName: `Synthetic Victim ${row.number}`,
       AgeYear: 18 + (row.number % 55),
       GenderID: 1 + (row.number % 2),
-      VictimPolice: 'N',
+      VictimPolice: '0',
     })),
     Accused: accusedRows,
     ArrestSurrender: cases.map((row) => {
@@ -101,11 +128,11 @@ export function generateSourceSeed(seed = 20260720) {
         ArrestSurrenderID: 450000000 + row.number,
         CaseMasterID: row.CaseMasterID,
         ArrestSurrenderTypeID: row.number % 4 === 0 ? 2 : 1,
-        ArrestSurrenderDate: plusHours(row.incidentAt, 24),
+        ArrestSurrenderDate: plusHours(row.localIncidentAt, 24).slice(0, 10),
         ArrestSurrenderStateId: 29,
         ArrestSurrenderDistrictId: districtIds[row.districtId],
-        PoliceStationID: stationIds[row.stationId],
-        IOID: 9001 + (row.number % 3),
+        PoliceStationID: row.PoliceStationID,
+        IOID: officerByStation[row.PoliceStationID],
         CourtID: 500 + districtIds[row.districtId] - 100,
         AccusedMasterID: accused.AccusedMasterID,
         IsAccused: true,
@@ -177,9 +204,9 @@ export function generateSourceSeed(seed = 20260720) {
       { UnitID: 1041, UnitName: 'Synthetic Mysuru Police Station', TypeID: 3, ParentUnit: 103, NationalityID: 1, StateID: 29, DistrictID: 103, Active: true },
     ],
     UnitType: [
-      { UnitTypeID: 1, UnitTypeName: 'Synthetic State HQ', CityDistState: 'STATE', Hierarchy: 1, Active: true },
-      { UnitTypeID: 2, UnitTypeName: 'Synthetic District', CityDistState: 'DISTRICT', Hierarchy: 2, Active: true },
-      { UnitTypeID: 3, UnitTypeName: 'Synthetic Police Station', CityDistState: 'STATION', Hierarchy: 3, Active: true },
+      { UnitTypeID: 1, UnitTypeName: 'Synthetic State HQ', CityDistState: 'State', Hierarchy: 1, Active: true },
+      { UnitTypeID: 2, UnitTypeName: 'Synthetic District', CityDistState: 'District', Hierarchy: 2, Active: true },
+      { UnitTypeID: 3, UnitTypeName: 'Synthetic Police Station', CityDistState: 'District', Hierarchy: 3, Active: true },
     ],
     Rank: [
       { RankID: 1, RankName: 'Director General of Police', Hierarchy: 1, Active: true },
@@ -199,7 +226,7 @@ export function generateSourceSeed(seed = 20260720) {
       { EmployeeID: 9003, DistrictID: 103, UnitID: 1041, RankID: 4, DesignationID: 4, KGID: 'SYN-KGID-9003', FirstName: 'Synthetic Analyst Three', EmployeeDOB: '1990-03-03', GenderID: 1, BloodGroupID: 3, PhysicallyChallenged: false, AppointmentDate: '2015-03-03' },
     ],
     CaseCategory: [
-      { CaseCategoryID: 1, LookupValue: 'Synthetic Cognizable Case' },
+      { CaseCategoryID: 1, LookupValue: 'FIR' },
     ],
     GravityOffence: [
       { GravityOffenceID: 1, LookupValue: 'Synthetic Low' },
@@ -210,9 +237,9 @@ export function generateSourceSeed(seed = 20260720) {
     ChargesheetDetails: cases.map((row) => ({
       CSID: 500000000 + row.number,
       CaseMasterID: row.CaseMasterID,
-      csdate: plusHours(row.incidentAt, 72),
-      cstype: 'SYNTHETIC_FINAL',
-      PolicePersonID: 9001 + (row.number % 3),
+      csdate: plusHours(row.localIncidentAt, 72),
+      cstype: 'A',
+      PolicePersonID: officerByStation[row.PoliceStationID],
     })),
   };
 

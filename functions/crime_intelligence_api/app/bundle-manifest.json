@@ -9,9 +9,14 @@
       "bytes": 1123
     },
     {
+      "path": "schema/catalyst/pdf-semantic-contract.json",
+      "sha256": "3dadc27736860c7ad7674240db7701a072d263123dd7588b922c64e421160d0d",
+      "bytes": 5289
+    },
+    {
       "path": "scripts/catalyst/source-row-projector.mjs",
-      "sha256": "f26e8b384bcf9d74b25f2f596fc20ddae6fc8a049c7360a691a9f209a26ac3bc",
-      "bytes": 6229
+      "sha256": "3632a0bac8b1dd1ed36e6d7186a82c1a395daad1e6f0cf88db8a23865de51abc",
+      "bytes": 6711
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
@@ -127,6 +132,11 @@
       "path": "src/backend/workflow/state-machine.mjs",
       "sha256": "d8de37d75210324f710db6677c8caca4c592b36a2abdf9bc6250f878e85e93a7",
       "bytes": 1031
+    },
+    {
+      "path": "src/ingestion/pdf-semantic-rules.mjs",
+      "sha256": "a072af269dcf3ecd382425e3b4daa975ca118e611dac2501758a9a0be5c10da5",
+      "bytes": 12387
     }
   ]
 }

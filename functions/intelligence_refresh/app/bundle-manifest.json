@@ -14,14 +14,24 @@
       "bytes": 43999
     },
     {
+      "path": "data/synthetic-identity-authority.json",
+      "sha256": "0f73278f8242e43d714fd9f3dd797c9c17f67f8fc59981a8a45f85b81f607b11",
+      "bytes": 554
+    },
+    {
+      "path": "schema/catalyst/pdf-semantic-contract.json",
+      "sha256": "3dadc27736860c7ad7674240db7701a072d263123dd7588b922c64e421160d0d",
+      "bytes": 5289
+    },
+    {
       "path": "schema/source-schema.json",
       "sha256": "e9134bfc53730e8270aeeab111cd4e9fbe3c3f047e484ac284b8e02f79f6497e",
       "bytes": 34569
     },
     {
       "path": "scripts/catalyst/source-row-projector.mjs",
-      "sha256": "f26e8b384bcf9d74b25f2f596fc20ddae6fc8a049c7360a691a9f209a26ac3bc",
-      "bytes": 6229
+      "sha256": "3632a0bac8b1dd1ed36e6d7186a82c1a395daad1e6f0cf88db8a23865de51abc",
+      "bytes": 6711
     },
     {
       "path": "src/backend/catalyst/refresh-bootstrap.mjs",
@@ -40,8 +50,8 @@
     },
     {
       "path": "src/backend/refresh/refresh-service.mjs",
-      "sha256": "55db2a7e41688466fa9b18a25ca561ab97b406d082c7826d6cf4b44dd6d2c81c",
-      "bytes": 6722
+      "sha256": "f0f37bee02978194eea2290c9b00704ca389e9188f930d487dab90b3ebc6f357",
+      "bytes": 7165
     },
     {
       "path": "src/backend/refresh/run-groups.mjs",
@@ -94,19 +104,24 @@
       "bytes": 838
     },
     {
+      "path": "src/ingestion/pdf-semantic-rules.mjs",
+      "sha256": "a072af269dcf3ecd382425e3b4daa975ca118e611dac2501758a9a0be5c10da5",
+      "bytes": 12387
+    },
+    {
       "path": "src/ingestion/to-intelligence-input.mjs",
-      "sha256": "326def9abaee3ba8bed4b4e44f936fd428ea7a7b75d4db867c1f5bb974df27da",
-      "bytes": 4805
+      "sha256": "ed6f98269169f151b046a38f4f5616adaf4b827151b1033ae9d25f130d49fa09",
+      "bytes": 5784
     },
     {
       "path": "src/ingestion/validate-source-seed.mjs",
-      "sha256": "d1a482ba2a149480445cb6d91d21adfa57c14eb766d4bfa85121dc1d6a606dcd",
-      "bytes": 4464
+      "sha256": "c8171e6b8d076debb38d49d9deeea6dcaa69603fee3340157d5e9118c38833de",
+      "bytes": 4570
     },
     {
       "path": "src/synthetic/source-seed.mjs",
-      "sha256": "42b5af537aad8f4b13e4b2b4ca85b68b7f6182a7e2dc0b518dda33ecc9b71a06",
-      "bytes": 11912
+      "sha256": "6e668d5057fffc11de62b66d6708a52a36c7b45abdeb220f874249ba3a4a04f7",
+      "bytes": 13035
     },
     {
       "path": "vendor/intelligence-core/index.mjs",

@@ -1,0 +1,26 @@
+{
+  "authorityVersion": "synthetic-authority-1.0.0",
+  "syntheticOnly": true,
+  "evidenceLabel": "SYNTHETIC_AUTHORITY",
+  "exact": {
+    "420007001": "PERSON-007",
+    "420007002": "PERSON-007",
+    "430000001": "PERSON-031",
+    "430000002": "PERSON-044"
+  },
+  "ranges": [
+    {
+      "minimum": 410000001,
+      "maximum": 410000999,
+      "sourceBase": 410000000,
+      "canonicalOffset": 100,
+      "prefix": "PERSON-",
+      "width": 3
+    },
+    {
+      "minimum": 440000001,
+      "maximum": 440000999,
+      "constant": "PERSON-008"
+    }
+  ]
+}

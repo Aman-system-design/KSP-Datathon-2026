@@ -101,6 +101,30 @@ test('partial publication failure preserves the prior current group and retry co
   assert.notEqual((await repository.getCurrentRunGroup()).RunGroupID, 'RUN-GROUP-DEMO-1');
 });
 
+test('synthetic bootstrap rejects any source batch containing rejected rows before persistence', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  let id = 0;
+  const refresh = createRefreshService({
+    repository, sourceGenerator: generateSourceSeed,
+    sourceValidator: source => {
+      const valid = validateSourceSeed(source);
+      return {
+        ...valid,
+        accepted: { ...valid.accepted, CaseMaster: valid.accepted.CaseMaster.slice(1) },
+        rejected: [{ table: 'CaseMaster', sourceKey: '200000001', reasonCode: 'PDF-CASE-CRIME-NO', rowHash: 'a'.repeat(64) }],
+        reconciliation: { sourceRows: 411, acceptedRows: 410, rejectedRows: 1, balanced: true },
+      };
+    },
+    adapter: toIntelligenceInput, pipeline: runIntelligencePipeline,
+    clock, idFactory: prefix => `${prefix}-REJECT-${++id}`,
+  });
+  await assert.rejects(
+    refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'REJECTED-BOOT', seed: 20260720 }),
+    { code: 'DATA_NOT_READY' },
+  );
+  assert.equal(await repository.getValidatedSource('REJECTED-BOOT'), undefined);
+});
+
 test('governance reconciliation reports incomplete commands and audit defects without mutation', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   await repository.createCommand({ CommandID: 'CMD-INCOMPLETE', IdempotencyKeyHash: '1'.repeat(64), RequestHash: '2'.repeat(64), AlertID: 'ALT-PATTERN-1', Status: 'RECEIVED' });

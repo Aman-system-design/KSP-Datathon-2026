@@ -98,6 +98,9 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
         if (sourcePath === 'src/synthetic/source-seed.mjs') {
           transformed = transformed.replace('../../fixtures/intelligence/demo-input.json', '../../data/synthetic-demo-input.json');
         }
+        if (sourcePath === 'src/ingestion/to-intelligence-input.mjs') {
+          transformed = transformed.replace('../../fixtures/intelligence/synthetic-identity-authority.json', '../../data/synthetic-identity-authority.json');
+        }
         if (target === 'refresh' && transformed.includes("'@ksp/intelligence-core'")) {
           let vendorPath = path.posix.relative(path.posix.dirname(sourcePath), 'vendor/intelligence-core/index.mjs');
           if (!vendorPath.startsWith('.')) vendorPath = `./${vendorPath}`;
@@ -108,6 +111,11 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
     });
   }
   materializeFile({ repositoryRoot, appRoot, sourcePath: 'config/access-policy.json' });
+  materializeFile({
+    repositoryRoot, appRoot,
+    sourcePath: 'schema/catalyst/pdf-semantic-contract.json',
+    destinationPath: 'schema/catalyst/pdf-semantic-contract.json',
+  });
 
   if (target === 'refresh') {
     materializeFile({
@@ -115,6 +123,12 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
       appRoot,
       sourcePath: 'fixtures/intelligence/demo-input.json',
       destinationPath: 'data/synthetic-demo-input.json',
+    });
+    materializeFile({
+      repositoryRoot,
+      appRoot,
+      sourcePath: 'fixtures/intelligence/synthetic-identity-authority.json',
+      destinationPath: 'data/synthetic-identity-authority.json',
     });
     materializeFile({
       repositoryRoot,
