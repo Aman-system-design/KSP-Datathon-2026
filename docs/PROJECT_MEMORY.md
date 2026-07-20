@@ -190,6 +190,23 @@ Observed verification: 57 tests passed; source schema validation passed for 29 e
 
 No new Catalyst tables, source records, Functions, APIs, Authentication resources, UI resources, QuickML models, or Production resources were created in this delivery. The next gated phase is the Catalyst Development backend vertical slice.
 
+### Verified Catalyst Backend Local Core
+
+On 2026-07-20, the framework-independent backend core completed with challenge-alignment PASS:
+
+- 21-table production-shaped intelligence/workflow schema, including access profiles and recoverable command journal;
+- shared analytics package verified under Node.js 18 and Node.js 24;
+- authenticated-profile, action, unit-tree, assignment, and field-level disclosure controls;
+- eight scoped intelligence reads and four versioned workflow commands forming the exact twelve-operation API boundary;
+- evidence-safe cross-district pattern and person-network projections, repeat-appearance tracking, and aggregate non-causal district correlation;
+- idempotency, optimistic alert compare-and-swap, prior-version serialization, deterministic retry recovery, and safe fixed-table ZCQL construction;
+- HMAC-SHA-256 audit evidence for sensitive reads, demo-persona assumptions, authorization denials, and workflow actions, with key-version verification;
+- deterministic synthetic refresh with seven-type coherent publication, old-group continuity on failure, visible finding replacement, and governance reconciliation.
+
+Observed verification: 98 tests passed; Node.js 18 and Node.js 24 compatibility passed; the 29-table source/PDF schema and 21-table backend schema validators passed; intelligence demo `1.0.0` passed; deterministic runbook generation and challenge-alignment checks passed. Review: `docs/reviews/2026-07-20-catalyst-backend-local-core.md`.
+
+This is local-core completion only. No new Catalyst tables, records, Functions, API Gateway rules, Authentication users, secrets, UI resources, or Production resources were created or deployed. The next separately gated plan must package the Catalyst SDK repositories and Functions, configure the twelve authenticated API Gateway routes, create the 21 Development tables, seed synthetic data, and collect remote acceptance evidence before claiming a deployed backend.
+
 ## Decisions
 
 - Treat the FIR schema as the first source of truth.
