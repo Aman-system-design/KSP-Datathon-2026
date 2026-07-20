@@ -16,6 +16,17 @@ const plusHours = (dateText, hours) => new Date(
   new Date(dateText).getTime() + hours * 60 * 60 * 1000,
 ).toISOString();
 const caseNumber = caseId => Number(caseId.slice(-3));
+const accusedMasterId = (appearanceId) => {
+  const regular = appearanceId.match(/^APP-(\d{3})$/);
+  if (regular) return 410000000 + Number(regular[1]);
+  const repeated = appearanceId.match(/^APP-007-([AB])$/);
+  if (repeated) return 420007000 + (repeated[1] === 'A' ? 1 : 2);
+  const falseMatch = appearanceId.match(/^APP-FALSE-([AB])$/);
+  if (falseMatch) return 430000000 + (falseMatch[1] === 'A' ? 1 : 2);
+  const network = appearanceId.match(/^APP-NET-(\d{3})$/);
+  if (network) return 440000000 + Number(network[1]);
+  throw new Error(`unsupported synthetic appearance id ${appearanceId}`);
+};
 
 export function generateSourceSeed(seed = 20260720) {
   const cases = canonicalInput.cases.map((row) => ({
@@ -27,9 +38,8 @@ export function generateSourceSeed(seed = 20260720) {
     cases.map(({ CaseMasterID, caseId }) => [String(CaseMasterID), caseId]),
   );
 
-  let accusedSequence = 0;
   const accusedRows = cases.flatMap((caseRow) => caseRow.accused.map((person) => ({
-    AccusedMasterID: 400000001 + accusedSequence++,
+    AccusedMasterID: accusedMasterId(person.appearanceId),
     CaseMasterID: caseRow.CaseMasterID,
     AccusedName: person.name,
     AgeYear: person.age,
