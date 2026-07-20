@@ -73,7 +73,7 @@ test('admin initialization is idempotent only after the same profile remains aut
 
 test('SDK errors reduce to stable safe codes without operational leakage', () => {
   const unsafe = Object.assign(new Error('table 4349 ROWID 999 token=secret-value'), {
-    stack: 'private stack', access_token: 'secret-value', tableId: '4349',
+    stack: 'private stack', unsafeCredential: 'secret-value', tableId: '4349',
   });
   const safe = sanitizeCatalystSdkError(unsafe, { operation: 'READ_HOTSPOTS' });
   assert.equal(safe.code, 'CATALYST_UNAVAILABLE');
