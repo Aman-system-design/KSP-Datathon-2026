@@ -82,6 +82,12 @@ export class MemoryIntelligenceRepository {
     return clone(this.#state.assignments.filter(row => row.AlertID === alertId));
   }
 
+  async getAssignmentsForEmployee(employeeId) {
+    const latestByAlert = new Map();
+    for (const assignment of this.#state.assignments) latestByAlert.set(assignment.AlertID, assignment);
+    return clone([...latestByAlert.values()].filter(row => row.AssignedEmployeeID === employeeId));
+  }
+
   async compareAndSwapAlert({ alertId, expectedState, expectedVersion, targetState, commandId }) {
     const alert = this.#state.alerts.find(row => row.AlertID === alertId);
     if (!alert || alert.Status !== expectedState || alert.AlertVersion !== expectedVersion) {
