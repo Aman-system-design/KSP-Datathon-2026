@@ -1,5 +1,6 @@
 export const repositoryMethods = Object.freeze([
   'getCurrentRunGroup',
+  'listAnalysisRuns',
   'getBrief',
   'listPatterns',
   'getPattern',
@@ -23,6 +24,12 @@ export const repositoryMethods = Object.freeze([
   'findAuditByCommand',
   'getAuditStream',
   'reconcileCommand',
+  'listCommands',
+  'listAuditEvents',
+  'getRefreshBatch',
+  'createRefreshBatch',
+  'updateRefreshBatch',
+  'publishRefreshBatch',
 ]);
 
 export function assertRepository(repository) {

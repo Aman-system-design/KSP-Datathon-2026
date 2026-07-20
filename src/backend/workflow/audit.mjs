@@ -52,9 +52,13 @@ export function verifyAuditStream(events, keys) {
     if (!key) {
       errors.push(`unknown key version at ${index}`);
     } else {
-      const actual = Buffer.from(event.EventHash ?? '', 'hex');
-      const expected = Buffer.from(digest(event, key), 'hex');
-      if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) errors.push(`HMAC mismatch at ${index}`);
+      try {
+        const actual = Buffer.from(event.EventHash ?? '', 'hex');
+        const expected = Buffer.from(digest(event, key), 'hex');
+        if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) errors.push(`HMAC mismatch at ${index}`);
+      } catch {
+        errors.push(`invalid event content at ${index}`);
+      }
     }
     previous = event.EventHash;
   }

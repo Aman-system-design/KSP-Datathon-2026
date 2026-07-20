@@ -1,7 +1,4 @@
-const requiredAnalysisTypes = new Set([
-  'FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK',
-  'IDENTITY_RESOLUTION',
-]);
+import { isCompletePublishedGroup, selectCurrentRunGroup } from '../refresh/run-groups.mjs';
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const conflict = (message) => {
@@ -23,20 +20,6 @@ const decodeToken = (token) => {
   }
 };
 
-function completeGroup(group) {
-  if (!group?.runs || group.runs.length !== requiredAnalysisTypes.size) return false;
-  const types = new Set(group.runs.map(({ AnalysisType }) => AnalysisType));
-  if ([...requiredAnalysisTypes].some(type => !types.has(type))) return false;
-  const first = group.runs[0];
-  return group.runs.every(run => run.RunGroupID === group.RunGroupID
-    && run.Status === 'COMPLETED'
-    && run.PublishStatus === 'PUBLISHED'
-    && run.InputManifestHash === first.InputManifestHash
-    && run.ObservationStart === first.ObservationStart
-    && run.ObservationEnd === first.ObservationEnd
-    && run.EngineVersion === first.EngineVersion);
-}
-
 export class MemoryIntelligenceRepository {
   #state;
   #failureInjector;
@@ -47,10 +30,10 @@ export class MemoryIntelligenceRepository {
   }
 
   async getCurrentRunGroup() {
-    const current = this.#state.runGroups.filter(completeGroup)
-      .sort((left, right) => right.PublishedAt.localeCompare(left.PublishedAt))[0];
-    return clone(current);
+    return clone(selectCurrentRunGroup(this.#state.runGroups.flatMap(({ runs }) => runs)));
   }
+
+  async listAnalysisRuns() { return clone(this.#state.runGroups.flatMap(({ runs }) => runs)); }
 
   async getBrief() { return clone(this.#state.brief); }
   async listPatterns(options = {}) { return this.#page(this.#state.patterns, options); }
@@ -139,6 +122,42 @@ export class MemoryIntelligenceRepository {
       audit: await this.findAuditByCommand(commandId),
       alert: await this.getAlert(command.AlertID),
     };
+  }
+
+  async listCommands() { return clone(this.#state.commands); }
+  async listAuditEvents() { return clone(this.#state.auditEvents); }
+
+  async getRefreshBatch(batchKey) {
+    return clone((this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey));
+  }
+
+  async createRefreshBatch(batch) {
+    this.#state.refreshBatches ??= [];
+    if (this.#state.refreshBatches.some(row => row.BatchKey === batch.BatchKey)) throw conflict('refresh batch conflict');
+    this.#state.refreshBatches.push(clone(batch));
+    return clone(batch);
+  }
+
+  async updateRefreshBatch(batchKey, changes) {
+    const batch = (this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey);
+    if (!batch) return undefined;
+    Object.assign(batch, clone(changes));
+    return clone(batch);
+  }
+
+  async publishRefreshBatch(batchKey, publishedAt) {
+    const batch = (this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey);
+    if (!batch) return undefined;
+    if (batch.Status === 'COMPLETED') return clone(batch);
+    const runs = batch.RunGroup.runs.map(row => ({
+      ...row, Status: 'COMPLETED', PublishStatus: 'PUBLISHED', PublishedAt: publishedAt,
+    }));
+    if (!isCompletePublishedGroup(runs)) throw new Error('incoherent refresh group');
+    this.#failureInjector('beforeRefreshPublish');
+    const runGroup = { RunGroupID: batch.RunGroup.RunGroupID, PublishedAt: publishedAt, runs };
+    this.#state.runGroups.push(runGroup);
+    Object.assign(batch, { Status: 'COMPLETED', RunGroup: runGroup, CompletedAt: publishedAt });
+    return clone(batch);
   }
 
   #page(rows, { limit = 50, nextToken } = {}) {

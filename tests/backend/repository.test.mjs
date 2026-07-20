@@ -47,12 +47,20 @@ test('partial or inconsistent run groups never become current', async () => {
   const complete = structuredClone(state.runGroups[0]);
   complete.RunGroupID = 'GROUP-OLD';
   complete.PublishedAt = '2026-06-30T00:00:00Z';
-  complete.runs.forEach((run) => { run.RunGroupID = complete.RunGroupID; });
+  complete.runs.forEach((run) => {
+    run.RunGroupID = complete.RunGroupID;
+    run.RunTypeKey = `${complete.RunGroupID}:${run.AnalysisType}`;
+    run.PublishedAt = complete.PublishedAt;
+  });
   const partial = structuredClone(state.runGroups[0]);
   partial.RunGroupID = 'GROUP-NEW-PARTIAL';
   partial.PublishedAt = '2026-07-02T00:00:00Z';
   partial.runs = partial.runs.slice(0, 6);
-  partial.runs.forEach((run) => { run.RunGroupID = partial.RunGroupID; });
+  partial.runs.forEach((run) => {
+    run.RunGroupID = partial.RunGroupID;
+    run.RunTypeKey = `${partial.RunGroupID}:${run.AnalysisType}`;
+    run.PublishedAt = partial.PublishedAt;
+  });
   state.runGroups = [complete, partial];
 
   const current = await new MemoryIntelligenceRepository(state).getCurrentRunGroup();

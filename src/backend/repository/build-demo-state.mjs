@@ -121,5 +121,6 @@ export function buildDemoState() {
       SyntheticData: true,
     }] : [],
     commands: [], assignments: [], conclusions: [], outcomes: [], auditEvents: [],
+    refreshBatches: [],
   };
 }
