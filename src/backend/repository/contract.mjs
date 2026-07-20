@@ -17,9 +17,11 @@ export const repositoryMethods = Object.freeze([
   'updateCommand',
   'insertDomainArtifact',
   'findDomainArtifactByCommand',
+  'getAssignmentsForAlert',
   'compareAndSwapAlert',
   'appendAuditEvent',
   'findAuditByCommand',
+  'getAuditStream',
   'reconcileCommand',
 ]);
 

@@ -95,6 +95,10 @@ export class MemoryIntelligenceRepository {
     return clone(this.#artifactCollection(kind).find(row => row.CommandID === commandId));
   }
 
+  async getAssignmentsForAlert(alertId) {
+    return clone(this.#state.assignments.filter(row => row.AlertID === alertId));
+  }
+
   async compareAndSwapAlert({ alertId, expectedState, expectedVersion, targetState, commandId }) {
     const alert = this.#state.alerts.find(row => row.AlertID === alertId);
     if (!alert || alert.Status !== expectedState || alert.AlertVersion !== expectedVersion) {
@@ -117,6 +121,11 @@ export class MemoryIntelligenceRepository {
 
   async findAuditByCommand(commandId) {
     return clone(this.#state.auditEvents.find(row => row.CommandID === commandId));
+  }
+
+  async getAuditStream(streamId) {
+    return clone(this.#state.auditEvents.filter(row => row.StreamID === streamId)
+      .sort((left, right) => left.StreamSequence - right.StreamSequence));
   }
 
   async reconcileCommand(commandId) {
