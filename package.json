@@ -9,7 +9,8 @@
     "intelligence:test": "node --test tests/intelligence/*.test.mjs",
     "schema:validate": "node scripts/schema/validate-schema.mjs",
     "schema:runbook": "node scripts/schema/generate-console-runbook.mjs",
-    "schema:compare": "node scripts/schema/compare-catalyst-export.mjs"
+    "schema:compare": "node scripts/schema/compare-catalyst-export.mjs",
+    "intelligence-schema:validate": "node scripts/schema/validate-intelligence-schema.mjs"
   },
   "engines": {
     "node": ">=24"

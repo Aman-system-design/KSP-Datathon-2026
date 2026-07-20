@@ -1,0 +1,279 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectId": "43492000000013049",
+  "environment": "Development",
+  "syntheticOnly": true,
+  "defaultOnDelete": "NULL",
+  "zones": ["TRANSFORMATION", "INTELLIGENCE", "WORKFLOW"],
+  "tables": [
+    {
+      "name": "TRN_CaseFeature", "zone": "TRANSFORMATION", "loadOrder": 10, "businessId": "CaseFeatureID",
+      "columns": [
+        {"name":"CaseFeatureID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"SourceCaseMasterID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CrimeTypeCode","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"TimeFeaturesJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":false},
+        {"name":"LegalFeaturesJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":false},
+        {"name":"ModusOperandiTagsJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":false},
+        {"name":"QualityScore","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"FeatureVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "TRN_LocationFeature", "zone": "TRANSFORMATION", "loadOrder": 10, "businessId": "LocationFeatureID",
+      "columns": [
+        {"name":"LocationFeatureID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"SourceCaseMasterID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Latitude","origin":"SOURCE","type":"double","mandatory":true,"pii":false},
+        {"name":"Longitude","origin":"SOURCE","type":"double","mandatory":true,"pii":false},
+        {"name":"AreaType","origin":"DERIVED","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"AreaID","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"FeatureVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "TRN_PersonResolution", "zone": "TRANSFORMATION", "loadOrder": 10, "businessId": "PersonResolutionID",
+      "columns": [
+        {"name":"PersonResolutionID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"SourceAccusedID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"CanonicalPersonKey","origin":"DERIVED","type":"varchar","maxLength":128,"mandatory":false,"unique":false,"indexed":true,"pii":true},
+        {"name":"ResolutionStatus","origin":"DERIVED","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Confidence","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"EvidenceJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":true},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "TRN_DistrictContext", "zone": "TRANSFORMATION", "loadOrder": 10, "businessId": "DistrictContextID",
+      "columns": [
+        {"name":"DistrictContextID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"UnitID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"PeriodStart","origin":"SOURCE","type":"date","mandatory":true,"pii":false},
+        {"name":"PeriodEnd","origin":"SOURCE","type":"date","mandatory":true,"pii":false},
+        {"name":"IndicatorsJSON","origin":"SOURCE","type":"text","mandatory":true,"pii":false},
+        {"name":"SourceLabel","origin":"SOURCE","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":false,"pii":false},
+        {"name":"ContextVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_AnalysisRun", "zone": "INTELLIGENCE", "loadOrder": 20, "businessId": "AnalysisRunID",
+      "columns": [
+        {"name":"AnalysisRunID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"Status","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ObservationStart","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"ObservationEnd","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"EngineVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"InputManifestHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CompletedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_Hotspot", "zone": "INTELLIGENCE", "loadOrder": 30, "businessId": "HotspotID",
+      "columns": [
+        {"name":"HotspotID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"AreaID","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CentroidLatitude","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"CentroidLongitude","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"CaseCount","origin":"DERIVED","type":"int","mandatory":true,"pii":false},
+        {"name":"Severity","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_Anomaly", "zone": "INTELLIGENCE", "loadOrder": 30, "businessId": "AnomalyID",
+      "columns": [
+        {"name":"AnomalyID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"AreaID","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SignalType","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ObservedValue","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"BaselineValue","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"Severity","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_Pattern", "zone": "INTELLIGENCE", "loadOrder": 30, "businessId": "PatternID",
+      "columns": [
+        {"name":"PatternID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"PatternType","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Title","origin":"DERIVED","type":"varchar","maxLength":255,"mandatory":true,"unique":false,"indexed":false,"pii":false},
+        {"name":"Confidence","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"SignalComponentsJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":false},
+        {"name":"Recommendation","origin":"DERIVED","type":"text","mandatory":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_AreaRisk", "zone": "INTELLIGENCE", "loadOrder": 30, "businessId": "AreaRiskID",
+      "columns": [
+        {"name":"AreaRiskID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"AreaType","origin":"DERIVED","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"AreaID","origin":"DERIVED","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"PeriodStart","origin":"DERIVED","type":"datetime","mandatory":true,"pii":false},
+        {"name":"PeriodEnd","origin":"DERIVED","type":"datetime","mandatory":true,"pii":false},
+        {"name":"Score","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"Completeness","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"ComponentsJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_NetworkNode", "zone": "INTELLIGENCE", "loadOrder": 30, "businessId": "NetworkNodeID",
+      "columns": [
+        {"name":"NetworkNodeID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"NodeType","origin":"DERIVED","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SourceEntity","origin":"SOURCE","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SourceBusinessID","origin":"SOURCE","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"EvidenceLabel","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_NetworkEdge", "zone": "INTELLIGENCE", "loadOrder": 31, "businessId": "NetworkEdgeID",
+      "columns": [
+        {"name":"NetworkEdgeID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"FromNodeRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_NetworkNode","mandatory":true,"onDelete":"NULL"},
+        {"name":"ToNodeRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_NetworkNode","mandatory":true,"onDelete":"NULL"},
+        {"name":"EdgeType","origin":"DERIVED","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EvidenceLabel","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Weight","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_RepeatOffenderSignal", "zone": "INTELLIGENCE", "loadOrder": 30, "businessId": "RepeatSignalID",
+      "columns": [
+        {"name":"RepeatSignalID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"CanonicalPersonKey","origin":"DERIVED","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"ResolutionStatus","origin":"DERIVED","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CaseCount","origin":"DERIVED","type":"int","mandatory":true,"pii":false},
+        {"name":"Confidence","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"EvidenceJSON","origin":"DERIVED","type":"text","mandatory":true,"pii":true},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Limitation","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_FindingEvidence", "zone": "INTELLIGENCE", "loadOrder": 32, "businessId": "FindingEvidenceID",
+      "columns": [
+        {"name":"FindingEvidenceID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"FindingType","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"FindingBusinessID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SourceEntity","origin":"SOURCE","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SourceBusinessID","origin":"SOURCE","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"EvidenceLabel","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EvidenceSummary","origin":"SYSTEM","type":"text","mandatory":true,"pii":true},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_Alert", "zone": "WORKFLOW", "loadOrder": 40, "businessId": "AlertID",
+      "columns": [
+        {"name":"AlertID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AnalysisRunRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_AnalysisRun","mandatory":true,"onDelete":"NULL"},
+        {"name":"FindingType","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"FindingBusinessID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ScopeUnitID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Status","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Severity","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
+        {"name":"OriginalFindingJSON","origin":"SYSTEM","type":"text","mandatory":true,"pii":true},
+        {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CreatedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_AlertEvidence", "zone": "WORKFLOW", "loadOrder": 41, "businessId": "AlertEvidenceID",
+      "columns": [
+        {"name":"AlertEvidenceID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"FindingEvidenceRef","origin":"SYSTEM","type":"foreign_key","parentTable":"INT_FindingEvidence","mandatory":true,"onDelete":"NULL"},
+        {"name":"EvidenceOrder","origin":"SYSTEM","type":"int","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_Assignment", "zone": "WORKFLOW", "loadOrder": 42, "businessId": "AssignmentID",
+      "columns": [
+        {"name":"AssignmentID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"AssignedUnitID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"AssignedEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":true},
+        {"name":"AssignedByEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"Reason","origin":"WORKFLOW","type":"text","mandatory":true,"pii":false},
+        {"name":"AssignedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_AnalystConclusion", "zone": "WORKFLOW", "loadOrder": 42, "businessId": "ConclusionID",
+      "columns": [
+        {"name":"ConclusionID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"AnalystEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"ConclusionCode","origin":"WORKFLOW","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ConclusionText","origin":"WORKFLOW","type":"text","mandatory":true,"pii":true},
+        {"name":"EvidencePackPath","origin":"WORKFLOW","type":"varchar","maxLength":255,"mandatory":false,"unique":false,"indexed":false,"pii":true},
+        {"name":"CreatedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_Outcome", "zone": "WORKFLOW", "loadOrder": 42, "businessId": "OutcomeID",
+      "columns": [
+        {"name":"OutcomeID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"RecordedByEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"OutcomeCode","origin":"WORKFLOW","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"OutcomeText","origin":"WORKFLOW","type":"text","mandatory":true,"pii":true},
+        {"name":"RecordedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_AuditEvent", "zone": "WORKFLOW", "loadOrder": 43, "businessId": "AuditEventID",
+      "columns": [
+        {"name":"AuditEventID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":false,"onDelete":"NULL"},
+        {"name":"ActorEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":true},
+        {"name":"ActorType","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EventType","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EntityType","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EntityBusinessID","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EventPayloadJSON","origin":"WORKFLOW","type":"text","mandatory":true,"pii":true},
+        {"name":"PreviousEventHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":false,"unique":false,"indexed":true,"pii":false},
+        {"name":"EventHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"OccurredAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    }
+  ]
+}
