@@ -7,6 +7,7 @@ artifacts/intelligence/
 artifacts/source-seed/
 artifacts/catalyst-development/
 functions/**/node_modules/
+.build/
 functions/**/.env
 functions/**/*.secret
 tmp/catalyst-*/

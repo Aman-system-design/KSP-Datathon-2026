@@ -62,11 +62,13 @@ test('Function packages use only the approved production dependencies', () => {
 });
 
 test('generated samples are replaced by explicit fail-closed stubs', () => {
-  for (const { name } of expectedFunctions) {
-    const source = readFileSync(path.join(repositoryRoot, 'functions', name, 'index.cjs'), 'utf8');
-    assert.match(source, /DATA_NOT_READY/);
-    assert.doesNotMatch(source, /Hello from|Hello World|status\s*\(\s*200\s*\)/i);
-  }
+  const api = readFileSync(path.join(repositoryRoot, 'functions/crime_intelligence_api/index.cjs'), 'utf8');
+  assert.match(api, /createApiApplication/);
+  assert.match(api, /INTERNAL_ERROR/);
+  assert.doesNotMatch(api, /Hello from|Hello World|status\s*\(\s*200\s*\)/i);
+  const refresh = readFileSync(path.join(repositoryRoot, 'functions/intelligence_refresh/index.cjs'), 'utf8');
+  assert.match(refresh, /DATA_NOT_READY/);
+  assert.doesNotMatch(refresh, /Hello from|Hello World|closeWithSuccess/i);
 });
 
 test('Function roots contain no installed dependencies or personal metadata', () => {

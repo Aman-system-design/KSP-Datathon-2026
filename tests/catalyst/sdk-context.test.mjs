@@ -62,6 +62,18 @@ test('authorization rejects absent/inactive users and invalid access profiles wi
   }
 });
 
+test('current-user lookup failures are treated as unauthenticated and never unlock admin scope', async () => {
+  const calls = [];
+  const sdk = { initialize(_request, options) {
+    calls.push(options);
+    if (options.scope === 'user') return { userManagement: () => ({ getCurrentUser: async () => { throw new Error('private SDK auth detail'); } }) };
+    throw new Error('admin must not initialize');
+  } };
+  const context = createCatalystSdkContext({ request: {}, sdk, policyVersion: '1.0.0' });
+  await assert.rejects(context.getCurrentUser(), { code: 'UNAUTHENTICATED' });
+  assert.deepEqual(calls, [{ scope: 'user' }]);
+});
+
 test('admin initialization is idempotent only after the same profile remains authorized', async () => {
   const fixture = sdkFixture();
   const context = createCatalystSdkContext({ request: {}, sdk: fixture.sdk, policyVersion: '1.0.0' });
@@ -69,6 +81,17 @@ test('admin initialization is idempotent only after the same profile remains aut
   await context.authorize({ ...activeProfile });
   assert.equal(fixture.calls.filter(call => call.options?.scope === 'admin').length, 1);
   await assert.rejects(() => context.authorize({ ...activeProfile, CatalystUserID: 'CAT-OTHER' }), /profile|access/i);
+});
+
+test('authenticated identity can unlock only the server-side profile lookup before profile authorization', async () => {
+  const fixture = sdkFixture();
+  const context = createCatalystSdkContext({ request: {}, sdk: fixture.sdk, policyVersion: '1.0.0' });
+  const profileApplication = await context.getProfileApplication();
+  assert.equal(profileApplication, fixture.adminApplication);
+  assert.equal(fixture.calls[0].options.scope, 'user');
+  assert.equal(fixture.calls[1].options.scope, 'admin');
+  await context.authorize(activeProfile);
+  assert.equal(fixture.calls.filter(call => call.options?.scope === 'admin').length, 1);
 });
 
 test('SDK errors reduce to stable safe codes without operational leakage', () => {

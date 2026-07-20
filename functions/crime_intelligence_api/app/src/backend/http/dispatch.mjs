@@ -55,6 +55,10 @@ function match(method, path) {
   return null;
 }
 
+export function isDeclaredApiRoute(method, path) {
+  return Boolean(match(String(method ?? '').toUpperCase(), path));
+}
+
 function safeError(error, requestId) {
   let code = error?.code;
   if (code === 'INVALID_UNIT_HIERARCHY') code = 'DATA_NOT_READY';

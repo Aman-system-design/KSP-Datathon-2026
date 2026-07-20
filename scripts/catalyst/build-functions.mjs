@@ -6,7 +6,10 @@ import { pathToFileURL } from 'node:url';
 const TARGETS = Object.freeze({
   api: Object.freeze({
     runtime: 'node24',
-    roots: Object.freeze(['src/backend/http/dispatch.mjs']),
+    roots: Object.freeze([
+      'src/backend/catalyst/api-bootstrap.mjs',
+      'src/backend/catalyst/runtime-config.mjs',
+    ]),
   }),
   refresh: Object.freeze({
     runtime: 'node18',
