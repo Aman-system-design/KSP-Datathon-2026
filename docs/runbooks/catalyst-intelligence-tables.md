@@ -111,19 +111,22 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
 |---:|---|---|---|---:|---|---|---|---|---|
 | 1 | `AnalysisRunID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
-| 2 | `RunGroupID` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
-| 3 | `AnalysisType` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
-| 4 | `RunTypeKey` | SYSTEM | Var Char | 128 | Yes | Yes | Yes | No | - |
-| 5 | `Status` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
-| 6 | `PublishStatus` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
-| 7 | `ObservationStart` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 8 | `ObservationEnd` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 9 | `EngineVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
-| 10 | `MethodVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
-| 11 | `InputManifestHash` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
-| 12 | `CompletedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
-| 13 | `PublishedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
-| 14 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+| 2 | `BatchKey` | SYSTEM | Var Char | 36 | Yes | No | Yes | No | - |
+| 3 | `Operation` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 4 | `ReconciliationJSON` | SYSTEM | Text | - | Yes | No | No | No | - |
+| 5 | `RunGroupID` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
+| 6 | `AnalysisType` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 7 | `RunTypeKey` | SYSTEM | Var Char | 128 | Yes | Yes | Yes | No | - |
+| 8 | `Status` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
+| 9 | `PublishStatus` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
+| 10 | `ObservationStart` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 11 | `ObservationEnd` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 12 | `EngineVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 13 | `MethodVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 14 | `InputManifestHash` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
+| 15 | `CompletedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
+| 16 | `PublishedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
+| 17 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
 ## Create table: INT_Anomaly
 
@@ -444,7 +447,7 @@ Add these after all Phase A tables exist. For every row below select the parent 
 | `TRN_DistrictContext` | 9 |  |  |  |  |  |
 | `TRN_LocationFeature` | 8 |  |  |  |  |  |
 | `TRN_PersonResolution` | 8 |  |  |  |  |  |
-| `INT_AnalysisRun` | 14 |  |  |  |  |  |
+| `INT_AnalysisRun` | 17 |  |  |  |  |  |
 | `INT_Anomaly` | 10 |  |  |  |  |  |
 | `INT_AreaRisk` | 12 |  |  |  |  |  |
 | `INT_Hotspot` | 10 |  |  |  |  |  |

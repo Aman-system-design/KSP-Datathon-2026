@@ -78,6 +78,9 @@
       "name": "INT_AnalysisRun", "zone": "INTELLIGENCE", "loadOrder": 20, "businessId": "AnalysisRunID",
       "columns": [
         {"name":"AnalysisRunID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"BatchKey","origin":"SYSTEM","type":"varchar","maxLength":36,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Operation","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ReconciliationJSON","origin":"SYSTEM","type":"text","mandatory":true,"unique":false,"indexed":false,"pii":false},
         {"name":"RunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"AnalysisType","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"RunTypeKey","origin":"SYSTEM","type":"varchar","maxLength":128,"mandatory":true,"unique":true,"indexed":true,"pii":false},

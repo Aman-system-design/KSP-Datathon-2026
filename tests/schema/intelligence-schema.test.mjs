@@ -39,7 +39,7 @@ test('access and command tables preserve identity and idempotency boundaries', (
 
 test('run publication and workflow consistency are explicit', () => {
   const run = schema.tables.find(({ name }) => name === 'INT_AnalysisRun');
-  for (const field of ['RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublishedAt']) {
+  for (const field of ['BatchKey', 'Operation', 'ReconciliationJSON', 'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublishedAt']) {
     assert.ok(run.columns.some(({ name }) => name === field), `INT_AnalysisRun missing ${field}`);
   }
   assert.equal(run.columns.find(({ name }) => name === 'RunTypeKey').unique, true);
