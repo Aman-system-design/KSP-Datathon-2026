@@ -42,6 +42,8 @@ test('pattern list and detail redact cross-district evidence', async () => {
   assert.equal(list.data.items.length, 1);
   assert.equal(list.data.items[0].redactedEvidenceCount, 2);
   assert.deepEqual(list.data.items[0].evidence.map(({ caseId }) => caseId), ['CASE-001', 'CASE-002']);
+  assert.deepEqual(list.data.items[0].evidenceCaseIds, ['CASE-001', 'CASE-002']);
+  assert.doesNotMatch(JSON.stringify(list.data.items[0]), /CASE-021|CASE-022/);
 
   const detail = await services.getPattern({ access: districtAccess, params: { patternId: 'PATTERN-1' }, query: {} });
   for (const field of ['method', 'version', 'confidence', 'recommendation', 'limitations', 'evidence']) {
@@ -88,6 +90,22 @@ test('all remaining read services return governed envelopes', async () => {
   }
   assert.equal(responses[2].data.scope, 'AREA_TIME_ONLY');
   assert.equal(responses[4].data.items[0].limitation, 'CORRELATION_IS_NOT_CAUSATION');
+  assert.equal(responses[4].data.items[0].correlation.method, 'PEARSON_CORRELATION');
+  assert.equal(responses[4].data.items[0].correlation.scope, 'AGGREGATE_DISTRICT_ONLY');
+});
+
+test('person network exposes authorized repeat appearances and redacts other districts', async () => {
+  const response = await createServices().getNetwork({
+    access: districtAccess, params: { nodeId: 'PERSON:PERSON-008' }, query: {},
+  });
+  assert.equal(response.data.method, 'EVIDENCE_GRAPH');
+  assert.equal(response.data.version, '1.0.0');
+  assert.equal(response.data.repeatAppearanceCount, 2);
+  assert.ok(response.data.redactedEvidenceCount > 0);
+  assert.deepEqual([...new Set(response.data.edges.map(row => row.sourceCaseId))].sort(), ['CASE-001', 'CASE-002']);
+  assert.deepEqual(response.data.evidenceCaseIds, ['CASE-001', 'CASE-002']);
+  assert.doesNotMatch(JSON.stringify(response.data), /CASE-021|CASE-022/);
+  assert.match(response.data.recommendation, /review/i);
 });
 
 test('permissions, unit filters, direct identifiers, and limits fail closed', async () => {

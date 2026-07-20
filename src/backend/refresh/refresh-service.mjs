@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { fail } from '../services/errors.mjs';
 import { verifyAuditStream } from '../workflow/audit.mjs';
 import { canonicalStringify } from '../workflow/canonical-json.mjs';
+import { projectPipelineFindings } from './finding-projection.mjs';
 import { isCompletePublishedGroup, REQUIRED_ANALYSIS_TYPES } from './run-groups.mjs';
 
 const hash = value => createHash('sha256').update(canonicalStringify(value)).digest('hex');
@@ -19,7 +20,7 @@ function publicResult(batch) {
       hotspots: findings.hotspots?.length ?? 0,
       anomalies: findings.anomalies?.length ?? 0,
       patterns: findings.patterns?.length ?? 0,
-      identities: findings.identities?.length ?? 0,
+      identities: findings.identityResolutions?.length ?? 0,
       networkEdges: findings.network?.edges?.length ?? 0,
       areaRisks: findings.areaRisk ? 1 : 0,
     },
@@ -82,6 +83,7 @@ export function createRefreshService({
         if (!validation.reconciliation?.balanced || validation.reconciliation.acceptedRows < 1) fail('DATA_NOT_READY');
         const input = adapter(validation.accepted);
         const findings = pipeline(input);
+        const publishedFindings = projectPipelineFindings({ output: findings, input });
         const inputManifestHash = hash({
           schemaVersion: input.schemaVersion, fixtureVersion: input.fixtureVersion,
           asOf: input.asOf, accepted: validation.accepted,
@@ -104,6 +106,7 @@ export function createRefreshService({
           InputManifestHash: inputManifestHash,
           Reconciliation: structuredClone(validation.reconciliation),
           Rejected: structuredClone(validation.rejected), Findings: structuredClone(findings),
+          PublishedFindings: publishedFindings,
           RunGroup: { RunGroupID: runGroupId, PublishedAt: null, runs },
           CreatedAt: clock(), CompletedAt: null, SyntheticData: true,
         };

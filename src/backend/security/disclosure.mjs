@@ -19,7 +19,7 @@ const canSeeEvidence = (access, pattern, row) => (
 );
 
 export function projectPattern({ pattern, access }) {
-  const { evidence = [], unitSummaries = [], ...safePattern } = pattern;
+  const { evidence = [], evidenceCaseIds, pairEvidence = [], unitSummaries = [], ...safePattern } = pattern;
   const visibleEvidence = evidence.filter(row => canSeeEvidence(access, pattern, row));
   const visibleUnitIds = new Set([
     ...[...access.authorizedUnitIds].filter(unitId => unitSummaries.some(row => row.unitId === unitId)),
@@ -28,6 +28,7 @@ export function projectPattern({ pattern, access }) {
   if (visibleUnitIds.size === 0) deny('NOT_FOUND');
 
   const hiddenEvidence = evidence.filter(row => !canSeeEvidence(access, pattern, row));
+  const visibleCaseIds = new Set(visibleEvidence.map(({ caseId }) => caseId));
   const hiddenByUnit = new Set(hiddenEvidence.map(({ unitId }) => unitId));
   const aggregateUnits = unitSummaries
     .filter(({ unitId }) => hiddenByUnit.has(unitId))
@@ -38,6 +39,8 @@ export function projectPattern({ pattern, access }) {
   return Object.freeze({
     ...structuredClone(safePattern),
     evidence: structuredClone(visibleEvidence),
+    evidenceCaseIds: visibleEvidence.map(({ caseId }) => caseId),
+    pairEvidence: structuredClone(pairEvidence.filter(row => visibleCaseIds.has(row.left) && visibleCaseIds.has(row.right))),
     aggregateUnits,
     redactedEvidenceCount: hiddenEvidence.length,
     redactedUnitCount: aggregateUnits.length,
@@ -46,8 +49,30 @@ export function projectPattern({ pattern, access }) {
 }
 
 export function projectNetwork({ network, access }) {
-  const localAllowed = localEvidenceRoles.has(access.role)
-    && access.authorizedUnitIds.has(network?.node?.unitId);
-  if (!localAllowed) deny('NOT_FOUND');
-  return structuredClone(network);
+  const assignmentAllows = edge => access.role === 'CRIME_ANALYST'
+    && (access.assignments ?? []).some(assignment => assignment.active === true
+      && assignment.evidenceAccessLevel === 'CASE_EVIDENCE'
+      && assignment.authorizedUnitIds.includes(edge.unitId)
+      && assignment.authorizedCaseIds.includes(edge.sourceCaseId));
+  const visible = (network?.edges ?? []).filter(edge => (
+    (localEvidenceRoles.has(access.role) && access.authorizedUnitIds.has(edge.unitId))
+    || assignmentAllows(edge)
+  ));
+  if (visible.length === 0) deny('NOT_FOUND');
+  const hidden = network.edges.filter(edge => !visible.includes(edge));
+  const visibleCases = new Set(visible
+    .filter(edge => edge.type === 'CASE_HAS_ACCUSED'
+      && (edge.from === network.node.id || edge.to === network.node.id))
+    .map(({ sourceCaseId }) => sourceCaseId));
+  const { edges, node, evidenceCaseIds, ...metadata } = network;
+  const visibleEvidenceCaseIds = [...new Set(visible.map(({ sourceCaseId }) => sourceCaseId))].sort();
+  return Object.freeze({
+    ...structuredClone(metadata),
+    node: { id: node.id, type: node.type, unitIds: [...new Set(visible.map(({ unitId }) => unitId))] },
+    edges: structuredClone(visible),
+    evidenceCaseIds: visibleEvidenceCaseIds,
+    repeatAppearanceCount: visibleCases.size,
+    redactedEvidenceCount: hidden.length,
+    redactionReason: hidden.length ? 'CROSS_UNIT_SCOPE' : null,
+  });
 }

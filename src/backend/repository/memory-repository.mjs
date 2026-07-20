@@ -79,12 +79,17 @@ export class MemoryIntelligenceRepository {
   }
 
   async getAssignmentsForAlert(alertId) {
-    return clone(this.#state.assignments.filter(row => row.AlertID === alertId));
+    return clone(this.#state.assignments.filter(row => row.AlertID === alertId
+      && this.#state.commands.some(command => command.CommandID === row.CommandID && command.Status === 'COMPLETED')));
   }
 
   async getAssignmentsForEmployee(employeeId) {
     const latestByAlert = new Map();
-    for (const assignment of this.#state.assignments) latestByAlert.set(assignment.AlertID, assignment);
+    for (const assignment of this.#state.assignments) {
+      const completed = this.#state.commands.some(command => command.CommandID === assignment.CommandID
+        && command.Status === 'COMPLETED');
+      if (completed) latestByAlert.set(assignment.AlertID, assignment);
+    }
     return clone([...latestByAlert.values()].filter(row => row.AssignedEmployeeID === employeeId));
   }
 
@@ -161,6 +166,14 @@ export class MemoryIntelligenceRepository {
     if (!isCompletePublishedGroup(runs)) throw new Error('incoherent refresh group');
     this.#failureInjector('beforeRefreshPublish');
     const runGroup = { RunGroupID: batch.RunGroup.RunGroupID, PublishedAt: publishedAt, runs };
+    const findings = batch.PublishedFindings;
+    if (!findings) throw new Error('refresh findings are missing');
+    for (const name of ['brief', 'features', 'patterns', 'hotspots', 'anomalies', 'areaRisks', 'networks', 'districtContexts']) {
+      this.#state[name] = clone(findings[name]);
+    }
+    for (const alert of findings.alerts ?? []) {
+      if (!this.#state.alerts.some(row => row.AlertID === alert.AlertID)) this.#state.alerts.push(clone(alert));
+    }
     this.#state.runGroups.push(runGroup);
     Object.assign(batch, { Status: 'COMPLETED', RunGroup: runGroup, CompletedAt: publishedAt });
     return clone(batch);

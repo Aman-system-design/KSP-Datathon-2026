@@ -125,14 +125,38 @@ test('workflow denies wrong role, assignment, state/version, and isolates users 
 });
 
 test('concurrent commands for one expected version allow exactly one transition', async () => {
-  const { service } = harness();
+  const { service, repository } = harness();
   const results = await Promise.allSettled([
     service.execute(request({ idempotencyKey: 'concurrent-a' })),
-    service.execute(request({ idempotencyKey: 'concurrent-b' })),
+    service.execute(request({ idempotencyKey: 'concurrent-b', payload: { ...request().payload, assignedEmployeeId: 9010 } })),
   ]);
   assert.equal(results.filter(({ status }) => status === 'fulfilled').length, 1);
   const rejected = results.find(({ status }) => status === 'rejected');
   assert.equal(rejected.reason.code, 'INVALID_STATE');
+  const effective = await repository.getAssignmentsForAlert('ALT-PATTERN-1');
+  assert.equal(effective.length, 1);
+  const losingEmployee = effective[0].AssignedEmployeeID === 9003 ? 9010 : 9003;
+  assert.deepEqual(await repository.getAssignmentsForEmployee(losingEmployee), []);
+});
+
+test('a later command is blocked until the preceding version has command and audit completion', async () => {
+  let failed = false;
+  const { service } = harness({ failureInjector(point) {
+    if (!failed && point === 'afterAlertCas') { failed = true; const error = new Error(point); error.code = 'INJECTED_FAILURE'; throw error; }
+  } });
+  await assert.rejects(service.execute(request()), { code: 'INJECTED_FAILURE' });
+  await assert.rejects(service.execute(request({
+    access: analyst, route: '/v1/alerts/{alertId}/acknowledge', commandType: 'ACKNOWLEDGE',
+    idempotencyKey: 'premature-ack', expectedState: 'ASSIGNED', expectedVersion: 1,
+    payload: { note: 'Must wait.' },
+  })), { code: 'DATA_NOT_READY' });
+  await service.execute(request());
+  const acknowledged = await service.execute(request({
+    access: analyst, route: '/v1/alerts/{alertId}/acknowledge', commandType: 'ACKNOWLEDGE',
+    idempotencyKey: 'ack-after-recovery', expectedState: 'ASSIGNED', expectedVersion: 1,
+    payload: { note: 'Now complete.' },
+  }));
+  assert.equal(acknowledged.alert.status, 'ACKNOWLEDGED');
 });
 
 test('retry after every persistence boundary converges to exactly one result', async () => {

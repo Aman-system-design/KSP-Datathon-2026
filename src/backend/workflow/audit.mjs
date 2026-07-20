@@ -27,13 +27,15 @@ const digest = (event, key) => createHmac('sha256', key)
 export function buildAuditEvent({
   eventId, commandId, alertId, actorEmployeeId, eventType, streamSequence,
   previousEventHash, payload, occurredAt, keyVersion, key,
+  streamId = alertId, entityType = 'WF_Alert', entityBusinessId = alertId,
+  actorType = 'CATALYST_USER',
 }) {
   if (!key || !keyVersion) throw new TypeError('versioned audit key is required');
   const event = {
     AuditEventID: eventId, AlertID: alertId, CommandID: commandId,
-    ActorEmployeeID: actorEmployeeId ?? null, ActorType: 'CATALYST_USER',
-    EventType: eventType, EntityType: 'WF_Alert', EntityBusinessID: alertId,
-    EventPayloadJSON: canonicalStringify(payload), StreamID: alertId,
+    ActorEmployeeID: actorEmployeeId ?? null, ActorType: actorType,
+    EventType: eventType, EntityType: entityType, EntityBusinessID: entityBusinessId,
+    EventPayloadJSON: canonicalStringify(payload), StreamID: streamId,
     StreamSequence: streamSequence, HashAlgorithm: 'HMAC-SHA-256',
     HashKeyVersion: keyVersion, PreviousEventHash: previousEventHash ?? null,
     OccurredAt: occurredAt, SyntheticData: true,

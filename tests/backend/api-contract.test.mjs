@@ -8,6 +8,7 @@ import { buildDemoState } from '../../src/backend/repository/build-demo-state.mj
 import { MemoryIntelligenceRepository } from '../../src/backend/repository/memory-repository.mjs';
 import { resolveAccess } from '../../src/backend/security/identity.mjs';
 import { buildAuthorizedUnitSet } from '../../src/backend/security/scope.mjs';
+import { createAccessAuditService } from '../../src/backend/security/access-audit.mjs';
 import { createReadServices } from '../../src/backend/services/read-services.mjs';
 import { createCommandService } from '../../src/backend/workflow/command-service.mjs';
 
@@ -19,11 +20,14 @@ function harness({ environment = 'Development', readServicesOverride } = {}) {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const readServices = readServicesOverride ?? createReadServices({ repository, clock: () => new Date(clock()), idFactory: () => `REQ-${++id}` });
   const commandService = createCommandService({ repository, clock, idFactory: prefix => `${prefix}-${++id}`, auditKeys: { v1: 'api-test-key' }, activeAuditKeyVersion: 'v1' });
+  const auditService = createAccessAuditService({ repository, clock, idFactory: prefix => `${prefix}-${++id}`, auditKeys: { v1: 'api-test-key' }, activeAuditKeyVersion: 'v1' });
   const accessResolver = async ({ currentUser, profile, requestedPersona, units, assignments }) => {
     const base = resolveAccess({ currentUser, profile, requestedPersona, environment, policy });
     return Object.freeze({ ...base, authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }), assignments });
   };
-  return createDispatcher({ readServices, commandService, accessResolver, profileRepository: repository, environment });
+  const dispatch = createDispatcher({ readServices, commandService, accessResolver, profileRepository: repository, auditService, environment });
+  Object.defineProperty(dispatch, 'repository', { value: repository });
+  return dispatch;
 }
 
 const user = id => ({ user_id: id, status: 'ACTIVE' });
@@ -56,6 +60,8 @@ test('all eight reads dispatch through authenticated, scoped services', async ()
     assert.equal(response.status, 200, request.path);
     assert.equal(response.body.meta.syntheticData, true);
   }
+  const audit = await dispatch.repository.listAuditEvents();
+  assert.equal(audit.filter(row => row.EventType === 'SENSITIVE_READ').length, 8);
 });
 
 test('all four workflow operations dispatch through one complete lifecycle', async () => {
@@ -93,7 +99,9 @@ test('identity headers, undeclared routes, invalid bodies and forbidden scopes f
 
 test('demo persona is Development-only and internal failures return a non-leaking 500 shape', async () => {
   const demoRequest = get('/v1/intelligence/brief'); demoRequest.headers['X-Demo-Persona'] = 'STATE_LEADERSHIP';
-  assert.equal((await harness()({ request: demoRequest, currentUser: user('CAT-DEMO') })).status, 200);
+  const demoDispatch = harness();
+  assert.equal((await demoDispatch({ request: demoRequest, currentUser: user('CAT-DEMO') })).status, 200);
+  assert.ok((await demoDispatch.repository.listAuditEvents()).some(row => row.EventType === 'DEMO_PERSONA_ASSUMED'));
   assert.equal((await harness({ environment: 'Production' })({ request: demoRequest, currentUser: user('CAT-DEMO') })).status, 403);
 
   const broken = harness({ readServicesOverride: { async getBrief() { throw new Error('SDK ROWID 4349 secret-token stack'); } } });

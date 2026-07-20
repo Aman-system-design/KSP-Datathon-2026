@@ -46,7 +46,10 @@ test('selection exposes only the newest complete coherent group', () => {
 });
 
 test('refresh stages, verifies and atomically publishes one seven-type group', async () => {
-  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const state = buildDemoState();
+  state.patterns = [];
+  state.hotspots = [];
+  const repository = new MemoryIntelligenceRepository(state);
   const refresh = service(repository);
   const result = await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'REFRESH-2026-07-20', seed: 20260720 });
   assert.equal(result.status, 'COMPLETED');
@@ -54,6 +57,8 @@ test('refresh stages, verifies and atomically publishes one seven-type group', a
   assert.equal(result.runGroup.runs.length, 7);
   assert.equal(result.runGroup.runs.every(row => row.PublishStatus === 'PUBLISHED'), true);
   assert.equal((await repository.getCurrentRunGroup()).RunGroupID, result.runGroup.RunGroupID);
+  assert.ok(await repository.getPattern('PATTERN-1'), 'published findings replace the previously visible set');
+  assert.equal((await repository.listHotspots()).data.length, 1);
   assert.deepEqual(await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'REFRESH-2026-07-20', seed: 20260720 }), result);
 });
 

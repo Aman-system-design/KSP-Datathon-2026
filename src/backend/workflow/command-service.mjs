@@ -104,6 +104,14 @@ export function createCommandService({
         if (!alert) fail('NOT_FOUND');
         if (!access.authorizedUnitIds.has(alert.ScopeUnitID)) fail('FORBIDDEN_SCOPE');
         if (alert.Status !== expectedState || alert.AlertVersion !== expectedVersion) fail('INVALID_STATE');
+        if (expectedVersion > 0) {
+          const previousCommand = alert.LastCommandID
+            ? await repository.getCommand(alert.LastCommandID) : undefined;
+          const previousAudit = alert.LastCommandID
+            ? await repository.findAuditByCommand(alert.LastCommandID) : undefined;
+          if (previousCommand?.Status !== 'COMPLETED'
+            || previousAudit?.StreamSequence !== expectedVersion) fail('DATA_NOT_READY');
+        }
         if (commandType === 'ACKNOWLEDGE' || commandType === 'CONCLUDE') {
           const assignments = await repository.getAssignmentsForAlert(alertId);
           const current = assignments.at(-1);

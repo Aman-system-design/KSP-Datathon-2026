@@ -3,43 +3,12 @@ import { runIntelligencePipeline } from '@ksp/intelligence-core';
 import { toIntelligenceInput } from '../../ingestion/to-intelligence-input.mjs';
 import { validateSourceSeed } from '../../ingestion/validate-source-seed.mjs';
 import { generateSourceSeed } from '../../synthetic/source-seed.mjs';
+import { projectPipelineFindings } from '../refresh/finding-projection.mjs';
 
 const analysisTypes = [
   'FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK',
   'IDENTITY_RESOLUTION',
 ];
-const numericUnitId = districtId => Number(String(districtId).replace(/^D-/, ''));
-
-function buildPattern(row, cases) {
-  const evidence = row.evidenceCaseIds.map((id) => {
-    const caseRow = cases.find(({ caseId }) => caseId === id);
-    return {
-      unitId: numericUnitId(caseRow.districtId),
-      caseId: id,
-      stationId: caseRow.stationId,
-      personId: caseRow.accused[0]?.personId ?? null,
-      name: caseRow.accused[0]?.name ?? null,
-      briefFacts: caseRow.briefFacts,
-      exactCoordinates: [caseRow.latitude, caseRow.longitude],
-      evidenceObjectPath: `synthetic/cases/${id}`,
-    };
-  });
-  const unitIds = [...new Set(evidence.map(({ unitId }) => unitId))];
-  return {
-    ...structuredClone(row),
-    title: 'Synthetic cross-district property pattern',
-    recommendation: 'Review the linked synthetic cases and confirm or reject the proposed connection.',
-    alertId: `ALT-${row.id}`,
-    unitSummaries: unitIds.map(unitId => ({
-      unitId,
-      unitName: `Synthetic District ${unitId}`,
-      caseCount: evidence.filter(row => row.unitId === unitId).length,
-      observationPeriod: { from: '2026-06-01', to: '2026-06-30' },
-    })),
-    evidence,
-  };
-}
-
 export function buildDemoState() {
   const source = generateSourceSeed(20260720);
   const accepted = validateSourceSeed(source).accepted;
@@ -62,64 +31,27 @@ export function buildDemoState() {
     PublishedAt: publishedAt,
     SyntheticData: true,
   }));
-  const patterns = output.patterns.map(row => buildPattern(row, input.cases));
-  const unitByCase = new Map(input.cases.map(row => [row.caseId, numericUnitId(row.districtId)]));
-  const withEvidenceUnits = row => ({
-    ...structuredClone(row),
-    evidenceUnits: Object.fromEntries((row.evidenceCaseIds ?? []).map(id => [id, unitByCase.get(id)])),
-  });
-  const alert = patterns[0];
+  const projected = projectPipelineFindings({ output, input });
 
   return {
     syntheticData: true,
     source,
-    features: structuredClone(output.features),
+    features: projected.features,
     runGroups: [{ RunGroupID: runGroupId, PublishedAt: publishedAt, runs }],
-    brief: {
-      activeCaseCount: input.cases.length,
-      patternCount: patterns.length,
-      hotspotCount: output.hotspots.length,
-      anomalyCount: output.anomalies.filter(({ isAnomaly }) => isAnomaly).length,
-      syntheticData: true,
-    },
-    patterns,
-    hotspots: output.hotspots.map(row => ({
-      ...withEvidenceUnits(row),
-      recommendation: 'Review the synthetic hotspot area and contributing cases before operational prioritization.',
-    })),
-    anomalies: output.anomalies.map(row => ({
-      ...withEvidenceUnits(row),
-      recommendation: 'Review the observed change against local context and data-quality limitations.',
-    })),
-    areaRisks: [{
-      ...withEvidenceUnits(output.areaRisk),
-      method: 'EXPLAINABLE_WEIGHTED_SCORE',
-      recommendation: 'Use as an area-attention signal for human review, not as an individual prediction.',
-    }],
-    networks: [{
-      node: { id: 'CASE-001', unitId: 101, type: 'CASE' },
-      edges: structuredClone(output.network.edges.filter(({ sourceCaseId }) => sourceCaseId === 'CASE-001')),
-    }],
-    districtContexts: [
-      { unitId: 101, sourceLabel: 'Synthetic district context', period: '2026-Q2', indicators: { urbanizationIndex: 0.82 }, limitation: 'CORRELATION_IS_NOT_CAUSATION' },
-      { unitId: 102, sourceLabel: 'Synthetic district context', period: '2026-Q2', indicators: { urbanizationIndex: 0.58 }, limitation: 'CORRELATION_IS_NOT_CAUSATION' },
-    ],
+    brief: projected.brief,
+    patterns: projected.patterns,
+    hotspots: projected.hotspots,
+    anomalies: projected.anomalies,
+    areaRisks: projected.areaRisks,
+    networks: projected.networks,
+    districtContexts: projected.districtContexts,
     profiles: [
       { CatalystUserID: 'CAT-DEMO', DefaultRole: 'DEMO_PRESENTER', ScopeUnitID: 1, Active: true, DemoPersonaAllowed: true, PermissionVersion: '1.0.0', SyntheticData: true },
       { CatalystUserID: 'CAT-DISTRICT', EmployeeID: 9001, DefaultRole: 'DISTRICT_LEADERSHIP', ScopeUnitID: 101, Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true },
       { CatalystUserID: 'CAT-ANALYST', EmployeeID: 9003, DefaultRole: 'CRIME_ANALYST', ScopeUnitID: 101, Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true },
     ],
     units: structuredClone(accepted.Unit),
-    alerts: alert ? [{
-      AlertID: alert.alertId,
-      PatternID: alert.id,
-      ScopeUnitID: 101,
-      Status: 'GENERATED',
-      AlertVersion: 0,
-      LastCommandID: null,
-      OriginalFindingJSON: JSON.stringify(alert),
-      SyntheticData: true,
-    }] : [],
+    alerts: projected.alerts,
     commands: [], assignments: [], conclusions: [], outcomes: [], auditEvents: [],
     refreshBatches: [],
   };
