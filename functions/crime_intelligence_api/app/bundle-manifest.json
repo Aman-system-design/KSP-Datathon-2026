@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "target": "api",
+  "runtime": "node24",
+  "files": [
+    {
+      "path": "config/access-policy.json",
+      "sha256": "0449ae00bfa856c22645032c261709c3f0ab387d75cc78a1345421e07fdfb42d",
+      "bytes": 1123
+    },
+    {
+      "path": "src/backend/http/api-contract.mjs",
+      "sha256": "27ef69d14acde3f394d650868004b8e210c1eeb18f0138b9904729f59298ee0b",
+      "bytes": 1179
+    },
+    {
+      "path": "src/backend/http/dispatch.mjs",
+      "sha256": "50a218ed51d42a35ece52542430485aa656573746eb80f9d67db0fb6716b2993",
+      "bytes": 6882
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "1.0.0",
+  "target": "refresh",
+  "runtime": "node18",
+  "files": [
+    {
+      "path": "config/access-policy.json",
+      "sha256": "0449ae00bfa856c22645032c261709c3f0ab387d75cc78a1345421e07fdfb42d",
+      "bytes": 1123
+    },
+    {
+      "path": "data/synthetic-demo-input.json",
+      "sha256": "ddd070b58ed313943aff88e933eb0ed1b44a201c9f3469b42bef7c6c1a01e97a",
+      "bytes": 43999
+    },
+    {
+      "path": "src/backend/refresh/finding-projection.mjs",
+      "sha256": "b19a1795cb710a77ff303ba216ccee5b7343994b27c9eaa2ce631067c95fffd1",
+      "bytes": 6222
+    },
+    {
+      "path": "src/backend/refresh/refresh-service.mjs",
+      "sha256": "04bd8cf773668ce0f783833159491ed7a656f853fc6770d49f0bd9b3a7f4b7ee",
+      "bytes": 6131
+    },
+    {
+      "path": "src/backend/refresh/run-groups.mjs",
+      "sha256": "2fdc1d835678f975e390840469fc65f2a114b61c57a8e63080ce73f946229b81",
+      "bytes": 1632
+    },
+    {
+      "path": "src/backend/services/errors.mjs",
+      "sha256": "ba9cd0b867ce4d904e60528024cb667d7c1b8bc6f22e044b4bbc4a30b55a00d2",
+      "bytes": 530
+    },
+    {
+      "path": "src/backend/workflow/audit.mjs",
+      "sha256": "93d3966123a7e8309ba3e569c20e9537c23006fc7e1f1d342fc6ffbac8d42088",
+      "bytes": 2798
+    },
+    {
+      "path": "src/backend/workflow/canonical-json.mjs",
+      "sha256": "0b7676557ec249557d35936f9c48b860c89052b9b5b284c9c35e80a20e5e7f70",
+      "bytes": 838
+    },
+    {
+      "path": "src/ingestion/to-intelligence-input.mjs",
+      "sha256": "326def9abaee3ba8bed4b4e44f936fd428ea7a7b75d4db867c1f5bb974df27da",
+      "bytes": 4805
+    },
+    {
+      "path": "src/ingestion/validate-source-seed.mjs",
+      "sha256": "d1a482ba2a149480445cb6d91d21adfa57c14eb766d4bfa85121dc1d6a606dcd",
+      "bytes": 4464
+    },
+    {
+      "path": "src/synthetic/source-seed.mjs",
+      "sha256": "0be07cfcfefe45c03e266ff517eca39178cc010d078cf40dcc15c5a8c2c277c2",
+      "bytes": 11915
+    },
+    {
+      "path": "vendor/intelligence-core/index.mjs",
+      "sha256": "0c973d123f3d109902b44189f5b1ca564c7ed1cf546970d84b7b57e7f0295c6f",
+      "bytes": 62
+    },
+    {
+      "path": "vendor/intelligence-core/package.json",
+      "sha256": "0034774882e03d61110612d0b8381b1baf69963b03f19d7eb3a01ca22d804a5a",
+      "bytes": 225
+    },
+    {
+      "path": "vendor/intelligence-core/src/anomaly.mjs",
+      "sha256": "c7d0d0f1fc316d5c02fb17b2c4dad553ac59535ade63ae8c250be89a055dd3c3",
+      "bytes": 1183
+    },
+    {
+      "path": "vendor/intelligence-core/src/area-risk.mjs",
+      "sha256": "1f03b8b22bbadf5524b06a134c3d17832107890253b09d47b3e7d7a058f3818a",
+      "bytes": 961
+    },
+    {
+      "path": "vendor/intelligence-core/src/contracts.mjs",
+      "sha256": "53c8dfd67017377bee5cff6d833a4aa7ad1348e8e9373cc91d72a09c4566fd54",
+      "bytes": 1280
+    },
+    {
+      "path": "vendor/intelligence-core/src/features.mjs",
+      "sha256": "3938ed5d40d3ced33881bac3bbadecb98ab2cb10538465cf947deaf332d21537",
+      "bytes": 1579
+    },
+    {
+      "path": "vendor/intelligence-core/src/hotspot.mjs",
+      "sha256": "284f44626198ec5ff92a0fcacda4c761c2b10b6717de9d7e429fa613d29cff29",
+      "bytes": 1922
+    },
+    {
+      "path": "vendor/intelligence-core/src/identity.mjs",
+      "sha256": "3feff14e5f235d274aebd7d09b6af14bbfdbde829cc8f4a36a479950db1c9eef",
+      "bytes": 2045
+    },
+    {
+      "path": "vendor/intelligence-core/src/math.mjs",
+      "sha256": "a53b0d76e754a9dad9b77b4ec652ddd7a1fab3d668dbcb48cf8f086591747443",
+      "bytes": 953
+    },
+    {
+      "path": "vendor/intelligence-core/src/network.mjs",
+      "sha256": "16b19facae4648170cd183f2c88e1098354c26a747db72f4c4d2cb29d5a2122e",
+      "bytes": 2301
+    },
+    {
+      "path": "vendor/intelligence-core/src/pattern-fusion.mjs",
+      "sha256": "987dee20b1caab09fa443fee69af57548351c283c1c1db9a93dceb622190150b",
+      "bytes": 4037
+    },
+    {
+      "path": "vendor/intelligence-core/src/pipeline.mjs",
+      "sha256": "689f1411ee3bdb1adc66f28bafd712dd8538747b09cd51dca1c004158933c2e2",
+      "bytes": 3755
+    },
+    {
+      "path": "vendor/intelligence-core/src/text-similarity.mjs",
+      "sha256": "546a1d48c2550489052a4e42c123d115906ccb400adbb49d2d8e2a26d2a27671",
+      "bytes": 1035
+    }
+  ]
+}

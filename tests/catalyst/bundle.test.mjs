@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
+
+import { buildFunctionBundle } from '../../scripts/catalyst/build-functions.mjs';
+import { inspectBundle } from '../../scripts/catalyst/inspect-bundle.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..', '..');
 const expectedFunctions = Object.freeze([
@@ -19,6 +24,11 @@ const expectedFunctions = Object.freeze([
     dependencies: { 'zcatalyst-sdk-node': '^2.5.0' },
   },
 ]);
+const temporaryRoots = [];
+
+afterEach(() => {
+  for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 
 function readJson(relativePath) {
   return JSON.parse(readFileSync(path.join(repositoryRoot, relativePath), 'utf8'));
@@ -72,4 +82,48 @@ test('Function roots contain no installed dependencies or personal metadata', ()
     .map((file) => readFileSync(path.join(repositoryRoot, file), 'utf8'))
     .join('\n');
   assert.doesNotMatch(text, /@(?!example\.invalid\b)(?:gmail|outlook|hotmail|yahoo|zoho)\.[a-z]+/i);
+});
+
+test('builds deterministic self-contained API and refresh application bundles', () => {
+  for (const target of ['api', 'refresh']) {
+    const firstRoot = mkdtempSync(path.join(os.tmpdir(), `ksp-${target}-a-`));
+    const secondRoot = mkdtempSync(path.join(os.tmpdir(), `ksp-${target}-b-`));
+    temporaryRoots.push(firstRoot, secondRoot);
+
+    const first = buildFunctionBundle({ target, repositoryRoot, functionRoot: firstRoot });
+    const second = buildFunctionBundle({ target, repositoryRoot, functionRoot: secondRoot });
+    assert.deepEqual(first, second);
+    assert.deepEqual(first.files.map(({ path: file }) => file), [...first.files.map(({ path: file }) => file)].sort());
+
+    for (const file of first.files) {
+      const bytes = readFileSync(path.join(firstRoot, 'app', file.path));
+      assert.equal(file.bytes, bytes.byteLength);
+      assert.equal(file.sha256, createHash('sha256').update(bytes).digest('hex'));
+    }
+
+    const inspection = inspectBundle({ functionRoot: firstRoot });
+    assert.equal(inspection.valid, true);
+    assert.equal(inspection.unresolvedImports.length, 0);
+    assert.equal(inspection.forbiddenFiles.length, 0);
+  }
+});
+
+test('bundle inventory excludes test/evaluation material and includes approved runtime assets', () => {
+  const apiRoot = mkdtempSync(path.join(os.tmpdir(), 'ksp-api-assets-'));
+  const refreshRoot = mkdtempSync(path.join(os.tmpdir(), 'ksp-refresh-assets-'));
+  temporaryRoots.push(apiRoot, refreshRoot);
+  const api = buildFunctionBundle({ target: 'api', repositoryRoot, functionRoot: apiRoot });
+  const refresh = buildFunctionBundle({ target: 'refresh', repositoryRoot, functionRoot: refreshRoot });
+  const apiPaths = api.files.map(file => file.path);
+  const refreshPaths = refresh.files.map(file => file.path);
+  const allPaths = [...apiPaths, ...refreshPaths].join('\n');
+
+  assert.match(apiPaths.join('\n'), /src\/backend\/http\/dispatch\.mjs/);
+  assert.match(refreshPaths.join('\n'), /src\/backend\/refresh\/refresh-service\.mjs/);
+  assert.match(refreshPaths.join('\n'), /vendor\/intelligence-core\/index\.mjs/);
+  assert.doesNotMatch(refreshPaths.join('\n'), /vendor\/intelligence-core\/src\/evaluate\.mjs/);
+  assert.match(refreshPaths.join('\n'), /data\/synthetic-demo-input\.json/);
+  assert.match(allPaths, /config\/access-policy\.json/);
+  assert.doesNotMatch(allPaths, /(?:^|\/)(?:fixtures|tests|docs|artifacts|\.git)(?:\/|$)/i);
+  assert.doesNotMatch(allPaths, /hidden[-_]?truth|token|credential|secret/i);
 });

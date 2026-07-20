@@ -15,6 +15,8 @@
     "schema:compare": "node scripts/schema/compare-catalyst-export.mjs",
     "catalyst:preflight": "node scripts/catalyst/preflight.mjs",
     "catalyst:preflight:remote": "node scripts/catalyst/preflight.mjs --remote",
+    "catalyst:build": "node scripts/catalyst/build-functions.mjs",
+    "catalyst:inspect": "node scripts/catalyst/inspect-bundle.mjs",
     "intelligence-schema:validate": "node scripts/schema/validate-intelligence-schema.mjs",
     "intelligence-schema:runbook": "node scripts/schema/generate-intelligence-runbook.mjs",
     "compat:node18": "npx --yes node@18.20.8 --test tests/compat/node18-core.test.mjs",
