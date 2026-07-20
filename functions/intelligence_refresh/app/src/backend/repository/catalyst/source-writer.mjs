@@ -5,6 +5,11 @@ import { createSourceProjector } from '../../../../scripts/catalyst/source-row-p
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const chunks = (rows, size = 200) => Array.from({ length: Math.ceil(rows.length / size) }, (_, index) => rows.slice(index * size, (index + 1) * size));
 const manifestHash = manifest => createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
+const catalystDateTime = value => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new TypeError('Catalyst DateTime value is invalid.');
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+};
 
 function insertedRows(response) {
   const rows = Array.isArray(response) ? response : response?.data;
@@ -42,7 +47,7 @@ export function createCatalystSourceWriter({
     }
 
     const sourceTableCount = Object.keys(source?.tables ?? accepted ?? {}).length;
-    const startedAt = clock();
+    const startedAt = catalystDateTime(clock());
     const batch = insertedRow(await datastore.table('TRN_IngestionBatch').insertRow({
       BatchID: batchKey,
       SchemaVersion: manifest.schemaVersion,
@@ -54,7 +59,6 @@ export function createCatalystSourceWriter({
       WarningRowCount: 0,
       RejectedRowCount: reconciliation.rejectedRows,
       StartedAt: startedAt,
-      CompletedAt: null,
       IsSynthetic: true,
     }));
 
@@ -113,13 +117,13 @@ export function createCatalystSourceWriter({
       SourceFileName: `synthetic://${batchKey}/${reject.table}.json`, SourceRowNumber: index + 1,
       SourceEntity: String(reject.table).slice(0, 64), ReasonCode: String(reject.reasonCode).slice(0, 64),
       ReasonDetail: 'Rejected by deterministic source validation.', PayloadObjectPath: null,
-      RejectedAt: clock(), IsSynthetic: true,
+      RejectedAt: catalystDateTime(clock()), IsSynthetic: true,
     }));
     for (const rowChunk of chunks(redactedRejects)) {
       if (rowChunk.length > 0) insertedRows(await datastore.table('TRN_RejectedRecord').insertRows(rowChunk));
     }
 
-    const completedAt = clock();
+    const completedAt = catalystDateTime(clock());
     await datastore.table('TRN_IngestionBatch').updateRow({
       ...batch, Status: 'COMPLETED', CompletedAt: completedAt,
     });

@@ -10,8 +10,8 @@
     },
     {
       "path": "scripts/catalyst/source-row-projector.mjs",
-      "sha256": "57be6035f3a1d38db1e4fbcd16d7751549b0716f87be774e4db31bbb65d52f5e",
-      "bytes": 5657
+      "sha256": "f26e8b384bcf9d74b25f2f596fc20ddae6fc8a049c7360a691a9f209a26ac3bc",
+      "bytes": 6229
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
@@ -65,8 +65,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/source-writer.mjs",
-      "sha256": "38c404deaedaf16ee5aad737645dc2af31810a00295a07f02d159ee1134842ad",
-      "bytes": 6990
+      "sha256": "8150c8d23ee8f3cd4926cf0b48d391aa53b1491fc38e2ecbfd87ef9ca24c3b7f",
+      "bytes": 7246
     },
     {
       "path": "src/backend/repository/zcql-cas.mjs",

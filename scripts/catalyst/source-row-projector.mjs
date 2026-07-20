@@ -23,6 +23,13 @@ const hasValue = value => value !== null && value !== undefined && value !== '';
 const stableObject = value => Object.fromEntries(Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
 const hash = value => createHash('sha256').update(JSON.stringify(stableObject(value))).digest('hex');
 
+function catalystTemporalValue(column, value) {
+  if (!hasValue(value) || !['date', 'datetime'].includes(column.type)) return structuredClone(value);
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}:\d{2}))?/u);
+  if (!match || (column.type === 'datetime' && !match[2])) throw new TypeError(`Invalid ${column.type} value for ${column.name}.`);
+  return column.type === 'date' ? match[1] : `${match[1]} ${match[2]}`;
+}
+
 function businessColumns(table) {
   const unique = table.columns.filter(column => column.origin === 'PDF' && column.unique).map(column => column.name);
   if (unique.length > 0) return [unique[0]];
@@ -56,13 +63,14 @@ export function createSourceProjector({ manifest }) {
 
   function projectTable({ table, rows, batchKey, batchRowId, keyMap }) {
     if (!hasValue(batchRowId)) throw new Error('Catalyst batch ROWID is required.');
-    const pdfColumns = table.columns.filter(column => column.origin === 'PDF').map(column => column.name);
+    const pdfColumns = table.columns.filter(column => column.origin === 'PDF');
     return {
       tableName: table.name,
       sourceName: table.sourceName,
       loadOrder: table.loadOrder,
       records: rows.map((sourceRow, index) => {
-        const pdf = Object.fromEntries(pdfColumns.map(column => [column, structuredClone(sourceRow[column])]));
+        const rawPdf = Object.fromEntries(pdfColumns.map(column => [column.name, structuredClone(sourceRow[column.name])]));
+        const pdf = Object.fromEntries(pdfColumns.map(column => [column.name, catalystTemporalValue(column, sourceRow[column.name])]));
         const row = {
           ...pdf,
           SourceBatchRef: String(batchRowId),
@@ -70,7 +78,7 @@ export function createSourceProjector({ manifest }) {
           SourceRowNumber: index + 1,
           SourceSchemaVersion: manifest.schemaVersion,
           IsSynthetic: true,
-          SourceRecordHash: hash(pdf),
+          SourceRecordHash: hash(rawPdf),
           ValidationStatus: 'ACCEPTED',
         };
         for (const foreignKey of table.columns.filter(column => column.type === 'foreign_key')) {

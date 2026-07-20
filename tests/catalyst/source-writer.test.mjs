@@ -38,6 +38,25 @@ test('projects all 26 entities with exact PDF columns and synthetic batch proven
   assert.match(victim.VictimPolice, /^[YN]$/);
 });
 
+test('projects Date and DateTime values in Catalyst Data Store formats', () => {
+  const projections = createSourceProjector({ manifest }).projectBatch({
+    batchKey: 'KSP-DEMO-20260720-V1', batchRowId: '9000001', accepted: validation.accepted,
+  });
+  for (const projection of projections) {
+    const table = manifest.tables.find(item => item.name === projection.tableName);
+    for (const column of table.columns.filter(item => ['date', 'datetime'].includes(item.type))) {
+      for (const record of projection.records) {
+        const value = record.row[column.name];
+        if (value === null || value === undefined) continue;
+        assert.match(value, column.type === 'date'
+          ? /^\d{4}-\d{2}-\d{2}$/
+          : /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+        `${projection.tableName}.${column.name}`);
+      }
+    }
+  }
+});
+
 test('relationship references use parent business keys and real Catalyst ROWIDs, never names', () => {
   const projector = createSourceProjector({ manifest });
   const parentTable = manifest.tables.find(table => table.name === 'SRC_CaseMaster');
@@ -107,10 +126,16 @@ test('writes parents first in bounded batches, maps returned ROWIDs and replays 
   assert.deepEqual(second, first);
   assert.equal(datastore.operations.length, writeCount, 'replay must not insert duplicate rows');
 
+  const initialBatchWrite = datastore.operations.find(operation => operation.kind === 'insertRow'
+    && operation.table === 'TRN_IngestionBatch').records[0];
+  assert.equal(initialBatchWrite.StartedAt, '2026-07-20 15:00:00');
+  assert.equal(Object.hasOwn(initialBatchWrite, 'CompletedAt'), false);
+
   const sourceWrites = datastore.operations.filter(operation => operation.table.startsWith('SRC_'));
   assert.equal(new Set(sourceWrites.map(operation => operation.table)).size, 26);
   assert.equal(Math.max(...sourceWrites.map(operation => operation.records.length)) <= 200, true);
   const batchRow = datastore.rows.get('TRN_IngestionBatch')[0];
+  assert.equal(batchRow.CompletedAt, '2026-07-20 15:00:00');
   assert.ok(sourceWrites.every(operation => operation.records.every(row => row.SourceBatchRef === batchRow.ROWID)));
   const child = datastore.rows.get('SRC_ComplainantDetails')[0];
   assert.match(child.CaseMasterRef, /^\d+$/);
@@ -135,4 +160,5 @@ test('persists only redacted reject metadata and never rejected payloads', async
   const serialized = JSON.stringify(datastore.rows.get('TRN_RejectedRecord'));
   assert.doesNotMatch(serialized, /Must Not Persist|private-name/);
   assert.match(serialized, /ORPHAN_CASE/);
+  assert.equal(datastore.rows.get('TRN_RejectedRecord')[0].RejectedAt, '2026-07-20 15:00:00');
 });
