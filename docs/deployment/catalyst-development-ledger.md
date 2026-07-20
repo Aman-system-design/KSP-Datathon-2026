@@ -14,5 +14,6 @@ Secrets, Catalyst tokens, session material, personal invitation addresses, HMAC 
 
 | IST time | Commit | Checkpoint | Remote mutation | Resources/IDs | Verification | Rollback | Verdict |
 |---|---|---|---|---|---|---|---|
+| 2026-07-20 20:14:30 IST | `8a47eeb` | Pre-scaffold Catalyst CLI state | None; local Function scaffolding only | CLI `1.27.0`; project `43492000000013049`; branch `codex/catalyst-development` | Remote preflight passed; clean tree; Development and synthetic-only locks active | Delete uncommitted local scaffold files | PASS |
 
 No Catalyst resource mutation has occurred in this deployment track yet.

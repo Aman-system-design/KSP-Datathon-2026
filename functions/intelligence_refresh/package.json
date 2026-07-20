@@ -1,0 +1,10 @@
+{
+	"name": "intelligence_refresh",
+	"version": "1.0.0",
+	"private": true,
+	"main": "index.cjs",
+	"author": "KSP Datathon <ksp-datathon@example.invalid>",
+	"dependencies": {
+		"zcatalyst-sdk-node": "^2.5.0"
+	}
+}

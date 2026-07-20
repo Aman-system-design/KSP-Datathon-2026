@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "targets": [
+      "crime_intelligence_api",
+      "intelligence_refresh"
+    ],
+    "ignore": [],
+    "source": "functions"
+  }
+}
