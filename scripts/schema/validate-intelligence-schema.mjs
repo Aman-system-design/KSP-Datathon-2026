@@ -2,11 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 const expectedTables = [
+  'CFG_UserAccess',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
   'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence',
-  'WF_Alert', 'WF_AlertEvidence', 'WF_Assignment', 'WF_AnalystConclusion', 'WF_Outcome',
-  'WF_AuditEvent',
+  'WF_Alert', 'WF_Command', 'WF_AlertEvidence', 'WF_Assignment', 'WF_AnalystConclusion',
+  'WF_Outcome', 'WF_AuditEvent',
 ];
 const allowedTypes = new Set([
   'bigint', 'boolean', 'date', 'datetime', 'double', 'foreign_key', 'int', 'text', 'varchar',
@@ -20,7 +21,7 @@ export function validateIntelligenceSchema(schema) {
   const known = new Set(names);
 
   if (JSON.stringify(names) !== JSON.stringify(expectedTables)) {
-    errors.push('manifest must define the exact ordered 19-table intelligence boundary');
+    errors.push('manifest must define the exact ordered 21-table backend boundary');
   }
 
   for (const duplicate of new Set(names.filter((name, index) => names.indexOf(name) !== index))) {
@@ -29,7 +30,7 @@ export function validateIntelligenceSchema(schema) {
 
   for (const table of tables) {
     if (!namePattern.test(table.name ?? '')) errors.push(`illegal table name: ${table.name}`);
-    if (!['TRANSFORMATION', 'INTELLIGENCE', 'WORKFLOW'].includes(table.zone)) {
+    if (!['CONFIGURATION', 'TRANSFORMATION', 'INTELLIGENCE', 'WORKFLOW'].includes(table.zone)) {
       errors.push(`${table.name} has unsupported zone ${table.zone}`);
     }
     if (!Number.isInteger(table.loadOrder) || table.loadOrder < 1) {
@@ -94,6 +95,61 @@ export function validateIntelligenceSchema(schema) {
     if (!columnNames.has('AnalysisRunRef')) errors.push(`${table.name} missing AnalysisRunRef`);
   }
 
+  const requireColumns = (tableName, required) => {
+    const columns = tables.find(({ name }) => name === tableName)?.columns ?? [];
+    const columnNames = new Set(columns.map(({ name }) => name));
+    for (const name of required) {
+      if (!columnNames.has(name)) errors.push(`${tableName} missing ${name}`);
+    }
+    return columns;
+  };
+
+  const accessColumns = requireColumns('CFG_UserAccess', [
+    'AccessProfileID', 'CatalystUserID', 'EmployeeID', 'DefaultRole', 'ScopeUnitID',
+    'DemoPersonaAllowed', 'PermissionVersion', 'Active', 'SyntheticData',
+  ]);
+  const catalystUserId = accessColumns.find(({ name }) => name === 'CatalystUserID');
+  if (catalystUserId && catalystUserId.unique !== true) {
+    errors.push('CFG_UserAccess.CatalystUserID must be unique');
+  }
+
+  requireColumns('WF_Command', [
+    'CommandID', 'IdempotencyKeyHash', 'RequestHash', 'AlertRef',
+    'ActorCatalystUserID', 'EffectiveRole', 'CommandType', 'ExpectedAlertState',
+    'ExpectedAlertVersion', 'TargetAlertState', 'Status', 'ResponseJSON', 'ErrorCode',
+    'CreatedAt', 'CompletedAt', 'SyntheticData',
+  ]);
+  if (tables.some(table => table.columns.some(({ name }) => name === 'IdempotencyKey'))) {
+    errors.push('raw IdempotencyKey must never be persisted');
+  }
+
+  const runColumns = requireColumns('INT_AnalysisRun', [
+    'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublishedAt',
+  ]);
+  const runTypeKey = runColumns.find(({ name }) => name === 'RunTypeKey');
+  if (runTypeKey && runTypeKey.unique !== true) {
+    errors.push('INT_AnalysisRun.RunTypeKey must be unique');
+  }
+
+  requireColumns('WF_Alert', ['AlertVersion', 'LastCommandRef']);
+  for (const tableName of ['WF_Assignment', 'WF_AnalystConclusion', 'WF_Outcome']) {
+    const columns = requireColumns(tableName, ['CommandRef']);
+    const commandRef = columns.find(({ name }) => name === 'CommandRef');
+    if (commandRef && commandRef.mandatory !== true) {
+      errors.push(`${tableName}.CommandRef must be mandatory`);
+    }
+  }
+  requireColumns('WF_Assignment', [
+    'AuthorizedUnitIDsJSON', 'AuthorizedCaseIDsJSON', 'EvidenceAccessLevel',
+  ]);
+  const auditColumns = requireColumns('WF_AuditEvent', [
+    'CommandRef', 'StreamID', 'StreamSequence', 'HashAlgorithm', 'HashKeyVersion',
+  ]);
+  const auditCommand = auditColumns.find(({ name }) => name === 'CommandRef');
+  if (auditCommand && auditCommand.mandatory !== false) {
+    errors.push('WF_AuditEvent.CommandRef must be optional for non-workflow events');
+  }
+
   return [...new Set(errors)].sort();
 }
 
@@ -108,7 +164,7 @@ async function runCli() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS: 19 Catalyst intelligence/workflow tables are valid.');
+  console.log('PASS: 21 Catalyst backend tables are valid.');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

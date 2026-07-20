@@ -14,6 +14,24 @@ This document is generated only from `schema/catalyst/intelligence-schema.json`.
 
 Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATEDTIME`, and `MODIFIEDTIME`; do not add them manually.
 
+## Create table: CFG_UserAccess
+
+- Zone: CONFIGURATION
+- Load order: 1
+- Application business ID: `AccessProfileID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `AccessProfileID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `CatalystUserID` | AUTHENTICATION | Var Char | 128 | Yes | Yes | Yes | Yes | - |
+| 3 | `EmployeeID` | SOURCE | BigInt | - | No | No | Yes | Yes | - |
+| 4 | `DefaultRole` | CONFIGURATION | Var Char | 48 | Yes | No | Yes | No | - |
+| 5 | `ScopeUnitID` | SOURCE | BigInt | - | Yes | No | Yes | No | - |
+| 6 | `DemoPersonaAllowed` | CONFIGURATION | Boolean | - | Yes | No | No | No | No |
+| 7 | `PermissionVersion` | CONFIGURATION | Var Char | 32 | Yes | No | Yes | No | - |
+| 8 | `Active` | CONFIGURATION | Boolean | - | Yes | No | No | No | Yes |
+| 9 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
 ## Create table: TRN_CaseFeature
 
 - Zone: TRANSFORMATION
@@ -93,14 +111,19 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
 |---:|---|---|---|---:|---|---|---|---|---|
 | 1 | `AnalysisRunID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
-| 2 | `Status` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
-| 3 | `ObservationStart` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 4 | `ObservationEnd` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 5 | `EngineVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
-| 6 | `MethodVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
-| 7 | `InputManifestHash` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
-| 8 | `CompletedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
-| 9 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+| 2 | `RunGroupID` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
+| 3 | `AnalysisType` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 4 | `RunTypeKey` | SYSTEM | Var Char | 128 | Yes | Yes | Yes | No | - |
+| 5 | `Status` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
+| 6 | `PublishStatus` | SYSTEM | Var Char | 24 | Yes | No | Yes | No | - |
+| 7 | `ObservationStart` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 8 | `ObservationEnd` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 9 | `EngineVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 10 | `MethodVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 11 | `InputManifestHash` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
+| 12 | `CompletedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
+| 13 | `PublishedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
+| 14 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
 ## Create table: INT_Anomaly
 
@@ -257,16 +280,41 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | 3 | `FindingBusinessID` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
 | 4 | `ScopeUnitID` | SOURCE | BigInt | - | Yes | No | Yes | No | - |
 | 5 | `Status` | WORKFLOW | Var Char | 24 | Yes | No | Yes | No | - |
-| 6 | `Severity` | DERIVED | Double | - | Yes | No | No | No | - |
-| 7 | `OriginalFindingJSON` | SYSTEM | Text | - | Yes | No | No | Yes | - |
-| 8 | `MethodVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
-| 9 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 10 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+| 6 | `AlertVersion` | WORKFLOW | Int | - | Yes | No | No | No | 0 |
+| 7 | `Severity` | DERIVED | Double | - | Yes | No | No | No | - |
+| 8 | `OriginalFindingJSON` | SYSTEM | Text | - | Yes | No | No | Yes | - |
+| 9 | `MethodVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 10 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 11 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
+## Create table: WF_Command
+
+- Zone: WORKFLOW
+- Load order: 41
+- Application business ID: `CommandID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `CommandID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `IdempotencyKeyHash` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 3 | `RequestHash` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
+| 4 | `ActorCatalystUserID` | AUTHENTICATION | Var Char | 128 | Yes | No | Yes | Yes | - |
+| 5 | `EffectiveRole` | AUTHORIZATION | Var Char | 48 | Yes | No | Yes | No | - |
+| 6 | `CommandType` | WORKFLOW | Var Char | 32 | Yes | No | Yes | No | - |
+| 7 | `ExpectedAlertState` | WORKFLOW | Var Char | 24 | Yes | No | No | No | - |
+| 8 | `ExpectedAlertVersion` | WORKFLOW | Int | - | Yes | No | No | No | - |
+| 9 | `TargetAlertState` | WORKFLOW | Var Char | 24 | Yes | No | No | No | - |
+| 10 | `Status` | WORKFLOW | Var Char | 24 | Yes | No | Yes | No | - |
+| 11 | `ResponseJSON` | WORKFLOW | Text | - | No | No | No | Yes | - |
+| 12 | `ErrorCode` | WORKFLOW | Var Char | 64 | No | No | Yes | No | - |
+| 13 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 14 | `CompletedAt` | SYSTEM | DateTime | - | No | No | No | No | - |
+| 15 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
 ## Create table: WF_AlertEvidence
 
 - Zone: WORKFLOW
-- Load order: 41
+- Load order: 42
 - Application business ID: `AlertEvidenceID`
 
 | Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
@@ -304,8 +352,11 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | 3 | `AssignedEmployeeID` | WORKFLOW | BigInt | - | No | No | Yes | Yes | - |
 | 4 | `AssignedByEmployeeID` | WORKFLOW | BigInt | - | Yes | No | Yes | Yes | - |
 | 5 | `Reason` | WORKFLOW | Text | - | Yes | No | No | No | - |
-| 6 | `AssignedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 7 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+| 6 | `AuthorizedUnitIDsJSON` | AUTHORIZATION | Text | - | Yes | No | No | No | - |
+| 7 | `AuthorizedCaseIDsJSON` | AUTHORIZATION | Text | - | Yes | No | No | Yes | - |
+| 8 | `EvidenceAccessLevel` | AUTHORIZATION | Var Char | 32 | Yes | No | Yes | No | - |
+| 9 | `AssignedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 10 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
 ## Create table: WF_Outcome
 
@@ -337,10 +388,14 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | 5 | `EntityType` | WORKFLOW | Var Char | 64 | Yes | No | Yes | No | - |
 | 6 | `EntityBusinessID` | WORKFLOW | Var Char | 64 | Yes | No | Yes | No | - |
 | 7 | `EventPayloadJSON` | WORKFLOW | Text | - | Yes | No | No | Yes | - |
-| 8 | `PreviousEventHash` | SYSTEM | Var Char | 64 | No | No | Yes | No | - |
-| 9 | `EventHash` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
-| 10 | `OccurredAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
-| 11 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+| 8 | `StreamID` | SYSTEM | Var Char | 64 | Yes | No | Yes | No | - |
+| 9 | `StreamSequence` | SYSTEM | Int | - | Yes | No | No | No | - |
+| 10 | `HashAlgorithm` | SYSTEM | Var Char | 32 | Yes | No | No | No | - |
+| 11 | `HashKeyVersion` | SYSTEM | Var Char | 32 | Yes | No | Yes | No | - |
+| 12 | `PreviousEventHash` | SYSTEM | Var Char | 64 | No | No | Yes | No | - |
+| 13 | `EventHash` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 14 | `OccurredAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 15 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
 ## Phase B - Add Foreign Key columns
 
@@ -359,12 +414,18 @@ Add these after all Phase A tables exist. For every row below select the parent 
 | 9 | `INT_NetworkEdge` | `ToNodeRef` | `INT_NetworkNode` | Yes | NULL |
 | 10 | `INT_FindingEvidence` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
 | 11 | `WF_Alert` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 12 | `WF_AlertEvidence` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 13 | `WF_AlertEvidence` | `FindingEvidenceRef` | `INT_FindingEvidence` | Yes | NULL |
-| 14 | `WF_AnalystConclusion` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 15 | `WF_Assignment` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 16 | `WF_Outcome` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 17 | `WF_AuditEvent` | `AlertRef` | `WF_Alert` | No | NULL |
+| 12 | `WF_Alert` | `LastCommandRef` | `WF_Command` | No | NULL |
+| 13 | `WF_Command` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 14 | `WF_AlertEvidence` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 15 | `WF_AlertEvidence` | `FindingEvidenceRef` | `INT_FindingEvidence` | Yes | NULL |
+| 16 | `WF_AnalystConclusion` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 17 | `WF_AnalystConclusion` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 18 | `WF_Assignment` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 19 | `WF_Assignment` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 20 | `WF_Outcome` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 21 | `WF_Outcome` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 22 | `WF_AuditEvent` | `AlertRef` | `WF_Alert` | No | NULL |
+| 23 | `WF_AuditEvent` | `CommandRef` | `WF_Command` | No | NULL |
 
 ## Post-creation verification checklist
 
@@ -378,11 +439,12 @@ Add these after all Phase A tables exist. For every row below select the parent 
 
 | Table | Expected columns | Catalyst table ID | Observed columns | Verified by | Verified at | Evidence path |
 |---|---:|---|---:|---|---|---|
+| `CFG_UserAccess` | 9 |  |  |  |  |  |
 | `TRN_CaseFeature` | 9 |  |  |  |  |  |
 | `TRN_DistrictContext` | 9 |  |  |  |  |  |
 | `TRN_LocationFeature` | 8 |  |  |  |  |  |
 | `TRN_PersonResolution` | 8 |  |  |  |  |  |
-| `INT_AnalysisRun` | 9 |  |  |  |  |  |
+| `INT_AnalysisRun` | 14 |  |  |  |  |  |
 | `INT_Anomaly` | 10 |  |  |  |  |  |
 | `INT_AreaRisk` | 12 |  |  |  |  |  |
 | `INT_Hotspot` | 10 |  |  |  |  |  |
@@ -391,9 +453,10 @@ Add these after all Phase A tables exist. For every row below select the parent 
 | `INT_RepeatOffenderSignal` | 10 |  |  |  |  |  |
 | `INT_NetworkEdge` | 10 |  |  |  |  |  |
 | `INT_FindingEvidence` | 10 |  |  |  |  |  |
-| `WF_Alert` | 11 |  |  |  |  |  |
+| `WF_Alert` | 13 |  |  |  |  |  |
+| `WF_Command` | 16 |  |  |  |  |  |
 | `WF_AlertEvidence` | 5 |  |  |  |  |  |
-| `WF_AnalystConclusion` | 8 |  |  |  |  |  |
-| `WF_Assignment` | 8 |  |  |  |  |  |
-| `WF_Outcome` | 7 |  |  |  |  |  |
-| `WF_AuditEvent` | 12 |  |  |  |  |  |
+| `WF_AnalystConclusion` | 9 |  |  |  |  |  |
+| `WF_Assignment` | 12 |  |  |  |  |  |
+| `WF_Outcome` | 8 |  |  |  |  |  |
+| `WF_AuditEvent` | 17 |  |  |  |  |  |

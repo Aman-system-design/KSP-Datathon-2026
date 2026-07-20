@@ -4,8 +4,22 @@
   "environment": "Development",
   "syntheticOnly": true,
   "defaultOnDelete": "NULL",
-  "zones": ["TRANSFORMATION", "INTELLIGENCE", "WORKFLOW"],
+  "zones": ["CONFIGURATION", "TRANSFORMATION", "INTELLIGENCE", "WORKFLOW"],
   "tables": [
+    {
+      "name": "CFG_UserAccess", "zone": "CONFIGURATION", "loadOrder": 1, "businessId": "AccessProfileID",
+      "columns": [
+        {"name":"AccessProfileID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"CatalystUserID","origin":"AUTHENTICATION","type":"varchar","maxLength":128,"mandatory":true,"unique":true,"indexed":true,"pii":true},
+        {"name":"EmployeeID","origin":"SOURCE","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":true},
+        {"name":"DefaultRole","origin":"CONFIGURATION","type":"varchar","maxLength":48,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ScopeUnitID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"DemoPersonaAllowed","origin":"CONFIGURATION","type":"boolean","mandatory":true,"default":false,"pii":false},
+        {"name":"PermissionVersion","origin":"CONFIGURATION","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Active","origin":"CONFIGURATION","type":"boolean","mandatory":true,"default":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
     {
       "name": "TRN_CaseFeature", "zone": "TRANSFORMATION", "loadOrder": 10, "businessId": "CaseFeatureID",
       "columns": [
@@ -64,13 +78,18 @@
       "name": "INT_AnalysisRun", "zone": "INTELLIGENCE", "loadOrder": 20, "businessId": "AnalysisRunID",
       "columns": [
         {"name":"AnalysisRunID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"RunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"AnalysisType","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"RunTypeKey","origin":"SYSTEM","type":"varchar","maxLength":128,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"Status","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"PublishStatus","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"ObservationStart","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
         {"name":"ObservationEnd","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
         {"name":"EngineVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"InputManifestHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"CompletedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
+        {"name":"PublishedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
         {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
       ]
     },
@@ -203,6 +222,8 @@
         {"name":"FindingBusinessID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"ScopeUnitID","origin":"SOURCE","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"Status","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"AlertVersion","origin":"WORKFLOW","type":"int","mandatory":true,"default":0,"pii":false},
+        {"name":"LastCommandRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Command","mandatory":false,"onDelete":"NULL"},
         {"name":"Severity","origin":"DERIVED","type":"double","mandatory":true,"pii":false},
         {"name":"OriginalFindingJSON","origin":"SYSTEM","type":"text","mandatory":true,"pii":true},
         {"name":"MethodVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
@@ -211,7 +232,28 @@
       ]
     },
     {
-      "name": "WF_AlertEvidence", "zone": "WORKFLOW", "loadOrder": 41, "businessId": "AlertEvidenceID",
+      "name": "WF_Command", "zone": "WORKFLOW", "loadOrder": 41, "businessId": "CommandID",
+      "columns": [
+        {"name":"CommandID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"IdempotencyKeyHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"RequestHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"ActorCatalystUserID","origin":"AUTHENTICATION","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"EffectiveRole","origin":"AUTHORIZATION","type":"varchar","maxLength":48,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CommandType","origin":"WORKFLOW","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ExpectedAlertState","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":false,"pii":false},
+        {"name":"ExpectedAlertVersion","origin":"WORKFLOW","type":"int","mandatory":true,"pii":false},
+        {"name":"TargetAlertState","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":false,"pii":false},
+        {"name":"Status","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ResponseJSON","origin":"WORKFLOW","type":"text","mandatory":false,"pii":true},
+        {"name":"ErrorCode","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":false,"unique":false,"indexed":true,"pii":false},
+        {"name":"CreatedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"CompletedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "WF_AlertEvidence", "zone": "WORKFLOW", "loadOrder": 42, "businessId": "AlertEvidenceID",
       "columns": [
         {"name":"AlertEvidenceID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
@@ -225,10 +267,14 @@
       "columns": [
         {"name":"AssignmentID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"CommandRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Command","mandatory":true,"onDelete":"NULL"},
         {"name":"AssignedUnitID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"AssignedEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":true},
         {"name":"AssignedByEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
         {"name":"Reason","origin":"WORKFLOW","type":"text","mandatory":true,"pii":false},
+        {"name":"AuthorizedUnitIDsJSON","origin":"AUTHORIZATION","type":"text","mandatory":true,"pii":false},
+        {"name":"AuthorizedCaseIDsJSON","origin":"AUTHORIZATION","type":"text","mandatory":true,"pii":true},
+        {"name":"EvidenceAccessLevel","origin":"AUTHORIZATION","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"AssignedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
         {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
       ]
@@ -238,6 +284,7 @@
       "columns": [
         {"name":"ConclusionID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"CommandRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Command","mandatory":true,"onDelete":"NULL"},
         {"name":"AnalystEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
         {"name":"ConclusionCode","origin":"WORKFLOW","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"ConclusionText","origin":"WORKFLOW","type":"text","mandatory":true,"pii":true},
@@ -251,6 +298,7 @@
       "columns": [
         {"name":"OutcomeID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":true,"onDelete":"NULL"},
+        {"name":"CommandRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Command","mandatory":true,"onDelete":"NULL"},
         {"name":"RecordedByEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":true},
         {"name":"OutcomeCode","origin":"WORKFLOW","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"OutcomeText","origin":"WORKFLOW","type":"text","mandatory":true,"pii":true},
@@ -263,12 +311,17 @@
       "columns": [
         {"name":"AuditEventID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"AlertRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Alert","mandatory":false,"onDelete":"NULL"},
+        {"name":"CommandRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Command","mandatory":false,"onDelete":"NULL"},
         {"name":"ActorEmployeeID","origin":"WORKFLOW","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":true},
         {"name":"ActorType","origin":"WORKFLOW","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"EventType","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"EntityType","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"EntityBusinessID","origin":"WORKFLOW","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"EventPayloadJSON","origin":"WORKFLOW","type":"text","mandatory":true,"pii":true},
+        {"name":"StreamID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"StreamSequence","origin":"SYSTEM","type":"int","mandatory":true,"pii":false},
+        {"name":"HashAlgorithm","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":false,"pii":false},
+        {"name":"HashKeyVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"PreviousEventHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":false,"unique":false,"indexed":true,"pii":false},
         {"name":"EventHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"OccurredAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
