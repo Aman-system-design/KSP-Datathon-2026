@@ -172,6 +172,24 @@ Observed controlled-fixture result: one planted hotspot, one planted four-case/t
 
 Runbook: `docs/runbooks/local-intelligence-demo.md`. The next delivery track is PDF-aligned synthetic generation plus Catalyst ingestion, analytical/workflow tables, Functions, jobs and APIs.
 
+### Verified MVP Data Bridge
+
+On 2026-07-20, the PDF-aligned local data bridge completed with challenge-alignment PASS:
+
+- authoritative MVP contract locking all 11 Challenge 02 capabilities, full/light user experiences, four routes, twelve APIs, Catalyst service ownership, safety limits, deferred expansion, and implementation order;
+- exactly 19 lean `TRN_*`, `INT_*`, and `WF_*` table definitions for reusable features, versioned findings, evidence, alerts, assignments, conclusions, outcomes, and hash-linked audit events;
+- deterministic seed `20260720` producing 50 synthetic FIRs across all 26 PDF-defined entities as 26 JSON and 26 CSV extracts with hashes;
+- exact PDF column names and business identifiers, with no fabricated Catalyst `ROWID` or `*Ref` values;
+- validation/reconciliation for duplicate IDs, orphan case links, invalid coordinates, invalid incident ranges, missing business IDs, and non-synthetic provenance;
+- redacted rejects containing only entity, source key, reason, and row hash;
+- business-ID adapter from accepted PDF records into the verified intelligence engine, with no person-name matching or hidden-truth import;
+- preserved hotspot, anomaly, cross-district pattern, repeat-identity, co-accused-network, seasonal-negative, and same-name-negative gates;
+- generated Catalyst Development runbook for all 19 new tables.
+
+Observed verification: 57 tests passed; source schema validation passed for 29 existing tables and 26 PDF mappings; intelligence/workflow schema validation passed for 19 tables; intelligence demo passed. Review: `docs/reviews/2026-07-20-mvp-data-bridge.md`.
+
+No new Catalyst tables, source records, Functions, APIs, Authentication resources, UI resources, QuickML models, or Production resources were created in this delivery. The next gated phase is the Catalyst Development backend vertical slice.
+
 ## Decisions
 
 - Treat the FIR schema as the first source of truth.
