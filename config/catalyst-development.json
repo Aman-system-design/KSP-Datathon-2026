@@ -1,0 +1,12 @@
+{
+  "projectId": "43492000000013049",
+  "projectName": "KSPDatathon2026",
+  "organizationId": "60077844198",
+  "environmentId": "60077844198",
+  "environment": "Development",
+  "cliMinimumVersion": "1.27.0",
+  "syntheticOnly": true,
+  "permissionVersion": "1.0.0",
+  "apiFunction": "crime_intelligence_api",
+  "refreshFunction": "intelligence_refresh"
+}

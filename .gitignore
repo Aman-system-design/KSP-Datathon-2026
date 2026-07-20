@@ -5,6 +5,11 @@ tmp/
 artifacts/catalyst-schema-export/
 artifacts/intelligence/
 artifacts/source-seed/
+artifacts/catalyst-development/
+functions/**/node_modules/
+functions/**/.env
+functions/**/*.secret
+tmp/catalyst-*/
 export_*.zip
 *.log
 # Local credentials and environment overrides
