@@ -26,6 +26,7 @@ function harness() {
   const application = createRefreshApplication({
     sdk, config, sourceManifest, clock: () => '2026-07-20T16:00:00.000Z',
     idFactory: prefix => `${prefix}-${++id}`, repositoryFactory: () => repository,
+    logger: { error() {} },
   });
   return { application, context, calls, sdkCalls, repository };
 }
@@ -68,4 +69,42 @@ test('invalid operation/parameters close with failure and expose only stable cod
     assert.deepEqual(fixture.calls, ['failure']);
     assert.equal(JSON.stringify(result).includes('stack'), false);
   }
+});
+
+test('job failures log only a stable phase and code', async () => {
+  const logs = [];
+  const calls = [];
+  const context = {
+    closeWithSuccess() { calls.push('success'); },
+    closeWithFailure(code) { calls.push(`failure:${code}`); },
+  };
+  const sdk = {
+    initialize() {
+      const error = new Error('secret SDK detail must never be logged');
+      error.code = 'CATALYST_UNAVAILABLE';
+      throw error;
+    },
+  };
+  const application = createRefreshApplication({
+    sdk, config, sourceManifest, logger: { error: message => logs.push(message) },
+    idFactory: prefix => `${prefix}-SAFE`,
+  });
+
+  const result = await application(job({
+    operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'KSP-DEMO-20260720-V1', seed: '20260720', syntheticOnly: 'true',
+  }), context);
+
+  assert.deepEqual(result, {
+    ok: false,
+    requestId: 'JOB-SAFE',
+    error: { code: 'CATALYST_UNAVAILABLE' },
+  });
+  assert.deepEqual(calls, ['failure:CATALYST_UNAVAILABLE']);
+  assert.deepEqual(logs.map(JSON.parse), [{
+    event: 'intelligence_refresh_failed',
+    requestId: 'JOB-SAFE',
+    phase: 'SDK_INITIALIZE',
+    code: 'CATALYST_UNAVAILABLE',
+  }]);
+  assert.equal(logs.join('').includes('secret SDK detail'), false);
 });

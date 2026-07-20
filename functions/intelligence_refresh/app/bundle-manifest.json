@@ -25,8 +25,8 @@
     },
     {
       "path": "src/backend/catalyst/refresh-bootstrap.mjs",
-      "sha256": "b02766b4860a49c1224388c808c2b208c08185da6ecd46ced8fde6c541d5d091",
-      "bytes": 2882
+      "sha256": "195a1ef34dcc1ad8a656d65148ff54dd8a50ba008177cdad22708751a9c33c39",
+      "bytes": 3254
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",

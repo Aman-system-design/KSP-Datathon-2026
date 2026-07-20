@@ -27,6 +27,7 @@ function parameters(jobRequest) {
 
 export function createRefreshApplication({
   sdk, config, sourceManifest, clock = () => new Date().toISOString(), idFactory,
+  logger = console,
   repositoryFactory = application => new CatalystIntelligenceRepository({
     application, sourceManifest, clock, idFactory,
   }),
@@ -39,9 +40,12 @@ export function createRefreshApplication({
 
   return async function execute(jobRequest, context) {
     const requestId = idFactory('JOB');
+    let phase = 'PARAMETERS';
     try {
       const input = parameters(jobRequest);
+      phase = 'SDK_INITIALIZE';
       const application = sdk.initialize(context, { scope: 'admin' });
+      phase = 'REPOSITORY_INITIALIZE';
       const repository = repositoryFactory(application);
       const service = createRefreshService({
         repository, sourceGenerator: generateSourceSeed, sourceValidator: validateSourceSeed,
@@ -49,13 +53,18 @@ export function createRefreshApplication({
         clock, idFactory,
         auditKeys: { [config.auditKeyVersion]: config.auditKey },
       });
+      phase = 'SERVICE_EXECUTION';
       const result = await service.execute(input);
       context.closeWithSuccess();
       return { ok: true, requestId, result };
     } catch (error) {
-      context.closeWithFailure();
       const allowed = new Set(['INVALID_REQUEST', 'DATA_NOT_READY', 'CATALYST_UNAVAILABLE']);
-      return { ok: false, requestId, error: { code: allowed.has(error?.code) ? error.code : 'INTERNAL_ERROR' } };
+      const code = allowed.has(error?.code) ? error.code : 'INTERNAL_ERROR';
+      try {
+        logger.error(JSON.stringify({ event: 'intelligence_refresh_failed', requestId, phase, code }));
+      } catch { /* Observability must not replace the original failure. */ }
+      context.closeWithFailure(code);
+      return { ok: false, requestId, error: { code } };
     }
   };
 }
