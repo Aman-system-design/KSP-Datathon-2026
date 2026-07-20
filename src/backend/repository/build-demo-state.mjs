@@ -28,6 +28,7 @@ function buildPattern(row, cases) {
   return {
     ...structuredClone(row),
     title: 'Synthetic cross-district property pattern',
+    recommendation: 'Review the linked synthetic cases and confirm or reject the proposed connection.',
     alertId: `ALT-${row.id}`,
     unitSummaries: unitIds.map(unitId => ({
       unitId,
@@ -62,6 +63,11 @@ export function buildDemoState() {
     SyntheticData: true,
   }));
   const patterns = output.patterns.map(row => buildPattern(row, input.cases));
+  const unitByCase = new Map(input.cases.map(row => [row.caseId, numericUnitId(row.districtId)]));
+  const withEvidenceUnits = row => ({
+    ...structuredClone(row),
+    evidenceUnits: Object.fromEntries((row.evidenceCaseIds ?? []).map(id => [id, unitByCase.get(id)])),
+  });
   const alert = patterns[0];
 
   return {
@@ -77,9 +83,19 @@ export function buildDemoState() {
       syntheticData: true,
     },
     patterns,
-    hotspots: structuredClone(output.hotspots),
-    anomalies: structuredClone(output.anomalies),
-    areaRisks: [structuredClone(output.areaRisk)],
+    hotspots: output.hotspots.map(row => ({
+      ...withEvidenceUnits(row),
+      recommendation: 'Review the synthetic hotspot area and contributing cases before operational prioritization.',
+    })),
+    anomalies: output.anomalies.map(row => ({
+      ...withEvidenceUnits(row),
+      recommendation: 'Review the observed change against local context and data-quality limitations.',
+    })),
+    areaRisks: [{
+      ...withEvidenceUnits(output.areaRisk),
+      method: 'EXPLAINABLE_WEIGHTED_SCORE',
+      recommendation: 'Use as an area-attention signal for human review, not as an individual prediction.',
+    }],
     networks: [{
       node: { id: 'CASE-001', unitId: 101, type: 'CASE' },
       edges: structuredClone(output.network.edges.filter(({ sourceCaseId }) => sourceCaseId === 'CASE-001')),
