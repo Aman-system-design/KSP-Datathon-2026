@@ -182,7 +182,7 @@ Runbook: `docs/runbooks/local-intelligence-demo.md`. The next delivery track is 
 - Avoid individual-level crime prediction and sensitive-demographic targeting.
 - Use the phrase **Decision Intelligence** or **Crime Intelligence** rather than leading with **Predictive Policing**.
 - Continue development on a personal laptop to reduce company-device compliance risk.
-- Design for multiple policing levels rather than one primary persona. Level 1 is the Police Leadership Team (for example, the State Commissioner), receiving statewide pattern discovery, executive intelligence briefs, strategic alerts, and high-level drilldowns. Lower operational levels and their permissions remain to be defined during design.
+- Design for multiple policing levels rather than one primary persona. State Leadership, District/Division Leadership, and Crime Analyst are full MVP experiences; Station/Investigator Operations is light but working; regional scope is adaptive; Administrator/Auditor controls are demonstrated. Effective access combines rank, designation, assigned unit hierarchy, explicit permission, and case assignment where required.
 - Do not begin implementation from the database schema alone. Complete and approve the product, workflow, intelligence, role, architecture, and demonstration design first.
 - The developer will be an AI coding model. The final implementation package must therefore contain explicit requirement IDs, file boundaries, data dictionaries, schemas, API contracts, state transitions, security rules, algorithms, seed scenarios, acceptance criteria, test cases, deployment commands, verification evidence, and a requirement-to-test traceability matrix. No critical decision may be left implicit or described only as "use best judgment."
 - Use a plain, explanatory "architect speaking to business" tone for business design documents: explain purpose first, use concrete policing questions and examples, and introduce technical terms only after the business meaning is clear.
@@ -197,9 +197,9 @@ Runbook: `docs/runbooks/local-intelligence-demo.md`. The next delivery track is 
 - Deferred expansion approved: retain authorized CCTV-derived alerts, verified public/social signals, major-event priorities, a shared Command Centre presentation mode, leadership and station operational indicators, and a responsive investigator tablet experience in the architecture. These remain supporting inputs and delivery surfaces around the Crime Analytics Engine. They must not displace or be presented as proof of any Challenge 02 capability. The boundary and entry criteria are defined in `docs/architecture/deferred-signal-and-operational-expansion.md`.
 - AI/ML strategy approved: compete on an explainable Cross-District Crime Pattern Fusion Engine that combines spatial hotspots, temporal anomalies, governed identity resolution, evidence graphs, text-derived modus-operandi features, area risk, and aggregate district context. Every method is labelled accurately, evaluated on hidden positive and negative synthetic fixtures, versioned, evidence-linked, human-reviewable, and Catalyst-native where available. The authoritative design is `docs/architecture/ai-ml-intelligence-strategy.md`.
 
-## Open Questions
+## Resolved Build Decisions
 
-1. Which user levels sit below the Police Leadership Team, and what decisions, views, and data scope does each receive?
-2. Should the deliverable prioritize a working MVP, a pitch-first prototype, or an analytics-heavy demonstration?
-3. Which capability anchors the demo story: map, network, anomaly, risk score, or correlation?
-4. What product name best communicates explainable district-policing intelligence?
+1. Product name: **KSP Crime Decision Intelligence Platform**.
+2. Delivery priority: a production-shaped working MVP with tested analytics and an evidence-to-action user journey; the pitch demonstrates that product rather than substituting for it.
+3. Demo anchor: **Explainable Cross-District Pattern Fusion**, supported by hotspots, anomaly, network, repeat identity, area risk, and district context.
+4. Authoritative implementation boundary: `docs/architecture/mvp-build-contract.md`.

@@ -1,7 +1,7 @@
 # Role, Access, and User Experience Design
 
 **Product:** KSP Crime Decision Intelligence Platform  
-**Status:** Evolving architecture document. Add a role section only after it is discussed and approved.  
+**Status:** Approved role architecture; MVP implementation depth is locked in [`mvp-build-contract.md`](mvp-build-contract.md).
 **Related document:** [`business-architecture-blueprint.md`](business-architecture-blueprint.md)
 
 ## Why this document exists
@@ -641,4 +641,4 @@ The first complete role architecture is approved for:
 - Platform Administrator
 - Auditor or Oversight User
 
-The next design phase will select the MVP product shape and determine which approved capabilities are implemented fully, demonstrated lightly, or deferred.
+The MVP product shape is now selected: State Leadership, District/Division Leadership, and Crime Analyst are full experiences; Station/Investigator Operations is light but working; regional scope is adaptive; governance controls are demonstrated; deferred operational expansion remains outside the core build. See [`mvp-build-contract.md`](mvp-build-contract.md).

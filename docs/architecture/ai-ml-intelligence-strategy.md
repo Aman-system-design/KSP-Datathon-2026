@@ -2,7 +2,7 @@
 
 **Product:** KSP Crime Decision Intelligence Platform  
 **Challenge:** Datathon 2026 — Challenge 02  
-**Status:** Approved design direction; implementation requires a separate reviewed plan  
+**Status:** Approved strategy; transparent local baseline verified and Catalyst implementation governed by [`mvp-build-contract.md`](mvp-build-contract.md)
 **Deployment:** Catalyst by Zoho, India data centre  
 **Flagship capability:** Explainable Cross-District Crime Pattern Fusion
 
@@ -327,7 +327,7 @@ Are cases across multiple units sufficiently similar across independent evidence
 
 ### QuickML candidate-clustering pipeline
 
-The committed QuickML ML pipeline performs unsupervised candidate clustering over privacy-controlled case features. Inputs include encoded crime classification, cyclic time features, gravity, legal-feature counts, validated location-cell coordinates, and structured modus-operandi tags. Direct names, caste, religion, victim details, and free-form `BriefFacts` are excluded.
+The candidate QuickML ML pipeline, added only after the transparent vertical slice passes, performs unsupervised candidate clustering over privacy-controlled case features. Inputs include encoded crime classification, cyclic time features, gravity, legal-feature counts, validated location-cell coordinates, and structured modus-operandi tags. Direct names, caste, religion, victim details, and free-form `BriefFacts` are excluded.
 
 The pipeline outputs a model version, cluster label, and noise/outlier status for each eligible case. Cluster co-membership only narrows the cases inspected by Pattern Fusion; it does not create a police alert or prove a relationship. The transparent component scores below remain the basis for qualification and explanation.
 

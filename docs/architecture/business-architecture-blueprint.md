@@ -5,7 +5,7 @@
 **Challenge:** Datathon 2026 - Challenge 02  
 **Deployment:** Catalyst by Zoho  
 **Positioning:** Decision Intelligence for Policing  
-**Status:** Approved product-flow foundation. Detailed user roles, screens, analytics, security, data generation, and MVP scope will be designed next.
+**Status:** Approved product-flow foundation. The executable MVP scope is locked in [`mvp-build-contract.md`](mvp-build-contract.md).
 
 ## What are we building?
 
@@ -175,7 +175,7 @@ An analyst or investigator can open the evidence behind an alert:
 
 This creates accountability. Every high-level statement must be traceable to supporting records that the user is authorized to view.
 
-The exact role hierarchy, permissions, and screen entitlements still need to be designed.
+The role hierarchy, permission model, experience depth, routes, and MVP screen entitlements are approved. Their executable boundary is maintained in [`mvp-build-contract.md`](mvp-build-contract.md).
 
 Detailed and approved role behavior is maintained in [`role-access-and-experience-design.md`](role-access-and-experience-design.md). This keeps the business blueprint readable while preserving role-level features as part of the architecture.
 
