@@ -50,8 +50,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "72647674086cb3c9edfbf675ee01f7c9f26fdee0c3762d5e0f580d3a01059697",
-      "bytes": 38043
+      "sha256": "1badfd01aff77a4ed86a26d3098747870e45cfdb05c0f1e4849a527a07d4d525",
+      "bytes": 39096
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",

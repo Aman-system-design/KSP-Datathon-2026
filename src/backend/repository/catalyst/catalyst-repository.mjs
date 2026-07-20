@@ -35,8 +35,31 @@ const SOURCE_TABLES = Object.freeze({
 });
 const CONTROL_TABLES = Object.freeze(['TRN_IngestionBatch', 'TRN_RejectedRecord', 'TRN_SourceKeyMap']);
 const ALLOWED_TABLES = new Set([...Object.values(TABLES), ...Object.values(SOURCE_TABLES), ...CONTROL_TABLES]);
+const DATETIME_COLUMNS = Object.freeze({
+  INT_AnalysisRun: ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt'],
+  INT_AreaRisk: ['PeriodStart', 'PeriodEnd'],
+  WF_Alert: ['CreatedAt'],
+  WF_Command: ['CreatedAt', 'CompletedAt'],
+  WF_Assignment: ['AssignedAt'],
+  WF_AnalystConclusion: ['CreatedAt'],
+  WF_Outcome: ['RecordedAt'],
+  WF_AuditEvent: ['OccurredAt'],
+});
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
+const catalystDateTime = value => {
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/u);
+  if (!match) throw new TypeError('Catalyst DateTime value is invalid.');
+  return `${match[1]} ${match[2]}`;
+};
+const prepareCatalystRow = (tableName, row) => {
+  const prepared = clone(row);
+  for (const column of DATETIME_COLUMNS[tableName] ?? []) {
+    if (prepared[column] === null || prepared[column] === undefined) delete prepared[column];
+    else prepared[column] = catalystDateTime(prepared[column]);
+  }
+  return prepared;
+};
 const decodePage = (token) => {
   if (!token) return 0;
   try {
@@ -107,7 +130,7 @@ export class CatalystIntelligenceRepository {
 
   async #insert(tableName, row) {
     try {
-      const response = await this.#datastore.table(tableName).insertRow(row);
+      const response = await this.#datastore.table(tableName).insertRow(prepareCatalystRow(tableName, row));
       this.#invalidate(tableName);
       return response?.data && !Array.isArray(response.data) ? response.data : response;
     } catch (error) {
@@ -121,7 +144,7 @@ export class CatalystIntelligenceRepository {
 
   async #update(tableName, row) {
     try {
-      const response = await this.#datastore.table(tableName).updateRow(row);
+      const response = await this.#datastore.table(tableName).updateRow(prepareCatalystRow(tableName, row));
       this.#invalidate(tableName);
       return response?.data && !Array.isArray(response.data) ? response.data : response;
     } catch (error) {
@@ -133,7 +156,7 @@ export class CatalystIntelligenceRepository {
   async #insertMany(tableName, rows) {
     const inserted = [];
     for (let offset = 0; offset < rows.length; offset += 200) {
-      const batch = rows.slice(offset, offset + 200);
+      const batch = rows.slice(offset, offset + 200).map(row => prepareCatalystRow(tableName, row));
       try {
         const response = await this.#datastore.table(tableName).insertRows(batch);
         const values = Array.isArray(response) ? response : response?.data;

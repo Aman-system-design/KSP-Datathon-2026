@@ -151,6 +151,11 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
     CreatedAt: '2026-07-20T12:00:00Z', CompletedAt: null, SyntheticData: true,
   };
   await repository.createRefreshBatch(batch);
+  const storedRuns = fake.tables.get('INT_AnalysisRun');
+  assert.equal(storedRuns.every(run => run.ObservationStart === '2026-06-01 00:00:00'), true);
+  assert.equal(storedRuns.every(run => run.ObservationEnd === '2026-07-01 00:00:00'), true);
+  assert.equal(storedRuns.every(run => run.CompletedAt === '2026-07-20 12:00:00'), true);
+  assert.equal(storedRuns.every(run => !Object.hasOwn(run, 'PublishedAt')), true);
   assert.equal((await repository.getRefreshBatch(batch.BatchKey)).Status, 'STAGED');
   for (const table of ['TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_DistrictContext', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk', 'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence', 'WF_Alert']) {
     assert.ok((fake.tables.get(table) ?? []).length > 0, `${table} was not staged`);
