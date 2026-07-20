@@ -138,6 +138,24 @@ export class MemoryIntelligenceRepository {
   async listCommands() { return clone(this.#state.commands); }
   async listAuditEvents() { return clone(this.#state.auditEvents); }
 
+  async persistValidatedSource({ batchKey, source, accepted, rejected, reconciliation }) {
+    this.#state.sourceBatches ??= [];
+    const existing = this.#state.sourceBatches.find(row => row.batchKey === batchKey);
+    if (existing) return clone(existing);
+    if (source?.syntheticData !== true || !reconciliation?.balanced) throw new Error('invalid validated source batch');
+    const stored = {
+      batchKey, accepted: clone(accepted), rejected: clone(rejected),
+      reconciliation: clone(reconciliation), syntheticData: true,
+    };
+    this.#state.sourceBatches.push(stored);
+    this.#failureInjector('afterSourceBatchWrite');
+    return clone(stored);
+  }
+
+  async getValidatedSource(batchKey) {
+    return clone((this.#state.sourceBatches ?? []).find(row => row.batchKey === batchKey));
+  }
+
   async getRefreshBatch(batchKey) {
     return clone((this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey));
   }

@@ -77,9 +77,16 @@ export function createRefreshService({
       let batch = await repository.getRefreshBatch(batchKey);
       if (batch?.Status === 'COMPLETED') return publicResult(batch);
       if (!batch) {
-        const source = sourceGenerator(seed);
-        if (source?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
-        const validation = sourceValidator(source);
+        let validation;
+        if (operation === 'BOOTSTRAP_SYNTHETIC') {
+          const source = sourceGenerator(seed);
+          if (source?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
+          const checked = sourceValidator(source);
+          validation = await repository.persistValidatedSource({ batchKey, source, ...checked });
+        } else {
+          validation = await repository.getValidatedSource(batchKey);
+          if (!validation) fail('DATA_NOT_READY');
+        }
         if (!validation.reconciliation?.balanced || validation.reconciliation.acceptedRows < 1) fail('DATA_NOT_READY');
         const input = adapter(validation.accepted);
         const findings = pipeline(input);

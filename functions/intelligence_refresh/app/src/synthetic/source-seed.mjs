@@ -92,7 +92,7 @@ export function generateSourceSeed(seed = 20260720) {
       VictimName: `Synthetic Victim ${row.number}`,
       AgeYear: 18 + (row.number % 55),
       GenderID: 1 + (row.number % 2),
-      VictimPolice: false,
+      VictimPolice: 'N',
     })),
     Accused: accusedRows,
     ArrestSurrender: cases.map((row) => {

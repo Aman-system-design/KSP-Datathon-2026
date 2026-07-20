@@ -20,8 +20,8 @@
     },
     {
       "path": "src/backend/refresh/refresh-service.mjs",
-      "sha256": "04bd8cf773668ce0f783833159491ed7a656f853fc6770d49f0bd9b3a7f4b7ee",
-      "bytes": 6131
+      "sha256": "73fe9edb0f4c44d5880a5163145743a55617d95a5428c122413139b8aad94a1f",
+      "bytes": 6448
     },
     {
       "path": "src/backend/refresh/run-groups.mjs",
@@ -55,8 +55,8 @@
     },
     {
       "path": "src/synthetic/source-seed.mjs",
-      "sha256": "0be07cfcfefe45c03e266ff517eca39178cc010d078cf40dcc15c5a8c2c277c2",
-      "bytes": 11915
+      "sha256": "42b5af537aad8f4b13e4b2b4ca85b68b7f6182a7e2dc0b518dda33ecc9b71a06",
+      "bytes": 11912
     },
     {
       "path": "vendor/intelligence-core/index.mjs",

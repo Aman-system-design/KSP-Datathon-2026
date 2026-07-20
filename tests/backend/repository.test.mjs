@@ -121,3 +121,17 @@ test('failure injection identifies the exact interrupted persistence point', asy
   }), { code: 'INJECTED_FAILURE' });
   assert.equal((await repository.getCommandByIdempotencyHash('d'.repeat(64))).CommandID, 'CMD-FAIL');
 });
+
+test('validated source persistence is cloned and idempotent by batch key', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const value = {
+    batchKey: 'SOURCE-1', source: { syntheticData: true },
+    accepted: { CaseMaster: [{ CaseMasterID: 1 }] }, rejected: [],
+    reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true },
+  };
+  const first = await repository.persistValidatedSource(value);
+  value.accepted.CaseMaster[0].CaseMasterID = 999;
+  const second = await repository.persistValidatedSource({ ...value, accepted: {} });
+  assert.deepEqual(second, first);
+  assert.equal((await repository.getValidatedSource('SOURCE-1')).accepted.CaseMaster[0].CaseMasterID, 1);
+});

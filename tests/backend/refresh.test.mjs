@@ -50,6 +50,9 @@ test('refresh stages, verifies and atomically publishes one seven-type group', a
   state.patterns = [];
   state.hotspots = [];
   const repository = new MemoryIntelligenceRepository(state);
+  const source = generateSourceSeed(20260720);
+  const validated = validateSourceSeed(source);
+  await repository.persistValidatedSource({ batchKey: 'REFRESH-2026-07-20', source, ...validated });
   const refresh = service(repository);
   const result = await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'REFRESH-2026-07-20', seed: 20260720 });
   assert.equal(result.status, 'COMPLETED');
@@ -60,6 +63,29 @@ test('refresh stages, verifies and atomically publishes one seven-type group', a
   assert.ok(await repository.getPattern('PATTERN-1'), 'published findings replace the previously visible set');
   assert.equal((await repository.listHotspots()).data.length, 1);
   assert.deepEqual(await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'REFRESH-2026-07-20', seed: 20260720 }), result);
+});
+
+test('refresh uses the persisted accepted batch and never silently regenerates source', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const source = generateSourceSeed(20260720);
+  const validated = validateSourceSeed(source);
+  await repository.persistValidatedSource({ batchKey: 'PERSISTED-1', source, ...validated });
+  let generatorCalls = 0;
+  let id = 0;
+  const refresh = createRefreshService({
+    repository,
+    sourceGenerator: () => { generatorCalls += 1; throw new Error('must not regenerate'); },
+    sourceValidator: validateSourceSeed, adapter: toIntelligenceInput,
+    pipeline: runIntelligencePipeline, clock, idFactory: prefix => `${prefix}-${++id}`,
+  });
+  const result = await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'PERSISTED-1' });
+  assert.equal(result.status, 'COMPLETED');
+  assert.equal(generatorCalls, 0);
+  await assert.rejects(
+    refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'MISSING-1' }),
+    { code: 'DATA_NOT_READY' },
+  );
+  assert.equal(generatorCalls, 0);
 });
 
 test('partial publication failure preserves the prior current group and retry converges', async () => {

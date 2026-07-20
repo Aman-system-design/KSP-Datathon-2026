@@ -27,6 +27,8 @@ export const repositoryMethods = Object.freeze([
   'reconcileCommand',
   'listCommands',
   'listAuditEvents',
+  'persistValidatedSource',
+  'getValidatedSource',
   'getRefreshBatch',
   'createRefreshBatch',
   'updateRefreshBatch',
