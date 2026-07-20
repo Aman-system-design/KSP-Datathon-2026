@@ -108,3 +108,32 @@ test('job failures log only a stable phase and code', async () => {
   }]);
   assert.equal(logs.join('').includes('secret SDK detail'), false);
 });
+
+test('service failures identify the safe repository boundary without logging private details', async () => {
+  const logs = [];
+  const context = { closeWithSuccess() {}, closeWithFailure() {} };
+  const sdk = { initialize() { return { datastore: () => ({}) }; } };
+  const repositoryFactory = () => ({
+    async getRefreshBatch() {
+      throw new Error('private Data Store response must never be logged');
+    },
+  });
+  const application = createRefreshApplication({
+    sdk, config, sourceManifest, repositoryFactory,
+    logger: { error: message => logs.push(message) },
+    idFactory: prefix => `${prefix}-BOUNDARY`,
+  });
+
+  const result = await application(job({
+    operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'KSP-DEMO-20260720-V1', seed: '20260720', syntheticOnly: 'true',
+  }), context);
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(logs.map(JSON.parse), [{
+    event: 'intelligence_refresh_failed',
+    requestId: 'JOB-BOUNDARY',
+    phase: 'REFRESH_BATCH_LOOKUP',
+    code: 'INTERNAL_ERROR',
+  }]);
+  assert.equal(logs.join('').includes('private Data Store response'), false);
+});

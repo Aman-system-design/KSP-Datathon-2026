@@ -66,7 +66,7 @@ async function governanceReport(repository, auditKeys, generatedAt) {
 
 export function createRefreshService({
   repository, sourceGenerator, sourceValidator, adapter, pipeline,
-  clock = () => new Date().toISOString(), idFactory, auditKeys = {},
+  clock = () => new Date().toISOString(), idFactory, auditKeys = {}, onProgress = () => {},
 }) {
   return Object.freeze({
     async execute({ operation, batchKey, seed } = {}) {
@@ -74,6 +74,7 @@ export function createRefreshService({
       if (!['BOOTSTRAP_SYNTHETIC', 'REFRESH_INTELLIGENCE'].includes(operation)) fail('INVALID_REQUEST', 'Unsupported refresh operation.');
       if (typeof batchKey !== 'string' || !batchKey.trim() || batchKey.length > 128) fail('INVALID_REQUEST', 'batchKey is required.');
 
+      onProgress('REFRESH_BATCH_LOOKUP');
       let batch = await repository.getRefreshBatch(batchKey);
       if (batch?.Status === 'COMPLETED') return publicResult(batch);
       if (!batch) {
@@ -82,8 +83,10 @@ export function createRefreshService({
           const source = sourceGenerator(seed);
           if (source?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
           const checked = sourceValidator(source);
+          onProgress('SOURCE_PERSIST');
           validation = await repository.persistValidatedSource({ batchKey, source, ...checked });
         } else {
+          onProgress('VALIDATED_SOURCE_LOOKUP');
           validation = await repository.getValidatedSource(batchKey);
           if (!validation) fail('DATA_NOT_READY');
         }
@@ -118,12 +121,15 @@ export function createRefreshService({
           CreatedAt: clock(), CompletedAt: null, SyntheticData: true,
         };
         try {
+          onProgress('REFRESH_BATCH_STAGE');
           await repository.createRefreshBatch(batch);
         } catch (error) {
           if (error.code !== 'UNIQUE_CONFLICT') throw error;
+          onProgress('REFRESH_BATCH_LOOKUP');
           batch = await repository.getRefreshBatch(batchKey);
         }
       }
+      onProgress('REFRESH_BATCH_PUBLISH');
       const completed = await repository.publishRefreshBatch(batchKey, clock());
       return publicResult(completed);
     },

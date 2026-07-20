@@ -25,8 +25,8 @@
     },
     {
       "path": "src/backend/catalyst/refresh-bootstrap.mjs",
-      "sha256": "195a1ef34dcc1ad8a656d65148ff54dd8a50ba008177cdad22708751a9c33c39",
-      "bytes": 3254
+      "sha256": "54533ec5439c5f1c2ae19ed7d5812133e43dccbc99645fc8f8342875a63b2212",
+      "bytes": 3311
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
@@ -40,8 +40,8 @@
     },
     {
       "path": "src/backend/refresh/refresh-service.mjs",
-      "sha256": "73fe9edb0f4c44d5880a5163145743a55617d95a5428c122413139b8aad94a1f",
-      "bytes": 6448
+      "sha256": "55db2a7e41688466fa9b18a25ca561ab97b406d082c7826d6cf4b44dd6d2c81c",
+      "bytes": 6722
     },
     {
       "path": "src/backend/refresh/run-groups.mjs",

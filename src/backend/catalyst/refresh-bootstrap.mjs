@@ -52,6 +52,7 @@ export function createRefreshApplication({
         adapter: toIntelligenceInput, pipeline: runIntelligencePipeline,
         clock, idFactory,
         auditKeys: { [config.auditKeyVersion]: config.auditKey },
+        onProgress: nextPhase => { phase = nextPhase; },
       });
       phase = 'SERVICE_EXECUTION';
       const result = await service.execute(input);
