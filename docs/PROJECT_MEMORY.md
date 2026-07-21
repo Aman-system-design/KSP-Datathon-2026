@@ -255,3 +255,19 @@ Later on 2026-07-21, the corrected `intelligence_refresh` bundle was deployed to
 2. Delivery priority: a production-shaped working MVP with tested analytics and an evidence-to-action user journey; the pitch demonstrates that product rather than substituting for it.
 3. Demo anchor: **Explainable Cross-District Pattern Fusion**, supported by hotspots, anomaly, network, repeat identity, area risk, and district context.
 4. Authoritative implementation boundary: `docs/architecture/mvp-build-contract.md`.
+
+## AI Builder Control System — July 21, 2026
+
+Five concise root documents now control future human and AI development:
+
+1. `Rules.md` — non-negotiable engineering, security, data, AI, and quality rules.
+2. `PRD.md` — product users, outcomes, MVP scope, exclusions, and acceptance criteria.
+3. `Architecture.md` — end-to-end flow, Catalyst mapping, module boundaries, APIs, and delivery truth.
+4. `Design.md` — approved **Command Navy** visual system and role-specific UX standards.
+5. `Phases.md` — dated delivery and scope-control plan through the July 26 submission.
+
+This file remains the sole project memory and progress ledger. Do not create a root `Memory.md` or another competing memory file. Root documents state current decisions; detailed files under `docs/` retain supporting evidence and depth.
+
+**Execution preference:** Codex must execute plans inline in the active task by default. Do not use subagents, delegated agents, or parallel agent implementation unless the founder explicitly requests it for that task.
+
+When implementation changes behavior, update the smallest authoritative root document and this memory entry when progress, deployment state, a decision, or a blocker changes.
