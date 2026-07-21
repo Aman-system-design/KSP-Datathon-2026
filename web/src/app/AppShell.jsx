@@ -1,42 +1,77 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+
+import { catalystAuth } from '../auth/catalyst-auth.js';
+import { Icon } from '../components/icons.jsx';
+import { OrganizationBrand } from '../components/OrganizationBrand.jsx';
+import { getWorkspaceNavigation } from './workspace-navigation.js';
 
 const titleCase = value => String(value ?? '').toLowerCase().split('_')
   .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
-const navigation = [
-  ['/', 'Command workspace'], ['/intelligence', 'Crime intelligence'], ['/maps', 'Hotspot map'],
-  ['/reports', 'Reports'], ['/dashboards', 'Dashboards'], ['/networks', 'Link analysis'],
-];
-
-export function AppShell({ workspace, children }) {
+export function AppShell({ workspace, auth = catalystAuth, children }) {
+  const [accountOpen, setAccountOpen] = useState(false);
   const dashboards = workspace?.availableDashboards ?? [];
   const navigate = useNavigate();
+  const navigation = getWorkspaceNavigation(workspace);
+  const roleLabel = titleCase(workspace?.role);
+  const unitLabel = workspace?.scopeUnitId ? `Unit ${workspace.scopeUnitId}` : 'Configured scope';
+
   return <div className="app-shell">
     <header className="topbar" role="banner">
-      <div className="brand-mark" aria-hidden="true">KSP</div>
-      <div className="brand-copy">
-        <strong>Karnataka Police Intelligence</strong>
-        <span>Decision intelligence platform</span>
+      <div className="platform-identity">
+        <OrganizationBrand compact />
+        <span><strong>KSP Crime Decision Intelligence</strong><small>Karnataka State Police</small></span>
       </div>
-      <label className="dashboard-switcher">Dashboard
-        <select aria-label="Active dashboard" defaultValue={dashboards[0]?.id ?? ''} onChange={event => event.target.value && navigate(`/dashboards/${event.target.value}`)}>
-          {dashboards.length === 0 && <option value="">Role workspace</option>}
-          {dashboards.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-      </label>
-      <NavLink className="alert-button" to="/alerts">Alerts <b>{workspace?.alertSummary?.total ?? 0}</b></NavLink>
-      <div className="user-context">
-        <strong>{titleCase(workspace?.role)}</strong>
-        <span>Unit {workspace?.scopeUnitId ?? '—'}</span>
+      <div className="global-search">
+        <Icon name="intelligence" size={17} />
+        <input type="search" aria-label="Global search" placeholder="Search is available after governed indexing" disabled />
+      </div>
+      <div className="header-context" aria-label="Current operational context">
+        <span><small>Authorized scope</small><strong>{unitLabel}</strong></span>
+        <span className="freshness-status"><small>Intelligence freshness</small><strong>{workspace?.freshness ?? 'Latest verified run'}</strong></span>
+      </div>
+      <NavLink className="header-alert" to="/alerts" aria-label={`Alerts ${workspace?.alertSummary?.total ?? 0}`}>
+        <Icon name="alerts" /><b>{workspace?.alertSummary?.total ?? 0}</b>
+      </NavLink>
+      <div className="account-menu">
+        <button type="button" className="account-trigger" aria-expanded={accountOpen} aria-label={`Account: ${roleLabel}`} onClick={() => setAccountOpen(value => !value)}>
+          <span>{roleLabel.slice(0, 1) || 'U'}</span><Icon name="people" size={17} />
+        </button>
+        {accountOpen && <div className="account-popover">
+          <strong>{roleLabel}</strong><small>{unitLabel}</small>
+          <button type="button" onClick={() => auth.signOut()}>Sign out</button>
+        </div>}
       </div>
     </header>
-    <aside className="sidebar">
-      <nav aria-label="Primary navigation">
-        {navigation.map(([to, label]) => <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>)}
+
+    <nav className="module-rail" aria-label="Platform modules">
+      <div className="module-links">
+        {navigation.modules.map(item => <NavLink key={item.to} to={item.to} end={item.to === '/'} aria-label={item.label} title={item.label}>
+          <Icon name={item.icon} /><span>{item.label}</span>
+          {item.to === '/alerts' && workspace?.alertSummary?.total > 0 && <b>{workspace.alertSummary.total}</b>}
+        </NavLink>)}
+      </div>
+    </nav>
+
+    <aside className="context-sidebar">
+      <nav aria-label="Workspace navigation">
+        <span className="context-eyebrow">Current workspace</span>
+        <h2>{navigation.workspaceLabel}</h2>
+        <div className="context-block"><small>Role</small><strong>{roleLabel}</strong></div>
+        <div className="context-block"><small>Geographic scope</small><strong>{unitLabel}</strong></div>
+        <div className="context-divider" />
+        <label className="dashboard-switcher">Active dashboard
+          <select aria-label="Active dashboard" defaultValue={dashboards[0]?.id ?? ''} onChange={event => event.target.value && navigate(`/dashboards/${event.target.value}`)}>
+            {dashboards.length === 0 && <option value="">Role workspace</option>}
+            {dashboards.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+        <NavLink className="context-alert-link" to="/alerts"><span>Intelligence alerts</span><b>{workspace?.alertSummary?.total ?? 0}</b></NavLink>
       </nav>
-      <div className="scope-card"><span>Authorized scope</span><strong>Unit {workspace?.scopeUnitId ?? '—'}</strong></div>
     </aside>
+
     <main className="workspace-main">{children}</main>
-    {workspace?.syntheticData && <footer className="data-banner">Synthetic demonstration data · No operational policing decision</footer>}
+    {workspace?.syntheticData && <footer className="data-banner">Synthetic demonstration data · Not for operational policing decisions</footer>}
   </div>;
 }

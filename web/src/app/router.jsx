@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
 
 import { createApiClient } from '../api/client.js';
+import { AccessNotProvisioned } from '../auth/AccessNotProvisioned.jsx';
+import { catalystAuth } from '../auth/catalyst-auth.js';
+import { SignInRequired } from '../auth/SignInRequired.jsx';
 import { AlertDetail } from '../features/alerts/AlertDetail.jsx';
 import { AlertInbox } from '../features/alerts/AlertInbox.jsx';
 import { DashboardWorkspace } from '../features/dashboards/DashboardWorkspace.jsx';
+import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
+import { CommandCentre } from '../features/command-centre/CommandCentre.jsx';
 import { HotspotMap } from '../features/intelligence/HotspotMap.jsx';
-import { LeadershipView } from '../features/intelligence/LeadershipView.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
 import { ReportBuilder } from '../features/reports/ReportBuilder.jsx';
+import { PersonaWorkspace } from '../features/workspaces/PersonaWorkspace.jsx';
 import { AppShell } from './AppShell.jsx';
-import { readRuntime } from './runtime.js';
+import { readDemoPersona, readRuntime } from './runtime.js';
 
 const fallbackWorkspace = { role: 'LOADING', availableDashboards: [], alertSummary: { total: 0 }, syntheticData: true };
 
@@ -28,7 +33,7 @@ function useLoad(loader, dependencies = []) {
 function Busy({ label = 'Loading authorized intelligence…' }) { return <div className="loading-state"><i /><strong>{label}</strong></div>; }
 export function Failure() { return <div className="failure-state"><strong>Intelligence is unavailable</strong><span>The request could not be completed.</span><button onClick={() => location.reload()}>Retry</button></div>; }
 
-function CommandPage({ api }) {
+function CommandPage({ api, role }) {
   const state = useLoad(async () => {
     const [brief, anomalies, hotspots, risk] = await Promise.all([
       api.get('/v1/intelligence/brief'), api.get('/v1/anomalies?limit=10'),
@@ -56,7 +61,13 @@ function CommandPage({ api }) {
   }, [api]);
   if (state.loading) return <Busy />;
   if (state.error) return <Failure error={state.error} />;
-  return <LeadershipView data={state.data} />;
+  return <PersonaWorkspace role={role} data={state.data} />;
+}
+
+function HomePage({ api, workspace }) {
+  if (workspace.role === 'DEMO_PRESENTER') return <PersonaDirectory role={workspace.role} />;
+  if (['PLATFORM_ADMIN', 'AUDITOR'].includes(workspace.role)) return <PersonaWorkspace role={workspace.role} data={{}} />;
+  return <CommandPage api={api} role={workspace.role} />;
 }
 
 function MapsPage({ api }) {
@@ -68,7 +79,7 @@ function MapsPage({ api }) {
     caseCount: item.caseCount ?? item.magnitude ?? 0,
     severity: item.severity ?? item.confidence ?? 0,
   }))), [api]);
-  if (state.loading) return <Busy label="Loading scoped hotspot coordinatesâ€¦" />;
+  if (state.loading) return <Busy label="Loading scoped hotspot coordinates…" />;
   if (state.error) return <Failure error={state.error} />;
   return <HotspotMap hotspots={state.data} />;
 }
@@ -107,9 +118,32 @@ export function DashboardPage({ api, dashboardId }) {
       };
     }) };
   }, [api, dashboardId]);
-  if (state.loading) return <Busy label="Executing viewer-scoped dashboard reportsâ€¦" />;
+  if (state.loading) return <Busy label="Executing viewer-scoped dashboard reports…" />;
   if (state.error) return <Failure error={state.error} />;
   return <DashboardWorkspace dashboard={state.data} />;
+}
+
+function CommandCentrePage({ api, workspace }) {
+  const state = useLoad(async () => {
+    const [brief, anomalies, hotspots] = await Promise.all([
+      api.get('/v1/intelligence/brief'), api.get('/v1/anomalies?limit=8'), api.get('/v1/hotspots?limit=8'),
+    ]);
+    return {
+      brief: brief.data,
+      anomalies: (anomalies.data?.items ?? []).map(item => ({
+        id: item.id ?? item.anomalyId, label: item.label ?? item.signalType ?? item.seriesId ?? 'Crime trend anomaly',
+        observed: item.observed ?? item.observedValue ?? 0, expected: item.expected ?? item.baselineValue ?? 0,
+        confidence: item.confidence ?? item.severity ?? 0,
+      })),
+      hotspots: (hotspots.data?.items ?? []).map(item => ({
+        id: item.id ?? item.hotspotId, area: item.area ?? item.areaId ?? 'Authorized area',
+        caseCount: item.caseCount ?? item.magnitude ?? 0, severity: item.severity ?? item.confidence ?? 0,
+      })),
+    };
+  }, [api]);
+  if (state.loading) return <main className="command-centre"><Busy label="Loading presentation-safe intelligence…" /></main>;
+  if (state.error) return <main className="command-centre"><Failure error={state.error} /></main>;
+  return <CommandCentre data={state.data} synthetic={workspace.syntheticData} freshness={workspace.freshness} />;
 }
 
 function RoutedDashboardPage({ api }) {
@@ -117,13 +151,26 @@ function RoutedDashboardPage({ api }) {
   return <DashboardPage api={api} dashboardId={dashboardId} />;
 }
 
-function Application() {
-  const api = useMemo(() => createApiClient({ baseUrl: readRuntime().apiBase }), []);
+export function Application({ api: providedApi }) {
+  const location = useLocation();
+  const demoPersona = readDemoPersona(location.search);
+  const api = useMemo(() => providedApi ?? createApiClient({
+    baseUrl: readRuntime().apiBase,
+    headers: demoPersona ? { 'X-Demo-Persona': demoPersona } : {},
+  }), [providedApi, demoPersona]);
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
+  if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
+  if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired loginUrl={catalystAuth.loginUrl} />;
+  if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
+  if (state.error) return <main className="application-gate"><Failure error={state.error} /></main>;
   const workspace = state.data ?? fallbackWorkspace;
-  return <AppShell workspace={workspace}>{state.error ? <Failure error={state.error} /> : <Routes>
-    <Route path="/" element={<CommandPage api={api} />} />
-    <Route path="/intelligence" element={<CommandPage api={api} />} />
+  if (location.pathname === '/command-centre') {
+    if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" />;
+    return <CommandCentrePage api={api} workspace={workspace} />;
+  }
+  return <AppShell workspace={workspace}><Routes>
+    <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
+    <Route path="/intelligence" element={<CommandPage api={api} role={workspace.role} />} />
     <Route path="/maps" element={<MapsPage api={api} />} />
     <Route path="/reports" element={<ReportBuilder api={api} />} />
     <Route path="/reports/:reportId" element={<ReportBuilder api={api} />} />
@@ -132,8 +179,11 @@ function Application() {
     <Route path="/alerts" element={<AlertsPage api={api} />} />
     <Route path="/alerts/:alertId" element={<AlertPage api={api} />} />
     <Route path="/networks" element={<NetworkView api={api} />} />
+    <Route path="/admin" element={workspace.role === 'PLATFORM_ADMIN' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
+    <Route path="/audit" element={workspace.role === 'AUDITOR' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
+    <Route path="/admin/personas" element={<PersonaDirectory role={workspace.role} />} />
     <Route path="*" element={<Failure error={{ message: 'The requested workspace does not exist.' }} />} />
-  </Routes>}</AppShell>;
+  </Routes></AppShell>;
 }
 
 export function AppRouter() { return <BrowserRouter><Application /></BrowserRouter>; }

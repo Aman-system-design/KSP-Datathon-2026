@@ -306,6 +306,33 @@ The approved shortlist addition is a bounded Kannada/English Evidence Copilot ov
 
 Scale readiness is now mandatory. The existing 50-FIR run proves correctness only. Before claiming scale preparedness, replace unbounded hotspot, identity and Pattern Fusion pair scans with indexed/bounded candidate generation and run local 1K/10K/50K benchmarks. Do not load 50K rows into Catalyst Development without separate authorization.
 
+### Catalyst-Authenticated Persona Platform UI — July 21, 2026
+
+The founder approved and the local `codex/intelligence-workspaces` branch now contains the Catalyst-inspired persona application shell:
+
+- Catalyst Hosted Authentication is the native login boundary; the web client loads Catalyst Web SDK 4.4.0 and same-origin initialization, uses session cookies, stores no tokens, and signs out through `catalyst.auth.signOut`;
+- `/v1/workspace` must succeed before any protected shell or navigation renders; HTTP 401 shows native sign-in and HTTP 403 shows safe access-provisioning guidance;
+- the existing Serverless security boundary remains authoritative: current Catalyst user, active access profile, permission version, role and authorized unit tree are resolved server-side;
+- `X-Demo-Persona` is emitted only for an allowlisted `?persona=` route and remains Development-only, synthetic-only, demo-presenter-only and server-validated;
+- one Catalyst-style shell now provides a white global header, navy module rail, contextual sidebar, operational canvas, scope, freshness, alerts, dashboards and persistent synthetic status;
+- State Leadership, Regional/District Leadership, Crime Analyst, Station Operations, Investigator, Platform Admin and Auditor have distinct default workspace compositions; unavailable governed data renders partial/empty states rather than invented zeros;
+- the demo presenter lands directly on the Persona Workspaces directory; platform admins can inspect its configured catalogue but cannot impersonate evidence roles;
+- the separate Command Centre is aggregate, read-only and omits note, assignment, conclusion, report-building and personal-evidence controls;
+- founder-supplied KSP and Karnataka seal assets are packaged locally under `web/public/brand`.
+
+Observed local verification: 42 frontend tests passed, 212 backend tests passed, the Vite production bundle succeeded and npm reported zero production vulnerabilities. The in-app browser connected to its control surface but could not reach the local Vite listener, so no screenshot-level visual claim is recorded. The implementation was not deployed in this slice.
+
+Catalyst console follow-up before Development deployment:
+
+1. Open Authentication and configure **Native Catalyst Authentication → Hosted Authentication**.
+2. Use `Karnataka State Police` as the organization name and the approved KSP logo; keep public signup disabled for the police workspace.
+3. Copy the generated hosted sign-in URL and confirm it resolves at `/__catalyst/auth/login` for the Slate client.
+4. Add or invite the Development demo user in Catalyst Authentication.
+5. Set that Catalyst user ID on the existing application access-profile row with role `DEMO_PRESENTER`, synthetic flag enabled, demo-persona permission enabled, State scope and the current permission version.
+6. Deploy the reviewed Slate build, sign in through Hosted Authentication, and smoke-test State, District, Analyst, Station and Command Centre routes.
+
+Microsoft 365/Entra federation remains an onboarding decision for KSP. Catalyst Hosted Authentication can expose Microsoft 365 social sign-in, while enterprise Entra policies, domain restriction, conditional access and user lifecycle mapping require KSP confirmation before production design.
+
 ### Local Production-Hardening and Scale Slice — July 21, 2026
 
 The first approved hardening/scale slice is implemented locally, not deployed:

@@ -32,3 +32,24 @@ test('API client exposes only stable server errors', async () => {
     code: 'VERSION_CONFLICT', status: 409, requestId: 'REQ-1',
   });
 });
+
+test('HTTP 401 remains an explicit unauthenticated state for the application boundary', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => ({
+    ok: false, status: 401,
+    json: async () => ({ error: { code: 'UNAUTHENTICATED', message: 'Authentication is required.', requestId: 'REQ-AUTH' } }),
+  })));
+  const api = createApiClient({ baseUrl: '/api' });
+  await expect(api.get('/v1/workspace')).rejects.toMatchObject({
+    code: 'UNAUTHENTICATED', status: 401, requestId: 'REQ-AUTH', authenticationRequired: true,
+  });
+});
+
+test('development demo persona travels only as the explicit server-validated header', async () => {
+  const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
+  vi.stubGlobal('fetch', fetch);
+  const api = createApiClient({ baseUrl: '/api', headers: { 'X-Demo-Persona': 'CRIME_ANALYST' } });
+  await api.get('/v1/workspace');
+  expect(fetch).toHaveBeenCalledWith('/api/v1/workspace', expect.objectContaining({
+    headers: expect.objectContaining({ 'X-Demo-Persona': 'CRIME_ANALYST' }),
+  }));
+});
