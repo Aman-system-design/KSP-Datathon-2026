@@ -87,7 +87,10 @@ test('notes and escalation are versioned, idempotent and audited without changin
     payload: { targetUnitId: 1, priority: 'HIGH', reason: 'Cross-district coordination required.' },
   }));
   assert.equal(escalated.alert.status, 'GENERATED');
-  assert.equal((await repository.findDomainArtifactByCommand('escalation', escalated.command.id)).TargetUnitID, 1);
+  const escalation = await repository.findDomainArtifactByCommand('escalation', escalated.command.id);
+  assert.equal(escalation.TargetUnitID, 1);
+  assert.equal(escalation.EscalationPriority, 'HIGH');
+  assert.equal('Priority' in escalation, false);
   assert.equal((await repository.getAlert('ALT-PATTERN-1')).OriginalFindingJSON, before.OriginalFindingJSON);
   assert.equal((await repository.getAuditStream('ALT-PATTERN-1')).length, 2);
 

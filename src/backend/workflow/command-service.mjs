@@ -72,7 +72,7 @@ function domainArtifact({ kind, command, payload, access, now }) {
   };
   if (kind === 'escalation') return {
     ...common, EscalationID: `ESC-${command.CommandID}`, FromUnitID: access.scopeUnitId,
-    TargetUnitID: payload.targetUnitId, Priority: payload.priority, Reason: payload.reason,
+    TargetUnitID: payload.targetUnitId, EscalationPriority: payload.priority, Reason: payload.reason,
     EscalatedByUserID: access.actualUserId, EscalatedAt: now,
   };
   return null;

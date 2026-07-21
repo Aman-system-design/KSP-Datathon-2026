@@ -32,6 +32,96 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | 8 | `Active` | CONFIGURATION | Boolean | - | Yes | No | No | No | Yes |
 | 9 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
+## Create table: CFG_Dashboard
+
+- Zone: CONFIGURATION
+- Load order: 2
+- Application business ID: `DashboardID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `DashboardID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `Name` | CONFIGURATION | Var Char | 128 | Yes | No | Yes | No | - |
+| 3 | `Description` | CONFIGURATION | Text | - | No | No | No | No | - |
+| 4 | `OwnerUserID` | AUTHENTICATION | Var Char | 128 | Yes | No | Yes | Yes | - |
+| 5 | `Visibility` | AUTHORIZATION | Var Char | 24 | Yes | No | Yes | No | - |
+| 6 | `DefaultRole` | AUTHORIZATION | Var Char | 48 | No | No | Yes | No | - |
+| 7 | `Version` | SYSTEM | Int | - | Yes | No | No | No | - |
+| 8 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 9 | `UpdatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 10 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
+## Create table: CFG_ReportDefinition
+
+- Zone: CONFIGURATION
+- Load order: 2
+- Application business ID: `ReportDefinitionID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `ReportDefinitionID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `Name` | CONFIGURATION | Var Char | 128 | Yes | No | Yes | No | - |
+| 3 | `Description` | CONFIGURATION | Text | - | No | No | No | No | - |
+| 4 | `OwnerUserID` | AUTHENTICATION | Var Char | 128 | Yes | No | Yes | Yes | - |
+| 5 | `SourceKey` | CONFIGURATION | Var Char | 64 | Yes | No | Yes | No | - |
+| 6 | `DefinitionJSON` | CONFIGURATION | Text | - | Yes | No | No | No | - |
+| 7 | `Visibility` | AUTHORIZATION | Var Char | 24 | Yes | No | Yes | No | - |
+| 8 | `Version` | SYSTEM | Int | - | Yes | No | No | No | - |
+| 9 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 10 | `UpdatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 11 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
+## Create table: CFG_ContentShare
+
+- Zone: CONFIGURATION
+- Load order: 3
+- Application business ID: `ContentShareID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `ContentShareID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `ContentType` | CONFIGURATION | Var Char | 24 | Yes | No | Yes | No | - |
+| 3 | `ContentBusinessID` | CONFIGURATION | Var Char | 64 | Yes | No | Yes | No | - |
+| 4 | `TargetUserID` | AUTHORIZATION | Var Char | 128 | No | No | Yes | Yes | - |
+| 5 | `TargetRole` | AUTHORIZATION | Var Char | 48 | No | No | Yes | No | - |
+| 6 | `TargetUnitID` | AUTHORIZATION | BigInt | - | No | No | Yes | No | - |
+| 7 | `Permission` | AUTHORIZATION | Var Char | 24 | Yes | No | Yes | No | - |
+| 8 | `SharedByUserID` | AUTHENTICATION | Var Char | 128 | Yes | No | Yes | Yes | - |
+| 9 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 10 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
+## Create table: CFG_DashboardItem
+
+- Zone: CONFIGURATION
+- Load order: 3
+- Application business ID: `DashboardItemID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `DashboardItemID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `GridColumn` | CONFIGURATION | Int | - | Yes | No | No | No | - |
+| 3 | `GridRow` | CONFIGURATION | Int | - | Yes | No | No | No | - |
+| 4 | `GridWidth` | CONFIGURATION | Int | - | Yes | No | No | No | - |
+| 5 | `GridHeight` | CONFIGURATION | Int | - | Yes | No | No | No | - |
+| 6 | `DisplayOrder` | CONFIGURATION | Int | - | Yes | No | No | No | - |
+| 7 | `Version` | SYSTEM | Int | - | Yes | No | No | No | - |
+| 8 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
+## Create table: CFG_UserPreference
+
+- Zone: CONFIGURATION
+- Load order: 3
+- Application business ID: `UserPreferenceID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `UserPreferenceID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `CatalystUserID` | AUTHENTICATION | Var Char | 128 | Yes | Yes | Yes | Yes | - |
+| 3 | `PreferencesJSON` | CONFIGURATION | Text | - | Yes | No | No | No | - |
+| 4 | `Version` | SYSTEM | Int | - | Yes | No | No | No | - |
+| 5 | `UpdatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 6 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
 ## Create table: TRN_CaseFeature
 
 - Zone: TRANSFORMATION
@@ -400,35 +490,73 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | 14 | `OccurredAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
 | 15 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
 
+## Create table: WF_AlertNote
+
+- Zone: WORKFLOW
+- Load order: 44
+- Application business ID: `AlertNoteID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `AlertNoteID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `AuthorUserID` | AUTHENTICATION | Var Char | 128 | Yes | No | Yes | Yes | - |
+| 3 | `NoteText` | WORKFLOW | Text | - | Yes | No | No | Yes | - |
+| 4 | `CreatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 5 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
+## Create table: WF_Escalation
+
+- Zone: WORKFLOW
+- Load order: 44
+- Application business ID: `EscalationID`
+
+| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---|---|---|---|---|
+| 1 | `EscalationID` | SYSTEM | Var Char | 64 | Yes | Yes | Yes | No | - |
+| 2 | `FromUnitID` | AUTHORIZATION | BigInt | - | Yes | No | Yes | No | - |
+| 3 | `TargetUnitID` | AUTHORIZATION | BigInt | - | Yes | No | Yes | No | - |
+| 4 | `EscalationPriority` | WORKFLOW | Var Char | 16 | Yes | No | Yes | No | - |
+| 5 | `Reason` | WORKFLOW | Text | - | Yes | No | No | No | - |
+| 6 | `EscalatedByUserID` | AUTHENTICATION | Var Char | 128 | Yes | No | Yes | Yes | - |
+| 7 | `EscalatedAt` | SYSTEM | DateTime | - | Yes | No | No | No | - |
+| 8 | `SyntheticData` | SYSTEM | Boolean | - | Yes | No | No | No | Yes |
+
 ## Phase B - Add Foreign Key columns
 
 Add these after all Phase A tables exist. For every row below select the parent `ROWID` and **On Delete = Null**. Never select Cascade.
 
 | Order | Child table | Column | Parent table | Mandatory | On delete |
 |---:|---|---|---|---|---|
-| 1 | `INT_Anomaly` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 2 | `INT_AreaRisk` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 3 | `INT_Hotspot` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 4 | `INT_NetworkNode` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 5 | `INT_Pattern` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 6 | `INT_RepeatOffenderSignal` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 7 | `INT_NetworkEdge` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 8 | `INT_NetworkEdge` | `FromNodeRef` | `INT_NetworkNode` | Yes | NULL |
-| 9 | `INT_NetworkEdge` | `ToNodeRef` | `INT_NetworkNode` | Yes | NULL |
-| 10 | `INT_FindingEvidence` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 11 | `WF_Alert` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
-| 12 | `WF_Alert` | `LastCommandRef` | `WF_Command` | No | NULL |
-| 13 | `WF_Command` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 14 | `WF_AlertEvidence` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 15 | `WF_AlertEvidence` | `FindingEvidenceRef` | `INT_FindingEvidence` | Yes | NULL |
-| 16 | `WF_AnalystConclusion` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 17 | `WF_AnalystConclusion` | `CommandRef` | `WF_Command` | Yes | NULL |
-| 18 | `WF_Assignment` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 19 | `WF_Assignment` | `CommandRef` | `WF_Command` | Yes | NULL |
-| 20 | `WF_Outcome` | `AlertRef` | `WF_Alert` | Yes | NULL |
-| 21 | `WF_Outcome` | `CommandRef` | `WF_Command` | Yes | NULL |
-| 22 | `WF_AuditEvent` | `AlertRef` | `WF_Alert` | No | NULL |
-| 23 | `WF_AuditEvent` | `CommandRef` | `WF_Command` | No | NULL |
+| 1 | `CFG_DashboardItem` | `DashboardRef` | `CFG_Dashboard` | Yes | NULL |
+| 2 | `CFG_DashboardItem` | `ReportRef` | `CFG_ReportDefinition` | Yes | NULL |
+| 3 | `CFG_UserPreference` | `LandingDashboardRef` | `CFG_Dashboard` | No | NULL |
+| 4 | `INT_Anomaly` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 5 | `INT_AreaRisk` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 6 | `INT_Hotspot` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 7 | `INT_NetworkNode` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 8 | `INT_Pattern` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 9 | `INT_RepeatOffenderSignal` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 10 | `INT_NetworkEdge` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 11 | `INT_NetworkEdge` | `FromNodeRef` | `INT_NetworkNode` | Yes | NULL |
+| 12 | `INT_NetworkEdge` | `ToNodeRef` | `INT_NetworkNode` | Yes | NULL |
+| 13 | `INT_FindingEvidence` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 14 | `WF_Alert` | `AnalysisRunRef` | `INT_AnalysisRun` | Yes | NULL |
+| 15 | `WF_Alert` | `LastCommandRef` | `WF_Command` | No | NULL |
+| 16 | `WF_Command` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 17 | `WF_AlertEvidence` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 18 | `WF_AlertEvidence` | `FindingEvidenceRef` | `INT_FindingEvidence` | Yes | NULL |
+| 19 | `WF_AnalystConclusion` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 20 | `WF_AnalystConclusion` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 21 | `WF_Assignment` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 22 | `WF_Assignment` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 23 | `WF_Outcome` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 24 | `WF_Outcome` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 25 | `WF_AuditEvent` | `AlertRef` | `WF_Alert` | No | NULL |
+| 26 | `WF_AuditEvent` | `CommandRef` | `WF_Command` | No | NULL |
+| 27 | `WF_AlertNote` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 28 | `WF_AlertNote` | `CommandRef` | `WF_Command` | Yes | NULL |
+| 29 | `WF_Escalation` | `AlertRef` | `WF_Alert` | Yes | NULL |
+| 30 | `WF_Escalation` | `CommandRef` | `WF_Command` | Yes | NULL |
 
 ## Post-creation verification checklist
 
@@ -443,6 +571,11 @@ Add these after all Phase A tables exist. For every row below select the parent 
 | Table | Expected columns | Catalyst table ID | Observed columns | Verified by | Verified at | Evidence path |
 |---|---:|---|---:|---|---|---|
 | `CFG_UserAccess` | 9 |  |  |  |  |  |
+| `CFG_Dashboard` | 10 |  |  |  |  |  |
+| `CFG_ReportDefinition` | 11 |  |  |  |  |  |
+| `CFG_ContentShare` | 10 |  |  |  |  |  |
+| `CFG_DashboardItem` | 10 |  |  |  |  |  |
+| `CFG_UserPreference` | 7 |  |  |  |  |  |
 | `TRN_CaseFeature` | 9 |  |  |  |  |  |
 | `TRN_DistrictContext` | 9 |  |  |  |  |  |
 | `TRN_LocationFeature` | 8 |  |  |  |  |  |
@@ -463,3 +596,5 @@ Add these after all Phase A tables exist. For every row below select the parent 
 | `WF_Assignment` | 12 |  |  |  |  |  |
 | `WF_Outcome` | 8 |  |  |  |  |  |
 | `WF_AuditEvent` | 17 |  |  |  |  |  |
+| `WF_AlertNote` | 7 |  |  |  |  |  |
+| `WF_Escalation` | 10 |  |  |  |  |  |

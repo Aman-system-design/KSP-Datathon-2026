@@ -160,8 +160,8 @@
     },
     {
       "path": "src/backend/workflow/command-service.mjs",
-      "sha256": "c11bd70ff12e71a6cd4f4d00ba2ce655593c335fdafcb25905a784b36cc22955",
-      "bytes": 11425
+      "sha256": "d9a8077520ed5d0a201cef104ef70a05433b95c42ed2c088fe4d98c7a3c9b2b5",
+      "bytes": 11435
     },
     {
       "path": "src/backend/workflow/state-machine.mjs",

@@ -424,7 +424,7 @@
         {"name":"CommandRef","origin":"SYSTEM","type":"foreign_key","parentTable":"WF_Command","mandatory":true,"onDelete":"NULL"},
         {"name":"FromUnitID","origin":"AUTHORIZATION","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"TargetUnitID","origin":"AUTHORIZATION","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
-        {"name":"Priority","origin":"WORKFLOW","type":"varchar","maxLength":16,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"EscalationPriority","origin":"WORKFLOW","type":"varchar","maxLength":16,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"Reason","origin":"WORKFLOW","type":"text","mandatory":true,"pii":false},
         {"name":"EscalatedByUserID","origin":"AUTHENTICATION","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":true,"pii":true},
         {"name":"EscalatedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},

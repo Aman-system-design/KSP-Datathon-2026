@@ -287,3 +287,9 @@ The approved platform extension is implemented locally on `codex/intelligence-wo
 Observed verification: 197 backend tests and 11 frontend tests passed; Vite production build succeeded; both Function bundles built and inspected with zero manifest, forbidden-file, or unresolved-import errors; both schema validators passed; npm reported zero vulnerabilities. The Catalyst Node SDK `deleteRow(ROWID)` signature was checked against official Zoho documentation. The local in-app browser could not connect to the sandboxed Vite port, so no screenshot-level browser claim is made.
 
 No Catalyst resource was created, changed, or deployed by this slice. Remote table migration, Function deployment, API Gateway routes, Authentication personas, web hosting, and fresh-browser smoke tests require separate explicit approval.
+
+### Intelligence Workspaces Catalyst Development Deployment — July 21, 2026
+
+The founder explicitly approved the bounded Catalyst Development deployment. During exact schema creation, Catalyst accepted the new table and neighboring field definitions but rejected the generic physical column name `Priority` in `WF_Escalation`, both with and without Search Index. The platform contract was corrected test-first to the unambiguous physical field `EscalationPriority`; the public API payload remains `priority`.
+
+Seven additive empty tables now exist in Catalyst Development. Schema completion, App User permission denial, API Function deployment, Slate hosting, exact API security configuration, and deployed browser smoke remain in progress. Existing source/intelligence tables, the accepted 411-row synthetic batch, `intelligence_refresh`, Jobs, cron, and Production have not been changed by this deployment slice.
