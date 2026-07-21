@@ -220,7 +220,7 @@ On 2026-07-21, the source-data boundary was corrected after manual review found 
 - a zero-reject synthetic-bootstrap gate before repository persistence;
 - a non-executing, exact-project, exact-batch Development reset runbook generator.
 
-Observed local verification: 171 tests passed; both schema validators, intelligence demo, Function builds, and bundle inspections passed. Remote correction is not yet claimed. Batch `KSP-DEMO-20260720-V1` remains quarantined until read-only counts are inspected and explicit deletion approval is recorded.
+Observed local verification: 171 tests passed; both schema validators, intelligence demo, Function builds, and bundle inspections passed. On 2026-07-21, an exact read-only Catalyst Development audit reconciled 411 source rows, 411 source-key mappings, one ingestion-batch row, zero rejects, and zero analysis runs for quarantined batch `KSP-DEMO-20260720-V1`. After explicit user approval, exactly those 823 synthetic rows were deleted in reverse dependency order. A separate zero-row sweep passed for all 26 source tables and the scoped control/analysis tables. The corrected Function has not yet been deployed and the batch has not yet been reloaded.
 
 ## Decisions
 
