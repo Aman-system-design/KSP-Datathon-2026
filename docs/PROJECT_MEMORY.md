@@ -222,6 +222,8 @@ On 2026-07-21, the source-data boundary was corrected after manual review found 
 
 Observed local verification: 171 tests passed; both schema validators, intelligence demo, Function builds, and bundle inspections passed. On 2026-07-21, an exact read-only Catalyst Development audit reconciled 411 source rows, 411 source-key mappings, one ingestion-batch row, zero rejects, and zero analysis runs for quarantined batch `KSP-DEMO-20260720-V1`. After explicit user approval, exactly those 823 synthetic rows were deleted in reverse dependency order. A separate zero-row sweep passed for all 26 source tables and the scoped control/analysis tables. The corrected Function has not yet been deployed and the batch has not yet been reloaded.
 
+Later on 2026-07-21, the corrected `intelligence_refresh` bundle was deployed to Catalyst Development and its five required configuration key names were restored without exposing the audit-key value. Zero-retry Job `43492000000064695` reloaded the same approved batch key successfully. Remote acceptance proved 411/411 accepted rows, zero rejects, 50 PDF-semantic FIRs, 411 source-key mappings, seven analysis runs, valid identifiers/timelines, and persisted hotspot, anomaly, pattern, repeat-offender, area-risk, network and workflow-alert outputs. The accepted batch ROWID is `43492000000068005`.
+
 ## Decisions
 
 - Treat the FIR schema as the first source of truth.
