@@ -12,7 +12,13 @@ const requiredText = (value, name, max = 4000) => {
   return value.trim();
 };
 const requiredInteger = (value, name) => {
-  if (!Number.isInteger(value) || value < 0) fail('INVALID_REQUEST', `${name} must be a non-negative integer.`);
+  if (!Number.isSafeInteger(value) || value < 0) fail('INVALID_REQUEST', `${name} must be a non-negative safe integer.`);
+  return value;
+};
+const identifierPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u;
+const requiredUniqueIds = (value, name, max, validate) => {
+  if (!Array.isArray(value) || value.length > max || new Set(value).size !== value.length
+    || value.some(item => !validate(item))) fail('INVALID_REQUEST', `${name} is invalid.`);
   return value;
 };
 const eventTypes = Object.freeze({
@@ -24,11 +30,13 @@ const eventTypes = Object.freeze({
 function validatePayload(commandType, payload, access) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) fail('INVALID_REQUEST');
   if (commandType === 'ASSIGN') {
-    if (!Number.isInteger(payload.assignedUnitId) || !access.authorizedUnitIds.has(payload.assignedUnitId)) fail('FORBIDDEN_SCOPE');
-    if (payload.assignedEmployeeId !== null && payload.assignedEmployeeId !== undefined && !Number.isInteger(payload.assignedEmployeeId)) fail('INVALID_REQUEST');
+    requiredInteger(payload.assignedUnitId, 'assignedUnitId');
+    if (!access.authorizedUnitIds.has(payload.assignedUnitId)) fail('FORBIDDEN_SCOPE');
+    if (payload.assignedEmployeeId !== null && payload.assignedEmployeeId !== undefined) requiredInteger(payload.assignedEmployeeId, 'assignedEmployeeId');
     requiredText(payload.reason, 'reason');
-    if (!Array.isArray(payload.authorizedUnitIds) || payload.authorizedUnitIds.some(id => !access.authorizedUnitIds.has(id))) fail('FORBIDDEN_SCOPE');
-    if (!Array.isArray(payload.authorizedCaseIds)) fail('INVALID_REQUEST');
+    requiredUniqueIds(payload.authorizedUnitIds, 'authorizedUnitIds', 100, Number.isSafeInteger);
+    if (payload.authorizedUnitIds.some(id => !access.authorizedUnitIds.has(id))) fail('FORBIDDEN_SCOPE');
+    requiredUniqueIds(payload.authorizedCaseIds, 'authorizedCaseIds', 500, id => typeof id === 'string' && identifierPattern.test(id));
     requiredText(payload.evidenceAccessLevel, 'evidenceAccessLevel', 32);
   } else if (commandType === 'ACKNOWLEDGE') {
     requiredText(payload.note, 'note');
@@ -41,7 +49,8 @@ function validatePayload(commandType, payload, access) {
   } else if (commandType === 'NOTE') {
     requiredText(payload.noteText, 'noteText');
   } else if (commandType === 'ESCALATE') {
-    if (!Number.isInteger(payload.targetUnitId) || !access.escalationUnitIds?.has(payload.targetUnitId)) fail('FORBIDDEN_SCOPE');
+    requiredInteger(payload.targetUnitId, 'targetUnitId');
+    if (!access.escalationUnitIds?.has(payload.targetUnitId)) fail('FORBIDDEN_SCOPE');
     if (!['MEDIUM', 'HIGH', 'CRITICAL'].includes(payload.priority)) fail('INVALID_REQUEST');
     requiredText(payload.reason, 'reason');
   }

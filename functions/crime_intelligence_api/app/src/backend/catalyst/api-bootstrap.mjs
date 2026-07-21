@@ -44,6 +44,7 @@ function isoClock(clock) {
 export function createApiApplication({
   sdk, config, policy, clock = () => new Date(), idFactory,
   repositoryFactory = application => new CatalystIntelligenceRepository({ application }),
+  logger = console,
 }) {
   if (config?.environment !== 'Development' || config.projectId !== EXPECTED_PROJECT
     || config.permissionVersion !== policy?.version || !config.auditKey || !config.auditKeyVersion) {
@@ -51,11 +52,20 @@ export function createApiApplication({
   }
   if (typeof idFactory !== 'function') throw new TypeError('idFactory is required.');
   const now = isoClock(clock);
+  const log = (level, event) => {
+    try { logger?.[level]?.(JSON.stringify(event)); } catch { /* Logging cannot alter the API result. */ }
+  };
 
   return async function handle(httpRequest) {
+    const startedAt = performance.now();
+    const durationMs = () => Number((performance.now() - startedAt).toFixed(2));
     const requestId = idFactory('REQ');
     const request = normalizeRequest(httpRequest, requestId);
-    if (!isDeclaredApiRoute(request.method, request.path)) return safeFailure('NOT_FOUND', requestId);
+    if (!isDeclaredApiRoute(request.method, request.path)) {
+      const result = safeFailure('NOT_FOUND', requestId);
+      log('info', { event: 'api_request_completed', requestId, method: request.method, status: result.status, durationMs: durationMs() });
+      return result;
+    }
     let context;
     let currentUser;
     try {
@@ -66,7 +76,7 @@ export function createApiApplication({
       const profile = await repository.getAccessProfile(currentUser.user_id);
       await context.authorize(profile);
 
-      const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => idFactory('REQ') });
+      const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
       const resourceServices = createWorkspaceServices({ repository, readServices, now, idFactory });
       const commandService = createCommandService({
         repository, clock: now, idFactory,
@@ -92,9 +102,21 @@ export function createApiApplication({
         readServices, resourceServices, commandService, accessResolver,
         profileRepository: repository, auditService, environment: config.environment,
       });
-      return dispatcher({ request, currentUser });
+      const result = await dispatcher({ request, currentUser });
+      const failed = result.status >= 500;
+      log(failed ? 'error' : 'info', {
+        event: failed ? 'api_request_failed' : 'api_request_completed',
+        requestId, method: request.method, status: result.status, durationMs: durationMs(),
+        ...(failed ? { code: result.body?.error?.code ?? 'INTERNAL_ERROR' } : {}),
+      });
+      return result;
     } catch (error) {
-      return safeFailure(error?.code, requestId);
+      const result = safeFailure(error?.code, requestId);
+      log('error', {
+        event: 'api_request_failed', requestId, method: request.method,
+        status: result.status, code: result.body.error.code, durationMs: durationMs(),
+      });
+      return result;
     }
   };
 }

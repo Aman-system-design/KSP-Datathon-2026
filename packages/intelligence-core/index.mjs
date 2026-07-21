@@ -1,5 +1,6 @@
 export * from './src/anomaly.mjs';
 export * from './src/area-risk.mjs';
+export * from './src/candidates.mjs';
 export * from './src/contracts.mjs';
 export * from './src/evaluate.mjs';
 export * from './src/features.mjs';

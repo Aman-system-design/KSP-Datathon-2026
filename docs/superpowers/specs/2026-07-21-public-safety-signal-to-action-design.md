@@ -285,6 +285,20 @@ Correctness on 50 synthetic FIRs is not a production-capacity claim. KSP-scale o
 
 The 50K local benchmark demonstrates removal of obvious quadratic behavior; it does not certify production throughput or nationwide capacity. Production certification requires KSP volumes, workload patterns, infrastructure limits and service-level objectives.
 
+### 8.3 Shortlist production-hardening contract
+
+The deployed Development slice must be operable without pretending to be production-ready:
+
+- every API request receives a server-generated correlation identifier;
+- API completion and failure logs are structured JSON and exclude bodies, case identifiers, user identifiers, tokens and stack traces;
+- public errors remain stable and non-leaking while internal logs retain a safe error code;
+- workflow versions use safe integers and assignment arrays have explicit size and identifier bounds;
+- the production web build does not publish source maps;
+- liveness/readiness responses disclose no project, data or secret detail;
+- API throttling belongs at Catalyst API Gateway and remains a deployment gate, not custom Express middleware.
+
+This contract does not claim SLAs, disaster recovery, operational certification or permission to process real KSP data.
+
 ## 9. Shortlist Demonstration
 
 The 2-5 minute recording follows one uninterrupted story:
@@ -316,6 +330,9 @@ The design is accepted only when all of the following are true:
 - hotspot, identity and Pattern Fusion candidate generation avoids an unbounded all-record pair scan;
 - the 50K local benchmark completes with recorded candidate counts and without loading 50K FIRs into Catalyst Development;
 - Copilot output is grounded in authorized stored evidence and fails closed when any model or language service is unavailable.
+- API logs are correlated, machine-readable and free of evidence payloads or credentials.
+- oversized workflow arrays and unsafe numeric versions fail closed.
+- the production web artifact contains no source-map files.
 
 ## 11. Authority and Compatibility
 

@@ -159,6 +159,20 @@ test('workflow denies wrong role, assignment, state/version, and isolates users 
   );
 });
 
+test('workflow rejects unsafe versions and unbounded or malformed assignment identifiers', async () => {
+  const invalid = [
+    request({ expectedVersion: Number.MAX_SAFE_INTEGER + 1 }),
+    request({ payload: { ...request().payload, authorizedCaseIds: Array.from({ length: 501 }, (_, index) => `CASE-${index}`) } }),
+    request({ payload: { ...request().payload, authorizedCaseIds: ['CASE 001'] } }),
+    request({ payload: { ...request().payload, authorizedCaseIds: ['CASE-001', 'CASE-001'] } }),
+    request({ payload: { ...request().payload, authorizedUnitIds: Array(101).fill(101) } }),
+  ];
+  for (const input of invalid) {
+    const { service } = harness();
+    await assert.rejects(service.execute(input), { code: 'INVALID_REQUEST' });
+  }
+});
+
 test('concurrent commands for one expected version allow exactly one transition', async () => {
   const { service, repository } = harness();
   const results = await Promise.allSettled([

@@ -13,18 +13,19 @@ export function runIntelligencePipeline(input) {
   const observedFrom = input.cases.map(row => row.incidentAt).sort()[0].slice(0, 10);
   const observedTo = input.asOf.slice(0, 10);
   const analysisRuns = [
-    createAnalysisRun({ id: `RUN-HOT-${input.fixtureVersion}`, type: 'HOTSPOT', method: 'HAVERSINE_DBSCAN', version, observedFrom, observedTo, parameters: { radiusKm: 1.5, minCases: 5 } }),
+    createAnalysisRun({ id: `RUN-HOT-${input.fixtureVersion}`, type: 'HOTSPOT', method: 'HAVERSINE_DBSCAN', version, observedFrom, observedTo, parameters: { radiusKm: 1.5, minCases: 5, maximumAgeDays: 180 } }),
     createAnalysisRun({ id: `RUN-ANOM-${input.fixtureVersion}`, type: 'ANOMALY', method: 'MEDIAN_MAD', version, observedFrom, observedTo }),
     createAnalysisRun({ id: `RUN-PAT-${input.fixtureVersion}`, type: 'PATTERN', method: 'EXPLAINABLE_MULTI_SIGNAL_FUSION', version, observedFrom, observedTo, parameters: { threshold: 0.65, minimumCases: 4, minimumEvidenceFamilies: 3 } }),
     createAnalysisRun({ id: `RUN-RISK-${input.fixtureVersion}`, type: 'AREA_RISK', method: 'EXPLAINABLE_WEIGHTED_SCORE', version, observedFrom, observedTo, parameters: { horizonDays: 7 } }),
   ];
   const [hotspotRun, anomalyRun, patternRun, riskRun] = analysisRuns;
   const features = buildCaseFeatures(input.cases, version, new Date(input.asOf));
-  const hotspots = detectHotspots(features, { radiusKm: 1.5, minCases: 5, runId: hotspotRun.id });
+  const { findings: hotspots } = detectHotspots(features, { radiusKm: 1.5, minCases: 5, runId: hotspotRun.id, maximumAgeDays: 180 });
   const anomalies = input.weeklySeries.map(series => Object.freeze({ ...detectAnomaly(series), runId: anomalyRun.id }));
-  const identityResolutions = resolveIdentities(features);
+  const { resolutions: identityResolutions } = resolveIdentities(features);
   const network = buildEvidenceGraph(features);
-  const patterns = discoverPatterns(features, { threshold: 0.65, minimumCases: 4, minimumEvidenceFamilies: 3 })
+  const { patterns: discoveredPatterns } = discoverPatterns(features, { threshold: 0.65, minimumCases: 4, minimumEvidenceFamilies: 3 });
+  const patterns = discoveredPatterns
     .map(pattern => Object.freeze({ ...pattern, runId: patternRun.id }));
   const hotspotEvidenceIds = hotspots.flatMap(row => row.evidenceCaseIds);
   const riskFeatures = features.filter(row => hotspotEvidenceIds.includes(row.caseId));

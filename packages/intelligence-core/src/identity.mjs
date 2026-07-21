@@ -1,4 +1,4 @@
-const normalize = value => value.toLocaleLowerCase('en-IN').normalize('NFKD').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+import { identityCandidatePairs, normalizeIdentityName } from './candidates.mjs';
 
 export function resolveIdentityPair(left, right) {
   if (left.personId && right.personId && left.personId === right.personId) {
@@ -13,7 +13,7 @@ export function resolveIdentityPair(left, right) {
     });
   }
   const conflictingIds = left.personId && right.personId && left.personId !== right.personId;
-  const nameMatch = normalize(left.name) === normalize(right.name);
+  const nameMatch = normalizeIdentityName(left.name) === normalizeIdentityName(right.name);
   const ageClose = Math.abs(Number(left.age) - Number(right.age)) <= 2;
   const genderMatch = left.gender === right.gender;
   const confidence = (nameMatch ? 0.5 : 0) + (ageClose ? 0.2 : 0) + (genderMatch ? 0.1 : 0);
@@ -30,14 +30,7 @@ export function resolveIdentityPair(left, right) {
 
 export function resolveIdentities(features) {
   const appearances = features.flatMap(row => row.accused.map(accused => ({ ...accused, caseId: row.caseId })));
-  const resolutions = [];
-  for (let left = 0; left < appearances.length; left += 1) {
-    for (let right = left + 1; right < appearances.length; right += 1) {
-      const samePersonId = appearances[left].personId && appearances[left].personId === appearances[right].personId;
-      const sameName = normalize(appearances[left].name) === normalize(appearances[right].name);
-      if (!samePersonId && !sameName) continue;
-      resolutions.push(resolveIdentityPair(appearances[left], appearances[right]));
-    }
-  }
-  return resolutions;
+  const candidates = identityCandidatePairs(appearances);
+  const resolutions = candidates.pairs.map(([left, right]) => resolveIdentityPair(left, right));
+  return Object.freeze({ resolutions, diagnostics: candidates.diagnostics });
 }

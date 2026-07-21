@@ -1,5 +1,6 @@
 import { haversineKm, clamp01, mean } from './math.mjs';
 import { textSimilarity } from './text-similarity.mjs';
+import { patternCandidatePairs } from './candidates.mjs';
 
 const weights = { spatial: 0.20, temporal: 0.15, crime: 0.15, legal: 0.10, text: 0.20, network: 0.20 };
 
@@ -30,15 +31,16 @@ export function scoreCasePair(left, right) {
 }
 
 export function discoverPatterns(features, { threshold, minimumCases, minimumEvidenceFamilies }) {
+  if (!Number.isFinite(threshold) || threshold < 0.65 || !Number.isSafeInteger(minimumCases) || minimumCases < 2
+    || !Number.isSafeInteger(minimumEvidenceFamilies) || minimumEvidenceFamilies < 3) {
+    throw new TypeError('parameters are outside the bounded candidate contract');
+  }
   const eligible = features.filter(row => row.eligible);
+  const candidates = patternCandidatePairs(eligible, { maximumDays: 180, spatialRadiusKm: 50 });
   const edges = [];
-  for (let left = 0; left < eligible.length; left += 1) {
-    for (let right = left + 1; right < eligible.length; right += 1) {
-      const separationDays = Math.abs(new Date(eligible[left].incidentAt) - new Date(eligible[right].incidentAt)) / 86_400_000;
-      if (separationDays > 180) continue;
-      const pair = scoreCasePair(eligible[left], eligible[right]);
-      if (pair.score >= threshold && pair.evidenceFamilies.length >= minimumEvidenceFamilies) edges.push(pair);
-    }
+  for (const [left, right] of candidates.pairs) {
+    const pair = scoreCasePair(left, right);
+    if (pair.score >= threshold && pair.evidenceFamilies.length >= minimumEvidenceFamilies) edges.push(pair);
   }
 
   const adjacency = new Map(eligible.map(row => [row.caseId, new Set()]));
@@ -78,5 +80,5 @@ export function discoverPatterns(features, { threshold, minimumCases, minimumEvi
       synthetic: true,
     }));
   }
-  return patterns;
+  return Object.freeze({ patterns, diagnostics: candidates.diagnostics });
 }

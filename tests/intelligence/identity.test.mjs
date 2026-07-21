@@ -22,5 +22,18 @@ test('resolves all case appearances without automatic false confirmation', () =>
     { caseId: 'C1', accused: [{ appearanceId: 'APP-007-A', personId: 'P7', name: 'Synthetic A', age: 30, gender: 'M' }] },
     { caseId: 'C2', accused: [{ appearanceId: 'APP-007-B', personId: 'P7', name: 'Synthetic A', age: 31, gender: 'M' }] },
   ];
-  assert.equal(resolveIdentities(features).filter(row => row.status === 'CONFIRMED').length, 1);
+  const result = resolveIdentities(features);
+  assert.equal(result.resolutions.filter(row => row.status === 'CONFIRMED').length, 1);
+  assert.equal(result.diagnostics.candidatePairCount, 1);
+});
+
+test('identity search remains bounded for unrelated appearances', () => {
+  const features = Array.from({ length: 100 }, (_, index) => ({
+    caseId: `C-${index}`,
+    accused: [{ appearanceId: `A-${index}`, personId: `P-${index}`, name: `Synthetic ${index}`, age: 30, gender: 'M' }],
+  }));
+  const result = resolveIdentities(features);
+  assert.equal(result.resolutions.length, 0);
+  assert.equal(result.diagnostics.candidatePairCount, 0);
+  assert.equal(result.diagnostics.fullPairCount, 4950);
 });

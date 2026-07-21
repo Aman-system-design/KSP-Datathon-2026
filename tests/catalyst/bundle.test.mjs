@@ -82,6 +82,17 @@ test('generated samples are replaced by explicit fail-closed stubs', () => {
   assert.doesNotMatch(refresh, /Hello from|Hello World|closeWithSuccess/i);
 });
 
+test('API entry exposes minimal health probes and production web builds omit source maps', () => {
+  const api = readFileSync(path.join(repositoryRoot, 'functions/crime_intelligence_api/index.cjs'), 'utf8');
+  assert.match(api, /\/healthz/u);
+  assert.match(api, /\/readyz/u);
+  assert.match(api, /api_boundary_failed/u);
+  assert.doesNotMatch(api, /error\.stack|request\.body|request\.headers/u);
+
+  const vite = readFileSync(path.join(repositoryRoot, 'web/vite.config.js'), 'utf8');
+  assert.doesNotMatch(vite, /sourcemap:\s*true/u);
+});
+
 test('Function roots contain no installed dependencies or personal metadata', () => {
   const files = execFileSync('git', [
     'ls-files', '--cached', '--others', '--exclude-standard', '--', 'functions',

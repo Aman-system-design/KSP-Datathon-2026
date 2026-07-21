@@ -144,6 +144,11 @@
       "bytes": 961
     },
     {
+      "path": "vendor/intelligence-core/src/candidates.mjs",
+      "sha256": "d145f4e8d55977590b9c93da7c2ac9acd122cb3c4787b7f432d94c9a4069e7c6",
+      "bytes": 5467
+    },
+    {
       "path": "vendor/intelligence-core/src/contracts.mjs",
       "sha256": "53c8dfd67017377bee5cff6d833a4aa7ad1348e8e9373cc91d72a09c4566fd54",
       "bytes": 1280
@@ -155,13 +160,13 @@
     },
     {
       "path": "vendor/intelligence-core/src/hotspot.mjs",
-      "sha256": "284f44626198ec5ff92a0fcacda4c761c2b10b6717de9d7e429fa613d29cff29",
-      "bytes": 1922
+      "sha256": "36fb03322e69dd18c5bbe2c1f0398470df14997a7656966f4afa4b67499ca9a0",
+      "bytes": 2662
     },
     {
       "path": "vendor/intelligence-core/src/identity.mjs",
-      "sha256": "3feff14e5f235d274aebd7d09b6af14bbfdbde829cc8f4a36a479950db1c9eef",
-      "bytes": 2045
+      "sha256": "4c9fa19782c876275510357f227cbff050c7a865904d01a46fd2bf49972449c4",
+      "bytes": 1697
     },
     {
       "path": "vendor/intelligence-core/src/math.mjs",
@@ -175,13 +180,13 @@
     },
     {
       "path": "vendor/intelligence-core/src/pattern-fusion.mjs",
-      "sha256": "987dee20b1caab09fa443fee69af57548351c283c1c1db9a93dceb622190150b",
-      "bytes": 4037
+      "sha256": "4c19c261a518633043eec4448f6f5624e05e988b29dca423f0651baa99249847",
+      "bytes": 4242
     },
     {
       "path": "vendor/intelligence-core/src/pipeline.mjs",
-      "sha256": "689f1411ee3bdb1adc66f28bafd712dd8538747b09cd51dca1c004158933c2e2",
-      "bytes": 3755
+      "sha256": "3ad3f20a2e5bcabbb3aa08c0ec075e202750a6a0b788e04fa33021459323408c",
+      "bytes": 3886
     },
     {
       "path": "vendor/intelligence-core/src/text-similarity.mjs",

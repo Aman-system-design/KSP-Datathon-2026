@@ -11,6 +11,7 @@
     "test": "node --test \"tests/**/*.test.mjs\"",
     "intelligence:demo": "node scripts/intelligence/run-demo.mjs",
     "intelligence:test": "node --test tests/intelligence/*.test.mjs",
+    "intelligence:benchmark": "node scripts/intelligence/benchmark-scale.mjs",
     "schema:validate": "node scripts/schema/validate-schema.mjs",
     "schema:runbook": "node scripts/schema/generate-console-runbook.mjs",
     "schema:compare": "node scripts/schema/compare-catalyst-export.mjs",

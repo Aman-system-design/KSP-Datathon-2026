@@ -13,7 +13,11 @@ const config = Object.freeze({
   auditKey: 'test-only-api-bootstrap-key-1234567890', auditKeyVersion: 'v1',
 });
 
-function harness({ currentUser = { user_id: 'CAT-DISTRICT', status: 'ACTIVE' } } = {}) {
+function harness({
+  currentUser = { user_id: 'CAT-DISTRICT', status: 'ACTIVE' },
+  logger = { info() {}, error() {} },
+  repositoryFactory,
+} = {}) {
   const calls = [];
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const sdk = { initialize(_request, options) {
@@ -26,7 +30,8 @@ function harness({ currentUser = { user_id: 'CAT-DISTRICT', status: 'ACTIVE' } }
   const application = createApiApplication({
     sdk, config, policy, clock: () => '2026-07-20T15:00:00.000Z',
     idFactory: prefix => `${prefix ?? 'REQ'}-${++id}`,
-    repositoryFactory: () => repository,
+    repositoryFactory: repositoryFactory ?? (() => repository),
+    logger,
   });
   return { application, calls, repository };
 }
@@ -83,4 +88,41 @@ test('API composition fails closed for missing identity, undeclared route and ma
   const { application } = harness();
   assert.equal((await application({ method: 'GET', url: '/internal', headers: {} })).status, 404);
   assert.equal((await application({ method: 'GET', url: 'not-a-path', headers: {} })).status, 404);
+});
+
+test('API emits correlated redacted structured completion and failure logs', async () => {
+  const entries = [];
+  const logger = {
+    info: value => entries.push(['info', JSON.parse(value)]),
+    error: value => entries.push(['error', JSON.parse(value)]),
+  };
+  const successful = harness({ logger }).application;
+  const response = await successful({
+    method: 'GET', url: '/v1/intelligence/brief', requestId: 'ATTACKER-CONTROLLED',
+    headers: { authorization: 'Bearer must-not-log' }, body: { evidence: 'must-not-log' },
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.body.meta.requestId, /^REQ-\d+$/u);
+  assert.notEqual(response.body.meta.requestId, 'ATTACKER-CONTROLLED');
+  const [completionLevel, completionLog] = entries[0];
+  const { durationMs, ...completion } = completionLog;
+  assert.equal(completionLevel, 'info');
+  assert.deepEqual(completion, {
+    event: 'api_request_completed', requestId: response.body.meta.requestId, method: 'GET', status: 200,
+  });
+  assert.equal(typeof durationMs, 'number');
+
+  const failed = harness({
+    logger,
+    repositoryFactory: () => { throw new Error('secret database detail'); },
+  }).application;
+  const failure = await failed({ method: 'GET', url: '/v1/intelligence/brief', headers: {}, body: null });
+  assert.equal(failure.status, 500);
+  const failureLog = entries.at(-1);
+  assert.equal(failureLog[0], 'error');
+  assert.equal(failureLog[1].event, 'api_request_failed');
+  assert.equal(failureLog[1].requestId, failure.body.error.requestId);
+  assert.equal(failureLog[1].code, 'INTERNAL_ERROR');
+  assert.equal(JSON.stringify(entries).includes('secret database detail'), false);
+  assert.equal(JSON.stringify(entries).includes('must-not-log'), false);
 });

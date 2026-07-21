@@ -20,8 +20,8 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "57a2527a8d0e8d40fe62b5e77a7ae7f1d03cbc52d51c1bcdcd96eb5cd303d2a4",
-      "bytes": 4995
+      "sha256": "8ee7198f93dc85ff58e97256db3f64c614c8887cccfa8d884246d75c842caa21",
+      "bytes": 6035
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
@@ -160,8 +160,8 @@
     },
     {
       "path": "src/backend/workflow/command-service.mjs",
-      "sha256": "d9a8077520ed5d0a201cef104ef70a05433b95c42ed2c088fe4d98c7a3c9b2b5",
-      "bytes": 11435
+      "sha256": "9761902832a3d25001b348d2a9a7eaa3ae56bdb4f9bf60add319cd696248de2e",
+      "bytes": 11898
     },
     {
       "path": "src/backend/workflow/state-machine.mjs",

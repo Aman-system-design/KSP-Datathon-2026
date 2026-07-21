@@ -10,6 +10,24 @@
 
 ---
 
+## Task 0: Production-Hardening Boundary
+
+**Files:**
+
+- Modify `tests/catalyst/api-bootstrap.test.mjs`
+- Modify `tests/backend/workflow.test.mjs`
+- Modify `tests/catalyst/bundle.test.mjs`
+- Modify `src/backend/catalyst/api-bootstrap.mjs`
+- Modify `src/backend/workflow/command-service.mjs`
+- Modify `functions/crime_intelligence_api/index.cjs`
+- Modify `web/vite.config.js`
+
+- [x] **Step 1: Write failing tests** for server-generated request correlation, redacted structured completion/failure logs, safe-integer versions, bounded assignment identifiers, liveness/readiness source contract and absent production source maps.
+- [x] **Step 2: Run the focused tests and observe expected failures.**
+- [x] **Step 3: Implement the smallest native Node/Catalyst solution.** Do not add logging, validation, health or rate-limit dependencies; API Gateway owns throttling.
+- [x] **Step 4: Re-run focused tests, the production web build and bundle inspection.** Confirm no `.map` artifacts.
+- [ ] **Step 5: Run the complete verification gate before committing.**
+
 ## File Structure
 
 **Scale analytics**
@@ -49,7 +67,7 @@
 - Create: `tests/intelligence/candidates.test.mjs`
 - Modify: `packages/intelligence-core/index.mjs`
 
-- [ ] **Step 1: Write the failing candidate-index tests**
+- [x] **Step 1: Write the failing candidate-index tests**
 
 ```js
 test('spatial candidates exclude distant points without losing neighbours', () => {
@@ -65,16 +83,16 @@ test('identity candidates compare only matching authoritative or normalized keys
 });
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `node --test tests/intelligence/candidates.test.mjs`
 Expected: FAIL because `@ksp/intelligence-core/candidates` does not exist.
 
-- [ ] **Step 3: Implement the minimum indexes**
+- [x] **Step 3: Implement the minimum indexes**
 
-Use latitude/longitude grid buckets sized from `radiusKm`, inspecting the current and eight neighboring cells. Use `Map` buckets keyed by authoritative person ID and normalized name. De-duplicate candidate pairs with a stable ordered case/appearance key. Return `{ pairs, diagnostics }` where diagnostics contains eligible count, full-pair count and candidate-pair count.
+Use spherical Cartesian grid buckets sized from `radiusKm`, inspecting the current and 26 neighboring cells. Use `Map` buckets keyed by authoritative person ID and normalized name. De-duplicate candidate pairs with a stable ordered case/appearance key. Return `{ pairs, diagnostics }` where diagnostics contains eligible count, full-pair count and candidate-pair count.
 
-- [ ] **Step 4: Run tests and verify GREEN**
+- [x] **Step 4: Run tests and verify GREEN**
 
 Run: `node --test tests/intelligence/candidates.test.mjs`
 Expected: all candidate tests pass.
@@ -94,7 +112,7 @@ git commit -m "perf: index intelligence candidates"
 - Modify: `tests/intelligence/hotspot.test.mjs`
 - Modify: `tests/intelligence/identity.test.mjs`
 
-- [ ] **Step 1: Add failing equivalence and bound tests**
+- [x] **Step 1: Add failing equivalence and bound tests**
 
 ```js
 test('hotspot search keeps the planted cluster while reducing comparisons', () => {
@@ -110,16 +128,16 @@ test('identity search remains linear in unrelated appearances', () => {
 });
 ```
 
-- [ ] **Step 2: Run targeted tests and verify RED**
+- [x] **Step 2: Run targeted tests and verify RED**
 
 Run: `node --test tests/intelligence/hotspot.test.mjs tests/intelligence/identity.test.mjs`
 Expected: FAIL because current functions return arrays without diagnostics and scan broadly.
 
-- [ ] **Step 3: Integrate the candidate indexes**
+- [x] **Step 3: Integrate the candidate indexes**
 
 Preserve existing finding objects and algorithm labels. Return `{ findings, diagnostics }`, then update the pipeline and direct callers once. Candidate generation may exclude comparisons only when the spatial distance lower bound or identity blocking key proves they cannot qualify.
 
-- [ ] **Step 4: Run intelligence tests and verify GREEN**
+- [x] **Step 4: Run intelligence tests and verify GREEN**
 
 Run: `npm run intelligence:test`
 Expected: all intelligence tests pass, including planted and negative controls.
@@ -139,7 +157,7 @@ git commit -m "perf: bound hotspot and identity scans"
 - Modify: `packages/intelligence-core/src/pipeline.mjs`
 - Modify: `tests/intelligence/pattern-fusion.test.mjs`
 
-- [ ] **Step 1: Write failing Pattern Fusion equivalence tests**
+- [x] **Step 1: Write failing Pattern Fusion equivalence tests**
 
 ```js
 test('candidate blocking preserves the planted cross-district pattern', () => {
@@ -154,16 +172,16 @@ test('network evidence can nominate a pair outside the spatial block', () => {
 });
 ```
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `node --test tests/intelligence/pattern-fusion.test.mjs tests/intelligence/candidates.test.mjs`
 Expected: FAIL because Pattern Fusion currently compares every eligible pair.
 
-- [ ] **Step 3: Implement multi-block union candidates**
+- [x] **Step 3: Implement multi-block union candidates**
 
-Create candidates from the union of bounded keys: crime major plus month/window, neighboring spatial cells, shared authoritative person ID, and shared act/section. Keep the existing 180-day hard boundary and exact `scoreCasePair` qualification. De-duplicate pairs before scoring and preserve evidence-family requirements.
+Create candidates from the union of time-partitioned neighboring spatial cells, shared authoritative person ID, and shared act/section. At the locked threshold of 0.65 with three evidence families, a pair without spatial, legal or network nomination cannot reach the score; common crime labels alone must never create a quadratic bucket. Keep the existing 180-day hard boundary and exact `scoreCasePair` qualification.
 
-- [ ] **Step 4: Run the full backend suite**
+- [x] **Step 4: Run the full backend suite**
 
 Run: `npm test`
 Expected: all tests pass and evaluation retains its positive/negative gates.
@@ -182,7 +200,7 @@ git commit -m "perf: bound pattern fusion candidates"
 - Create: `tests/intelligence/scale-benchmark.test.mjs`
 - Modify: `package.json`
 
-- [ ] **Step 1: Write the failing deterministic benchmark-contract test**
+- [x] **Step 1: Write the failing deterministic benchmark-contract test**
 
 ```js
 test('benchmark generator is deterministic and plants one known pattern', () => {
@@ -193,16 +211,16 @@ test('benchmark generator is deterministic and plants one known pattern', () => 
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `node --test tests/intelligence/scale-benchmark.test.mjs`
 Expected: FAIL because the generator does not exist.
 
-- [ ] **Step 3: Implement benchmark generation and reporting**
+- [x] **Step 3: Implement benchmark generation and reporting**
 
 Generate feature-level synthetic records without writing Catalyst rows. For 1K, 10K and 50K runs, report elapsed milliseconds, full-pair count, candidate-pair count, reduction ratio, findings and `process.memoryUsage().heapUsed`. Fail if the planted pattern is lost or the candidate count reaches the full-pair count.
 
-- [ ] **Step 4: Run the benchmark**
+- [x] **Step 4: Run the benchmark**
 
 Run: `npm run intelligence:benchmark`
 Expected: JSON output for 1K/10K/50K; exit 0; no Catalyst network call.

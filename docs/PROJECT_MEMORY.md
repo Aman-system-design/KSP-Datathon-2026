@@ -305,3 +305,18 @@ Live read-only inspection of the initialized QuickML console confirmed current p
 The approved shortlist addition is a bounded Kannada/English Evidence Copilot over authorized stored alert evidence. It may transcribe, translate, explain and speak evidence-grounded answers; it never detects crime, creates alerts or changes workflow state. The transparent Functions-based engine remains the alert authority.
 
 Scale readiness is now mandatory. The existing 50-FIR run proves correctness only. Before claiming scale preparedness, replace unbounded hotspot, identity and Pattern Fusion pair scans with indexed/bounded candidate generation and run local 1K/10K/50K benchmarks. Do not load 50K rows into Catalyst Development without separate authorization.
+
+### Local Production-Hardening and Scale Slice — July 21, 2026
+
+The first approved hardening/scale slice is implemented locally, not deployed:
+
+- API requests receive server-generated correlation IDs and emit redacted structured completion/failure logs with status and duration; evidence bodies, identities, tokens, exception messages and stacks are excluded;
+- Function entry exposes minimal `/healthz` and `/readyz` probes; public errors remain non-leaking;
+- workflow versions require safe integers, assignment collections are bounded and case identifiers are format/uniqueness checked;
+- Slate production builds no longer emit public source maps;
+- hotspot candidates use a spherical spatial index and an explicit active observation window;
+- identity candidates use authoritative-person and normalized-name buckets;
+- Pattern Fusion uses time-partitioned spatial, legal and authoritative-person blocks and rejects configuration below its proven 0.65/three-family candidate contract;
+- the deterministic local feature benchmark preserves the planted hotspot, repeat identity and cross-district pattern at 1K, 10K and 50K without contacting Catalyst.
+
+Observed 50K benchmark: 1,249,975,000 theoretical pairs reduced to 669,412 Pattern Fusion candidates (99.9464% reduction), 10.60 seconds elapsed and approximately 256 MB Node heap on this laptop. This is engineering evidence against obvious quadratic behavior, not an SLA or nationwide-capacity certification. Catalyst Development data, Functions, API Gateway, Jobs, Slate and Production were not changed by this local slice.
