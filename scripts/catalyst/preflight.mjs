@@ -5,8 +5,6 @@ import path from 'node:path';
 
 import { API_OPERATIONS } from '../../src/backend/http/api-contract.mjs';
 
-const expectedBranch = 'codex/catalyst-development';
-
 function invariant(condition, message) {
   if (!condition) throw new Error(`Catalyst preflight failed: ${message}`);
 }
@@ -32,7 +30,9 @@ export function evaluateCatalystPreflight({
 }) {
   invariant(projectConfig?.environment === 'Development', 'only Development is allowed; Production is prohibited');
   invariant(projectConfig?.syntheticOnly === true, 'synthetic-only provenance is required');
-  invariant(branch === expectedBranch, `remote work requires branch ${expectedBranch}`);
+  invariant(typeof projectConfig?.deploymentBranch === 'string' && projectConfig.deploymentBranch,
+    'deployment branch is not configured');
+  invariant(branch === projectConfig.deploymentBranch, `remote work requires branch ${projectConfig.deploymentBranch}`);
 
   const projectIndex = catalystConfig?.actives?.project ?? catalystConfig?.defaults?.project;
   const activeProject = catalystConfig?.projects?.find(({ idx }) => idx === projectIndex);
@@ -44,9 +44,9 @@ export function evaluateCatalystPreflight({
   invariant(String(activeEnvironment?.id) === projectConfig.environmentId, 'active Catalyst environment ID does not match');
 
   invariant(sourceSchema?.tables?.length === 29, 'source schema must contain exactly 29 tables');
-  invariant(intelligenceSchema?.tables?.length === 21, 'intelligence schema must contain exactly 21 tables');
-  invariant(apiOperations?.length === 12, 'API contract must contain exactly 12 operations');
-  invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 12, 'API operations must be unique');
+  invariant(intelligenceSchema?.tables?.length === 28, 'intelligence schema must contain exactly 28 tables');
+  invariant(apiOperations?.length === 33, 'API contract must contain exactly 33 operations');
+  invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 33, 'API operations must be unique');
   invariant(versionAtLeast(cliVersion, projectConfig.cliMinimumVersion), `Catalyst CLI must be at least ${projectConfig.cliMinimumVersion}`);
 
   const clean = String(gitStatus ?? '').trim() === '';
@@ -86,7 +86,7 @@ async function readJson(root, relativePath) {
 
 export async function runCatalystPreflight({ root = process.cwd(), remote = false } = {}) {
   const cliVersion = readCatalystCliVersion({ cwd: root });
-  const gitStatus = execFileSync('git', ['status', '--porcelain=v1'], { cwd: root, encoding: 'utf8' });
+  const gitStatus = execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=no'], { cwd: root, encoding: 'utf8' });
   const branch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
   return evaluateCatalystPreflight({
     projectConfig: await readJson(root, 'config/catalyst-development.json'),

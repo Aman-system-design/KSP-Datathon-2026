@@ -8,7 +8,7 @@ const projectConfig = Object.freeze({
   organizationId: '60077844198', environmentId: '60077844198',
   environment: 'Development', cliMinimumVersion: '1.27.0', syntheticOnly: true,
   permissionVersion: '1.0.0', apiFunction: 'crime_intelligence_api',
-  refreshFunction: 'intelligence_refresh',
+  refreshFunction: 'intelligence_refresh', deploymentBranch: 'codex/intelligence-workspaces',
 });
 
 const catalystConfig = Object.freeze({
@@ -23,9 +23,9 @@ function input(overrides = {}) {
   return {
     projectConfig, catalystConfig,
     sourceSchema: { tables: Array.from({ length: 29 }, (_, i) => ({ name: `SRC_${i}` })) },
-    intelligenceSchema: { tables: Array.from({ length: 21 }, (_, i) => ({ name: `INT_${i}` })) },
-    apiOperations: Array.from({ length: 12 }, (_, i) => ({ method: 'GET', path: `/v1/${i}` })),
-    cliVersion: '1.27.0', gitStatus: '', branch: 'codex/catalyst-development', remote: true,
+    intelligenceSchema: { tables: Array.from({ length: 28 }, (_, i) => ({ name: `INT_${i}` })) },
+    apiOperations: Array.from({ length: 33 }, (_, i) => ({ method: 'GET', path: `/v1/${i}` })),
+    cliVersion: '1.27.0', gitStatus: '', branch: 'codex/intelligence-workspaces', remote: true,
     ...overrides,
   };
 }
@@ -35,10 +35,10 @@ test('preflight locks the approved Development project and inventories', () => {
   assert.equal(result.projectId, '43492000000013049');
   assert.equal(result.environment, 'Development');
   assert.equal(result.sourceTableCount, 29);
-  assert.equal(result.intelligenceTableCount, 21);
-  assert.equal(result.apiOperationCount, 12);
+  assert.equal(result.intelligenceTableCount, 28);
+  assert.equal(result.apiOperationCount, 33);
   assert.equal(result.syntheticOnly, true);
-  assert.deepEqual(result.git, { branch: 'codex/catalyst-development', clean: true });
+  assert.deepEqual(result.git, { branch: 'codex/intelligence-workspaces', clean: true });
 });
 
 test('preflight rejects the wrong project or any non-Development environment', () => {
@@ -52,8 +52,8 @@ test('preflight rejects the wrong project or any non-Development environment', (
 
 test('preflight rejects unsafe provenance, inventories, CLI and branch state', () => {
   assert.throws(() => evaluateCatalystPreflight(input({ projectConfig: { ...projectConfig, syntheticOnly: false } })), /synthetic/i);
-  assert.throws(() => evaluateCatalystPreflight(input({ intelligenceSchema: { tables: [] } })), /21/);
-  assert.throws(() => evaluateCatalystPreflight(input({ apiOperations: [] })), /12/);
+  assert.throws(() => evaluateCatalystPreflight(input({ intelligenceSchema: { tables: [] } })), /28/);
+  assert.throws(() => evaluateCatalystPreflight(input({ apiOperations: [] })), /33/);
   assert.throws(() => evaluateCatalystPreflight(input({ cliVersion: '1.26.9' })), /CLI/i);
   assert.throws(() => evaluateCatalystPreflight(input({ gitStatus: ' M unsafe.txt' })), /clean/i);
   assert.throws(() => evaluateCatalystPreflight(input({ branch: 'main' })), /branch/i);
