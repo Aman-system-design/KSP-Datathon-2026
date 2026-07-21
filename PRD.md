@@ -82,7 +82,7 @@ Access is determined by rank, designation, assigned unit hierarchy, explicit per
 - `/analyst/alerts/:alertId`
 - `/operations`
 
-The 12 governed API operations are defined in [`docs/architecture/mvp-build-contract.md`](docs/architecture/mvp-build-contract.md).
+The original 12 intelligence/workflow operations remain stable. The platform layer adds 21 governed workspace, reporting, dashboard, alert-discovery, note, and escalation operations, for 33 declared operations in total. The approved extension is defined in [`docs/superpowers/specs/2026-07-21-intelligence-workspaces-and-reporting-design.md`](docs/superpowers/specs/2026-07-21-intelligence-workspaces-and-reporting-design.md).
 
 ## Flagship Jury Journey
 

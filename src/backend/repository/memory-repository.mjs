@@ -26,6 +26,9 @@ export class MemoryIntelligenceRepository {
 
   constructor(state, { failureInjector = () => {} } = {}) {
     this.#state = clone(state);
+    for (const collection of ['reports', 'dashboards', 'dashboardItems', 'contentShares', 'userPreferences']) {
+      this.#state[collection] ??= [];
+    }
     this.#failureInjector = failureInjector;
   }
 
@@ -43,9 +46,101 @@ export class MemoryIntelligenceRepository {
   async getAreaRisk() { return clone(this.#state.areaRisks[0]); }
   async getNetwork(id) { return clone(this.#state.networks.find(({ node }) => node.id === id)); }
   async getDistrictContext(unitId) { return clone(this.#state.districtContexts.filter(row => !unitId || row.unitId === unitId)); }
+  async listReports() { return clone(this.#state.reports); }
+  async getReport(id) { return clone(this.#state.reports.find(row => row.id === id)); }
+  async createReport(report) {
+    if (this.#state.reports.some(row => row.id === report.id)) throw conflict('report unique conflict');
+    this.#state.reports.push(clone(report));
+    return clone(report);
+  }
+  async updateReport(id, expectedVersion, changes) {
+    const report = this.#state.reports.find(row => row.id === id);
+    if (!report) return undefined;
+    if (report.version !== expectedVersion) return { conflict: true };
+    Object.assign(report, clone(changes), { version: report.version + 1 });
+    return clone(report);
+  }
+  async deleteReport(id) {
+    const index = this.#state.reports.findIndex(row => row.id === id);
+    if (index < 0) return false;
+    this.#state.reports.splice(index, 1);
+    this.#state.contentShares = this.#state.contentShares.filter(row => !(row.contentType === 'REPORT' && row.contentId === id));
+    return true;
+  }
+  async isReportReferenced(id) { return this.#state.dashboardItems.some(row => row.reportId === id); }
+
+  async listDashboards() { return clone(this.#state.dashboards); }
+  async getDashboard(id) { return clone(this.#state.dashboards.find(row => row.id === id)); }
+  async createDashboard(dashboard) {
+    if (this.#state.dashboards.some(row => row.id === dashboard.id)) throw conflict('dashboard unique conflict');
+    this.#state.dashboards.push(clone(dashboard));
+    return clone(dashboard);
+  }
+  async updateDashboard(id, expectedVersion, changes) {
+    const dashboard = this.#state.dashboards.find(row => row.id === id);
+    if (!dashboard) return undefined;
+    if (dashboard.version !== expectedVersion) return { conflict: true };
+    Object.assign(dashboard, clone(changes), { version: dashboard.version + 1 });
+    return clone(dashboard);
+  }
+  async deleteDashboard(id) {
+    const index = this.#state.dashboards.findIndex(row => row.id === id);
+    if (index < 0) return false;
+    this.#state.dashboards.splice(index, 1);
+    this.#state.dashboardItems = this.#state.dashboardItems.filter(row => row.dashboardId !== id);
+    this.#state.contentShares = this.#state.contentShares.filter(row => !(row.contentType === 'DASHBOARD' && row.contentId === id));
+    this.#state.userPreferences = this.#state.userPreferences.filter(row => row.landingDashboardId !== id);
+    return true;
+  }
+  async listDashboardItems(dashboardId) { return clone(this.#state.dashboardItems.filter(row => row.dashboardId === dashboardId)); }
+  async createDashboardItem(item) {
+    if (this.#state.dashboardItems.some(row => row.id === item.id)) throw conflict('dashboard item unique conflict');
+    this.#state.dashboardItems.push(clone(item));
+    return clone(item);
+  }
+  async updateDashboardItem(id, expectedVersion, changes) {
+    const item = this.#state.dashboardItems.find(row => row.id === id);
+    if (!item) return undefined;
+    if (item.version !== expectedVersion) return { conflict: true };
+    Object.assign(item, clone(changes), { version: item.version + 1 });
+    return clone(item);
+  }
+  async deleteDashboardItem(id) {
+    const index = this.#state.dashboardItems.findIndex(row => row.id === id);
+    if (index < 0) return false;
+    this.#state.dashboardItems.splice(index, 1);
+    return true;
+  }
+  async replaceDashboardItems(dashboardId, items) {
+    this.#state.dashboardItems = this.#state.dashboardItems.filter(row => row.dashboardId !== dashboardId);
+    this.#state.dashboardItems.push(...clone(items));
+    return clone(items);
+  }
+  async listContentShares(contentType, contentId) {
+    return clone(this.#state.contentShares.filter(row => row.contentType === contentType && row.contentId === contentId));
+  }
+  async createContentShare(share) {
+    if (this.#state.contentShares.some(row => row.id === share.id)) throw conflict('content share unique conflict');
+    this.#state.contentShares.push(clone(share));
+    return clone(share);
+  }
+  async deleteContentShare(id) {
+    const index = this.#state.contentShares.findIndex(row => row.id === id);
+    if (index < 0) return false;
+    this.#state.contentShares.splice(index, 1);
+    return true;
+  }
+  async getUserPreference(userId) { return clone(this.#state.userPreferences.find(row => row.userId === userId)); }
+  async upsertUserPreference(preference) {
+    const existing = this.#state.userPreferences.find(row => row.userId === preference.userId);
+    if (existing) Object.assign(existing, clone(preference), { version: existing.version + 1 });
+    else this.#state.userPreferences.push(clone(preference));
+    return clone(existing ?? preference);
+  }
   async getAccessProfile(userId) { return clone(this.#state.profiles.find(row => String(row.CatalystUserID) === String(userId))); }
   async getUnits() { return clone(this.#state.units); }
   async getAlert(alertId) { return clone(this.#state.alerts.find(row => row.AlertID === alertId)); }
+  async listAlerts() { return clone(this.#state.alerts); }
 
   async createCommand(command) {
     if (this.#state.commands.some(row => row.CommandID === command.CommandID
@@ -130,6 +225,8 @@ export class MemoryIntelligenceRepository {
       assignment: await this.findDomainArtifactByCommand('assignment', commandId),
       conclusion: await this.findDomainArtifactByCommand('conclusion', commandId),
       outcome: await this.findDomainArtifactByCommand('outcome', commandId),
+      note: await this.findDomainArtifactByCommand('note', commandId),
+      escalation: await this.findDomainArtifactByCommand('escalation', commandId),
       audit: await this.findAuditByCommand(commandId),
       alert: await this.getAlert(command.AlertID),
     };
@@ -209,9 +306,13 @@ export class MemoryIntelligenceRepository {
   }
 
   #artifactCollection(kind) {
-    const names = { assignment: 'assignments', conclusion: 'conclusions', outcome: 'outcomes' };
+    const names = {
+      assignment: 'assignments', conclusion: 'conclusions', outcome: 'outcomes',
+      note: 'alertNotes', escalation: 'escalations',
+    };
     const name = names[kind];
     if (!name) throw new TypeError(`unsupported artifact ${kind}`);
+    this.#state[name] ??= [];
     return this.#state[name];
   }
 }

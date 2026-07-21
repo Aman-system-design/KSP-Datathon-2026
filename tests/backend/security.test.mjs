@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { projectNetwork, projectPattern } from '../../src/backend/security/disclosure.mjs';
 import { resolveAccess } from '../../src/backend/security/identity.mjs';
-import { buildAuthorizedUnitSet } from '../../src/backend/security/scope.mjs';
+import { buildAuthorizedUnitSet, buildEscalationUnitSet } from '../../src/backend/security/scope.mjs';
 
 const policy = JSON.parse(await readFile(
   new URL('../../config/access-policy.json', import.meta.url),
@@ -65,6 +65,8 @@ test('unit hierarchy authorizes descendants and rejects siblings and invalid gra
   const authorized = buildAuthorizedUnitSet({ scopeUnitId: 101, units });
   assert.deepEqual([...authorized].sort((a, b) => a - b), [101, 1001]);
   assert.equal(authorized.has(102), false);
+  assert.deepEqual([...buildEscalationUnitSet({ scopeUnitId: 1001, units })], [101, 1]);
+  assert.deepEqual([...buildEscalationUnitSet({ scopeUnitId: 1, units })], []);
 
   assert.equal(errorCode(() => buildAuthorizedUnitSet({
     scopeUnitId: 101,

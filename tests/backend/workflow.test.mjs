@@ -14,7 +14,8 @@ const clock = () => '2026-07-20T12:00:00.000Z';
 const district = Object.freeze({
   actualUserId: 'CAT-DISTRICT', employeeId: 9001, role: 'DISTRICT_LEADERSHIP',
   scopeUnitId: 101, authorizedUnitIds: new Set([101]),
-  actions: ['ASSIGN_ALERT', 'CLOSE_ALERT'], syntheticData: true,
+  actions: ['ASSIGN_ALERT', 'CLOSE_ALERT', 'ADD_ALERT_NOTE', 'ESCALATE_ALERT'],
+  escalationUnitIds: new Set([1]), syntheticData: true,
 });
 const analyst = Object.freeze({
   actualUserId: 'CAT-ANALYST', employeeId: 9003, role: 'CRIME_ANALYST',
@@ -63,7 +64,38 @@ test('state machine permits only the approved transitions and actions', () => {
   assert.equal(resolveTransition('ACKNOWLEDGE', 'ASSIGNED').targetState, 'ACKNOWLEDGED');
   assert.equal(resolveTransition('CONCLUDE', 'ACKNOWLEDGED').targetState, 'CONCLUDED');
   assert.equal(resolveTransition('CLOSE', 'CONCLUDED').targetState, 'CLOSED');
+  assert.deepEqual(resolveTransition('NOTE', 'GENERATED'), { action: 'ADD_ALERT_NOTE', targetState: 'GENERATED', artifact: 'note' });
+  assert.deepEqual(resolveTransition('ESCALATE', 'GENERATED'), { action: 'ESCALATE_ALERT', targetState: 'GENERATED', artifact: 'escalation' });
+  assert.throws(() => resolveTransition('NOTE', 'CLOSED'), { code: 'INVALID_STATE' });
   assert.throws(() => resolveTransition('CLOSE', 'GENERATED'), { code: 'INVALID_STATE' });
+});
+
+test('notes and escalation are versioned, idempotent and audited without changing the finding', async () => {
+  const { service, repository } = harness();
+  const before = await repository.getAlert('ALT-PATTERN-1');
+  const noted = await service.execute(request({
+    route: '/v1/alerts/{alertId}/notes', commandType: 'NOTE', idempotencyKey: 'note-1',
+    payload: { noteText: 'Leadership requested station verification.' },
+  }));
+  assert.equal(noted.alert.status, 'GENERATED');
+  assert.equal(noted.alert.version, 1);
+  assert.equal((await repository.findDomainArtifactByCommand('note', noted.command.id)).NoteText, 'Leadership requested station verification.');
+
+  const escalated = await service.execute(request({
+    route: '/v1/alerts/{alertId}/escalate', commandType: 'ESCALATE', idempotencyKey: 'escalate-1',
+    expectedState: 'GENERATED', expectedVersion: 1,
+    payload: { targetUnitId: 1, priority: 'HIGH', reason: 'Cross-district coordination required.' },
+  }));
+  assert.equal(escalated.alert.status, 'GENERATED');
+  assert.equal((await repository.findDomainArtifactByCommand('escalation', escalated.command.id)).TargetUnitID, 1);
+  assert.equal((await repository.getAlert('ALT-PATTERN-1')).OriginalFindingJSON, before.OriginalFindingJSON);
+  assert.equal((await repository.getAuditStream('ALT-PATTERN-1')).length, 2);
+
+  await assert.rejects(service.execute(request({
+    route: '/v1/alerts/{alertId}/escalate', commandType: 'ESCALATE', idempotencyKey: 'bad-target',
+    expectedState: 'GENERATED', expectedVersion: 2,
+    payload: { targetUnitId: 999, priority: 'HIGH', reason: 'Invalid target.' },
+  })), { code: 'FORBIDDEN_SCOPE' });
 });
 
 test('ZCQL compare-and-swap accepts resolved values only and rejects injection', () => {

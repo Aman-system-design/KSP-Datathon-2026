@@ -18,6 +18,7 @@ const requiredInteger = (value, name) => {
 const eventTypes = Object.freeze({
   ASSIGN: 'ALERT_ASSIGNED', ACKNOWLEDGE: 'ALERT_ACKNOWLEDGED',
   CONCLUDE: 'ANALYST_CONCLUSION_RECORDED', CLOSE: 'ALERT_OUTCOME_RECORDED',
+  NOTE: 'ALERT_NOTE_ADDED', ESCALATE: 'ALERT_ESCALATED',
 });
 
 function validatePayload(commandType, payload, access) {
@@ -37,6 +38,12 @@ function validatePayload(commandType, payload, access) {
   } else if (commandType === 'CLOSE') {
     requiredText(payload.outcomeCode, 'outcomeCode', 32);
     requiredText(payload.outcomeText, 'outcomeText');
+  } else if (commandType === 'NOTE') {
+    requiredText(payload.noteText, 'noteText');
+  } else if (commandType === 'ESCALATE') {
+    if (!Number.isInteger(payload.targetUnitId) || !access.escalationUnitIds?.has(payload.targetUnitId)) fail('FORBIDDEN_SCOPE');
+    if (!['MEDIUM', 'HIGH', 'CRITICAL'].includes(payload.priority)) fail('INVALID_REQUEST');
+    requiredText(payload.reason, 'reason');
   }
   return structuredClone(payload);
 }
@@ -58,6 +65,15 @@ function domainArtifact({ kind, command, payload, access, now }) {
   if (kind === 'outcome') return {
     ...common, OutcomeID: `OUT-${command.CommandID}`, RecordedByEmployeeID: access.employeeId,
     OutcomeCode: payload.outcomeCode, OutcomeText: payload.outcomeText, RecordedAt: now,
+  };
+  if (kind === 'note') return {
+    ...common, AlertNoteID: `NOTE-${command.CommandID}`, AuthorUserID: access.actualUserId,
+    NoteText: payload.noteText, CreatedAt: now,
+  };
+  if (kind === 'escalation') return {
+    ...common, EscalationID: `ESC-${command.CommandID}`, FromUnitID: access.scopeUnitId,
+    TargetUnitID: payload.targetUnitId, Priority: payload.priority, Reason: payload.reason,
+    EscalatedByUserID: access.actualUserId, EscalatedAt: now,
   };
   return null;
 }

@@ -80,6 +80,8 @@ Deferred: unconstrained generative chat, autonomous alert creation, large-scale 
 
 ## July 24 — Operational Workflow and Role UX
 
+Status on July 21: the first local production-shaped slice is implemented ahead of this phase. It includes the React role shell, practical report builder and execution engine, viewer-scoped dashboard execution, interactive hotspot map, evidence-network search, scoped Alert Centre, evidence/explainability detail, notes, escalation, 33-route API contract, and Catalyst Data Store repositories. Remote Catalyst configuration and fresh-browser acceptance remain pending.
+
 Outputs:
 
 - District leadership assignment and monitoring.

@@ -1,6 +1,7 @@
 .superpowers/
 .catalystrc
 node_modules/
+web/dist/
 tmp/
 artifacts/catalyst-schema-export/
 artifacts/intelligence/

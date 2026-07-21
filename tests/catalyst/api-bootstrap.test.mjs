@@ -59,6 +59,17 @@ test('API composition authenticates user scope, validates profile, then serves a
   assert.deepEqual(calls, [{ scope: 'user' }, { scope: 'admin' }]);
 });
 
+test('API composition serves the role workspace and governed report sources', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' } });
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers: {}, body: null });
+  assert.equal(workspace.status, 200);
+  assert.equal(workspace.body.data.role, 'CRIME_ANALYST');
+  assert.equal(workspace.body.data.syntheticData, true);
+  const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
+  assert.equal(sources.status, 200);
+  assert.equal(sources.body.data.length, 7);
+});
+
 test('API composition fails closed for missing identity, undeclared route and malformed URL', async () => {
   const unauthenticated = harness({ currentUser: null });
   const denied = await unauthenticated.application({ method: 'GET', url: '/v1/intelligence/brief', headers: {} });

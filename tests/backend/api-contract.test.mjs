@@ -15,7 +15,7 @@ import { createCommandService } from '../../src/backend/workflow/command-service
 const policy = JSON.parse(await readFile(new URL('../../config/access-policy.json', import.meta.url), 'utf8'));
 const clock = () => '2026-07-20T15:00:00.000Z';
 
-function harness({ environment = 'Development', readServicesOverride } = {}) {
+function harness({ environment = 'Development', readServicesOverride, resourceServicesOverride } = {}) {
   let id = 0;
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const readServices = readServicesOverride ?? createReadServices({ repository, clock: () => new Date(clock()), idFactory: () => `REQ-${++id}` });
@@ -25,7 +25,10 @@ function harness({ environment = 'Development', readServicesOverride } = {}) {
     const base = resolveAccess({ currentUser, profile, requestedPersona, environment, policy });
     return Object.freeze({ ...base, authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }), assignments });
   };
-  const dispatch = createDispatcher({ readServices, commandService, accessResolver, profileRepository: repository, auditService, environment });
+  const dispatch = createDispatcher({
+    readServices, resourceServices: resourceServicesOverride ?? {}, commandService,
+    accessResolver, profileRepository: repository, auditService, environment,
+  });
   Object.defineProperty(dispatch, 'repository', { value: repository });
   return dispatch;
 }
@@ -37,12 +40,21 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the twelve challenge operations', () => {
-  assert.equal(API_OPERATIONS.length, 12);
+test('the public contract contains exactly the thirty-three platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 33);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
     'GET /v1/networks/{nodeId}', 'GET /v1/district-context',
+    'GET /v1/workspace', 'GET /v1/report-sources',
+    'GET /v1/reports', 'POST /v1/reports', 'GET /v1/reports/{reportId}',
+    'PATCH /v1/reports/{reportId}', 'DELETE /v1/reports/{reportId}', 'POST /v1/reports/{reportId}/execute',
+    'GET /v1/dashboards', 'POST /v1/dashboards', 'GET /v1/dashboards/{dashboardId}',
+    'PATCH /v1/dashboards/{dashboardId}', 'DELETE /v1/dashboards/{dashboardId}',
+    'PUT /v1/dashboards/{dashboardId}/items', 'PUT /v1/dashboards/{dashboardId}/sharing',
+    'PUT /v1/dashboards/{dashboardId}/role-default', 'PUT /v1/preferences/landing-dashboard',
+    'GET /v1/alerts', 'GET /v1/alerts/{alertId}',
+    'POST /v1/alerts/{alertId}/notes', 'POST /v1/alerts/{alertId}/escalate',
     'POST /v1/alerts/{alertId}/acknowledge', 'POST /v1/alerts/{alertId}/assign',
     'POST /v1/alerts/{alertId}/analyst-conclusion', 'POST /v1/alerts/{alertId}/outcome',
   ]);
@@ -78,6 +90,29 @@ test('all four workflow operations dispatch through one complete lifecycle', asy
     assert.equal(response.status, 200);
     assert.equal(response.body.alert.status, state);
   }
+});
+
+test('resource operations receive authenticated viewer context and strict route parameters', async () => {
+  const observed = [];
+  const resourceServices = {
+    async listReports(input) { observed.push(input); return { data: [{ id: 'R-1' }] }; },
+    async updateReport(input) { observed.push(input); return { data: { id: input.params.reportId, version: 2 } }; },
+  };
+  const dispatch = harness({ resourceServicesOverride: resourceServices });
+  const listed = await dispatch({ request: get('/v1/reports'), currentUser: user('CAT-ANALYST') });
+  assert.equal(listed.status, 200);
+  assert.equal(observed[0].access.actualUserId, 'CAT-ANALYST');
+
+  const updated = await dispatch({
+    request: {
+      method: 'PATCH', path: '/v1/reports/R-1', query: {}, headers: {},
+      body: { expectedVersion: 1, definition: { name: 'Updated' } }, requestId: 'REQ-API',
+    },
+    currentUser: user('CAT-ANALYST'),
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(observed[1].params.reportId, 'R-1');
+  assert.deepEqual(observed[1].body, { expectedVersion: 1, definition: { name: 'Updated' } });
 });
 
 test('identity headers, undeclared routes, invalid bodies and forbidden scopes fail closed', async () => {

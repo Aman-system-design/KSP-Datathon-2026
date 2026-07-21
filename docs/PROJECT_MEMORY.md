@@ -271,3 +271,19 @@ This file remains the sole project memory and progress ledger. Do not create a r
 **Execution preference:** Codex must execute plans inline in the active task by default. Do not use subagents, delegated agents, or parallel agent implementation unless the founder explicitly requests it for that task.
 
 When implementation changes behavior, update the smallest authoritative root document and this memory entry when progress, deployment state, a decision, or a blocker changes.
+
+### Intelligence Workspaces and Reporting Slice — July 21, 2026
+
+The approved platform extension is implemented locally on `codex/intelligence-workspaces`:
+
+- backend boundary expanded from 21 to 28 tables with five reporting/dashboard configuration tables and two note/escalation workflow tables;
+- seven fixed semantic sources expose governed intelligence without raw-table or caller-supplied ZCQL access;
+- report ownership, optimistic versions, sharing, global publication, viewer-scoped execution, dashboard widgets, role defaults, and personal landing preferences are functional;
+- alert discovery, geographic redaction, immutable original findings, versioned notes, authorized ancestor escalation, idempotency, and HMAC audit sequencing are functional;
+- the Serverless API declares 33 exact operations and the Catalyst repository persists platform objects using business IDs plus Catalyst `ROWID` references;
+- the React/Vite workspace provides Command Navy navigation, command intelligence, report building, viewer-scoped dashboard execution, Alert Centre, explainability, evidence, a coordinate-driven Leaflet hotspot map with a table alternative, and working evidence-network search;
+- the reporting engine maps real governed payloads into its published semantic fields before filtering, grouping, aggregation, sorting, and limiting; report definitions cannot submit table names or ZCQL.
+
+Observed verification: 197 backend tests and 11 frontend tests passed; Vite production build succeeded; both Function bundles built and inspected with zero manifest, forbidden-file, or unresolved-import errors; both schema validators passed; npm reported zero vulnerabilities. The Catalyst Node SDK `deleteRow(ROWID)` signature was checked against official Zoho documentation. The local in-app browser could not connect to the sandboxed Vite port, so no screenshot-level browser claim is made.
+
+No Catalyst resource was created, changed, or deployed by this slice. Remote table migration, Function deployment, API Gateway routes, Authentication personas, web hosting, and fresh-browser smoke tests require separate explicit approval.

@@ -14,8 +14,11 @@ const TABLES = Object.freeze({
   evidence: 'INT_FindingEvidence', nodes: 'INT_NetworkNode', edges: 'INT_NetworkEdge',
   repeatSignals: 'INT_RepeatOffenderSignal', districtContexts: 'TRN_DistrictContext',
   profiles: 'CFG_UserAccess', units: 'SRC_Unit', alerts: 'WF_Alert',
+  reports: 'CFG_ReportDefinition', dashboards: 'CFG_Dashboard', dashboardItems: 'CFG_DashboardItem',
+  contentShares: 'CFG_ContentShare', userPreferences: 'CFG_UserPreference',
   assignments: 'WF_Assignment', commands: 'WF_Command',
   conclusions: 'WF_AnalystConclusion', outcomes: 'WF_Outcome', audits: 'WF_AuditEvent',
+  alertNotes: 'WF_AlertNote', escalations: 'WF_Escalation',
 });
 const BUSINESS_ID = Object.freeze({
   INT_AnalysisRun: 'AnalysisRunID', TRN_CaseFeature: 'CaseFeatureID', TRN_LocationFeature: 'LocationFeatureID',
@@ -23,6 +26,9 @@ const BUSINESS_ID = Object.freeze({
   INT_Hotspot: 'HotspotID', INT_Anomaly: 'AnomalyID', INT_AreaRisk: 'AreaRiskID',
   INT_NetworkNode: 'NetworkNodeID', INT_NetworkEdge: 'NetworkEdgeID',
   INT_RepeatOffenderSignal: 'RepeatSignalID', WF_Alert: 'AlertID',
+  CFG_ReportDefinition: 'ReportDefinitionID', CFG_Dashboard: 'DashboardID',
+  CFG_DashboardItem: 'DashboardItemID', CFG_ContentShare: 'ContentShareID',
+  CFG_UserPreference: 'UserPreferenceID', WF_AlertNote: 'AlertNoteID', WF_Escalation: 'EscalationID',
 });
 const SOURCE_TABLES = Object.freeze({
   CaseMaster: 'SRC_CaseMaster', ComplainantDetails: 'SRC_ComplainantDetails', ActSectionAssociation: 'SRC_ActSectionAssociation',
@@ -44,6 +50,9 @@ const DATETIME_COLUMNS = Object.freeze({
   WF_AnalystConclusion: ['CreatedAt'],
   WF_Outcome: ['RecordedAt'],
   WF_AuditEvent: ['OccurredAt'],
+  CFG_ReportDefinition: ['CreatedAt', 'UpdatedAt'], CFG_Dashboard: ['CreatedAt', 'UpdatedAt'],
+  CFG_ContentShare: ['CreatedAt'], CFG_UserPreference: ['UpdatedAt'],
+  WF_AlertNote: ['CreatedAt'], WF_Escalation: ['EscalatedAt'],
 });
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
@@ -150,6 +159,16 @@ export class CatalystIntelligenceRepository {
     } catch (error) {
       this.#invalidate(tableName);
       throw sanitizeCatalystSdkError(error, { operation: `UPDATE_${tableName}` });
+    }
+  }
+
+  async #delete(tableName, rowId) {
+    try {
+      await this.#datastore.table(tableName).deleteRow(String(rowId));
+      this.#invalidate(tableName);
+    } catch (error) {
+      this.#invalidate(tableName);
+      throw sanitizeCatalystSdkError(error, { operation: `DELETE_${tableName}` });
     }
   }
 
@@ -339,6 +358,196 @@ export class CatalystIntelligenceRepository {
       }));
   }
 
+  #mapReport(row) {
+    if (!row) return undefined;
+    return {
+      id: row.ReportDefinitionID, name: row.Name, description: row.Description ?? '',
+      ownerUserId: row.OwnerUserID, visibility: row.Visibility,
+      definition: parseJson(row.DefinitionJSON, {}), version: Number(row.Version),
+      createdAt: row.CreatedAt, updatedAt: row.UpdatedAt, syntheticData: row.SyntheticData === true,
+    };
+  }
+
+  async listReports() { return (await this.#read(TABLES.reports)).map(row => this.#mapReport(row)); }
+  async getReport(id) { return this.#mapReport((await this.#read(TABLES.reports)).find(row => row.ReportDefinitionID === id)); }
+  async createReport(report) {
+    await this.#insert(TABLES.reports, {
+      ReportDefinitionID: report.id, Name: report.name, Description: report.definition?.description ?? '',
+      OwnerUserID: report.ownerUserId, SourceKey: report.definition?.sourceKey,
+      DefinitionJSON: JSON.stringify(report.definition), Visibility: report.visibility,
+      Version: report.version, CreatedAt: report.createdAt, UpdatedAt: report.updatedAt, SyntheticData: true,
+    });
+    return this.getReport(report.id);
+  }
+  async updateReport(id, expectedVersion, changes) {
+    const row = (await this.#read(TABLES.reports)).find(item => item.ReportDefinitionID === id);
+    if (!row) return undefined;
+    if (Number(row.Version) !== expectedVersion) return { conflict: true };
+    const definition = changes.definition ?? parseJson(row.DefinitionJSON, {});
+    await this.#update(TABLES.reports, {
+      ...row, Name: changes.name ?? row.Name, Description: definition.description ?? row.Description,
+      SourceKey: definition.sourceKey ?? row.SourceKey, DefinitionJSON: JSON.stringify(definition),
+      Visibility: changes.visibility ?? row.Visibility, Version: Number(row.Version) + 1,
+      UpdatedAt: changes.updatedAt ?? row.UpdatedAt,
+    });
+    return this.getReport(id);
+  }
+  async deleteReport(id) {
+    const row = (await this.#read(TABLES.reports)).find(item => item.ReportDefinitionID === id);
+    if (!row) return false;
+    await this.#delete(TABLES.reports, row.ROWID);
+    return true;
+  }
+  async isReportReferenced(id) {
+    const report = (await this.#read(TABLES.reports)).find(row => row.ReportDefinitionID === id);
+    return report ? (await this.#read(TABLES.dashboardItems)).some(row => String(row.ReportRef) === String(report.ROWID)) : false;
+  }
+
+  #mapDashboard(row) {
+    if (!row) return undefined;
+    return {
+      id: row.DashboardID, name: row.Name, description: row.Description ?? '',
+      ownerUserId: row.OwnerUserID, visibility: row.Visibility, defaultRole: row.DefaultRole,
+      version: Number(row.Version), createdAt: row.CreatedAt, updatedAt: row.UpdatedAt,
+      syntheticData: row.SyntheticData === true,
+    };
+  }
+  async listDashboards() { return (await this.#read(TABLES.dashboards)).map(row => this.#mapDashboard(row)); }
+  async getDashboard(id) { return this.#mapDashboard((await this.#read(TABLES.dashboards)).find(row => row.DashboardID === id)); }
+  async createDashboard(dashboard) {
+    await this.#insert(TABLES.dashboards, {
+      DashboardID: dashboard.id, Name: dashboard.name, Description: dashboard.description ?? '',
+      OwnerUserID: dashboard.ownerUserId, Visibility: dashboard.visibility,
+      DefaultRole: dashboard.defaultRole ?? null, Version: dashboard.version,
+      CreatedAt: dashboard.createdAt, UpdatedAt: dashboard.updatedAt, SyntheticData: true,
+    });
+    return this.getDashboard(dashboard.id);
+  }
+  async updateDashboard(id, expectedVersion, changes) {
+    const row = (await this.#read(TABLES.dashboards)).find(item => item.DashboardID === id);
+    if (!row) return undefined;
+    if (Number(row.Version) !== expectedVersion) return { conflict: true };
+    await this.#update(TABLES.dashboards, {
+      ...row, Name: changes.name ?? row.Name, Description: changes.description ?? row.Description,
+      Visibility: changes.visibility ?? row.Visibility,
+      DefaultRole: Object.hasOwn(changes, 'defaultRole') ? changes.defaultRole ?? null : row.DefaultRole,
+      Version: Number(row.Version) + 1, UpdatedAt: changes.updatedAt ?? row.UpdatedAt,
+    });
+    return this.getDashboard(id);
+  }
+  async deleteDashboard(id) {
+    const row = (await this.#read(TABLES.dashboards)).find(item => item.DashboardID === id);
+    if (!row) return false;
+    for (const item of await this.#read(TABLES.dashboardItems)) {
+      if (String(item.DashboardRef) === String(row.ROWID)) await this.#delete(TABLES.dashboardItems, item.ROWID);
+    }
+    await this.#delete(TABLES.dashboards, row.ROWID);
+    return true;
+  }
+
+  async listDashboardItems(dashboardId) {
+    const [dashboard, reports, items] = await Promise.all([
+      this.#read(TABLES.dashboards).then(rows => rows.find(row => row.DashboardID === dashboardId)),
+      this.#read(TABLES.reports), this.#read(TABLES.dashboardItems),
+    ]);
+    if (!dashboard) return [];
+    const reportByRef = new Map(reports.map(row => [String(row.ROWID), row.ReportDefinitionID]));
+    return items.filter(row => String(row.DashboardRef) === String(dashboard.ROWID)).map(row => ({
+      id: row.DashboardItemID, dashboardId, reportId: reportByRef.get(String(row.ReportRef)),
+      column: Number(row.GridColumn), row: Number(row.GridRow), width: Number(row.GridWidth),
+      height: Number(row.GridHeight), displayOrder: Number(row.DisplayOrder),
+      version: Number(row.Version), syntheticData: row.SyntheticData === true,
+    }));
+  }
+  async createDashboardItem(item) {
+    const [dashboard, report] = await Promise.all([
+      this.#read(TABLES.dashboards).then(rows => rows.find(row => row.DashboardID === item.dashboardId)),
+      this.#read(TABLES.reports).then(rows => rows.find(row => row.ReportDefinitionID === item.reportId)),
+    ]);
+    if (!dashboard || !report) fail('DATA_NOT_READY');
+    await this.#insert(TABLES.dashboardItems, {
+      DashboardItemID: item.id, DashboardRef: String(dashboard.ROWID), ReportRef: String(report.ROWID),
+      GridColumn: item.column, GridRow: item.row, GridWidth: item.width, GridHeight: item.height,
+      DisplayOrder: item.displayOrder ?? 1, Version: item.version, SyntheticData: true,
+    });
+    return (await this.listDashboardItems(item.dashboardId)).find(row => row.id === item.id);
+  }
+  async updateDashboardItem(id, expectedVersion, changes) {
+    const row = (await this.#read(TABLES.dashboardItems)).find(item => item.DashboardItemID === id);
+    if (!row) return undefined;
+    if (Number(row.Version) !== expectedVersion) return { conflict: true };
+    await this.#update(TABLES.dashboardItems, {
+      ...row, GridColumn: changes.column ?? row.GridColumn, GridRow: changes.row ?? row.GridRow,
+      GridWidth: changes.width ?? row.GridWidth, GridHeight: changes.height ?? row.GridHeight,
+      DisplayOrder: changes.displayOrder ?? row.DisplayOrder, Version: Number(row.Version) + 1,
+    });
+    return { id, ...changes, version: expectedVersion + 1 };
+  }
+  async deleteDashboardItem(id) {
+    const row = (await this.#read(TABLES.dashboardItems)).find(item => item.DashboardItemID === id);
+    if (!row) return false;
+    await this.#delete(TABLES.dashboardItems, row.ROWID);
+    return true;
+  }
+  async replaceDashboardItems(dashboardId, items) {
+    for (const current of await this.listDashboardItems(dashboardId)) await this.deleteDashboardItem(current.id);
+    const result = [];
+    for (const item of items) result.push(await this.createDashboardItem(item));
+    return result;
+  }
+
+  async listContentShares(contentType, contentId) {
+    return (await this.#read(TABLES.contentShares))
+      .filter(row => row.ContentType === contentType && row.ContentBusinessID === contentId)
+      .map(row => ({
+        id: row.ContentShareID, contentType, contentId, targetUserId: row.TargetUserID,
+        targetRole: row.TargetRole, targetUnitId: row.TargetUnitID === undefined ? undefined : Number(row.TargetUnitID),
+        permission: row.Permission, sharedByUserId: row.SharedByUserID, createdAt: row.CreatedAt,
+        syntheticData: row.SyntheticData === true,
+      }));
+  }
+  async createContentShare(share) {
+    await this.#insert(TABLES.contentShares, {
+      ContentShareID: share.id, ContentType: share.contentType, ContentBusinessID: share.contentId,
+      TargetUserID: share.targetUserId ?? null, TargetRole: share.targetRole ?? null,
+      TargetUnitID: share.targetUnitId ?? null, Permission: share.permission,
+      SharedByUserID: share.sharedByUserId, CreatedAt: share.createdAt, SyntheticData: true,
+    });
+    return (await this.listContentShares(share.contentType, share.contentId)).find(row => row.id === share.id);
+  }
+  async deleteContentShare(id) {
+    const row = (await this.#read(TABLES.contentShares)).find(item => item.ContentShareID === id);
+    if (!row) return false;
+    await this.#delete(TABLES.contentShares, row.ROWID);
+    return true;
+  }
+  async getUserPreference(userId) {
+    const [row, dashboards] = await Promise.all([
+      this.#read(TABLES.userPreferences).then(rows => rows.find(item => item.CatalystUserID === userId)),
+      this.#read(TABLES.dashboards),
+    ]);
+    if (!row) return undefined;
+    const dashboard = dashboards.find(item => String(item.ROWID) === String(row.LandingDashboardRef));
+    return {
+      id: row.UserPreferenceID, userId, landingDashboardId: dashboard?.DashboardID,
+      preferences: parseJson(row.PreferencesJSON, {}), version: Number(row.Version),
+      updatedAt: row.UpdatedAt, syntheticData: row.SyntheticData === true,
+    };
+  }
+  async upsertUserPreference(preference) {
+    const dashboard = (await this.#read(TABLES.dashboards)).find(row => row.DashboardID === preference.landingDashboardId);
+    if (!dashboard) fail('NOT_FOUND');
+    const current = (await this.#read(TABLES.userPreferences)).find(row => row.CatalystUserID === preference.userId);
+    const values = {
+      UserPreferenceID: current?.UserPreferenceID ?? preference.id, CatalystUserID: preference.userId,
+      LandingDashboardRef: String(dashboard.ROWID), PreferencesJSON: JSON.stringify(preference.preferences ?? {}),
+      Version: current ? Number(current.Version) + 1 : 1, UpdatedAt: preference.updatedAt, SyntheticData: true,
+    };
+    if (current) await this.#update(TABLES.userPreferences, { ...current, ...values });
+    else await this.#insert(TABLES.userPreferences, values);
+    return this.getUserPreference(preference.userId);
+  }
+
   async getAccessProfile(userId) {
     const row = (await this.#read(TABLES.profiles)).find(item => String(item.CatalystUserID) === String(userId));
     if (!row) return undefined;
@@ -365,6 +574,18 @@ export class CatalystIntelligenceRepository {
       Status: row.Status, AlertVersion: row.AlertVersion, LastCommandID: command?.CommandID ?? null,
       OriginalFindingJSON: row.OriginalFindingJSON, SyntheticData: row.SyntheticData === true,
     };
+  }
+
+  async listAlerts() {
+    const alerts = await this.#read(TABLES.alerts);
+    const commands = await this.#read(TABLES.commands);
+    const commandByRef = new Map(commands.map(row => [String(row.ROWID), row.CommandID]));
+    return alerts.map(row => ({
+      AlertID: row.AlertID, PatternID: row.FindingBusinessID, ScopeUnitID: row.ScopeUnitID,
+      Status: row.Status, AlertVersion: row.AlertVersion,
+      LastCommandID: row.LastCommandRef ? commandByRef.get(String(row.LastCommandRef)) ?? null : null,
+      OriginalFindingJSON: row.OriginalFindingJSON, SyntheticData: row.SyntheticData === true,
+    }));
   }
 
   async getAssignmentsForAlert(alertId) {
@@ -447,7 +668,10 @@ export class CatalystIntelligenceRepository {
   }
 
   #artifactTable(kind) {
-    const table = { assignment: TABLES.assignments, conclusion: TABLES.conclusions, outcome: TABLES.outcomes }[kind];
+    const table = {
+      assignment: TABLES.assignments, conclusion: TABLES.conclusions, outcome: TABLES.outcomes,
+      note: TABLES.alertNotes, escalation: TABLES.escalations,
+    }[kind];
     if (!table) throw new TypeError(`Unsupported artifact kind: ${kind}`);
     return table;
   }
@@ -544,6 +768,8 @@ export class CatalystIntelligenceRepository {
       assignment: await this.findDomainArtifactByCommand('assignment', commandId),
       conclusion: await this.findDomainArtifactByCommand('conclusion', commandId),
       outcome: await this.findDomainArtifactByCommand('outcome', commandId),
+      note: await this.findDomainArtifactByCommand('note', commandId),
+      escalation: await this.findDomainArtifactByCommand('escalation', commandId),
       audit: await this.findAuditByCommand(commandId),
       alert: await this.getAlert(command.AlertID),
     };

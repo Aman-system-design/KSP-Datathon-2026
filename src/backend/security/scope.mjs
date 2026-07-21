@@ -40,3 +40,15 @@ export function buildAuthorizedUnitSet({ scopeUnitId, units }) {
   }
   return authorized;
 }
+
+export function buildEscalationUnitSet({ scopeUnitId, units }) {
+  buildAuthorizedUnitSet({ scopeUnitId, units });
+  const byId = new Map(units.map(unit => [unit.UnitID, unit]));
+  const result = new Set();
+  let parent = byId.get(scopeUnitId).ParentUnit;
+  while (parent !== null && parent !== undefined) {
+    result.add(parent);
+    parent = byId.get(parent).ParentUnit;
+  }
+  return result;
+}

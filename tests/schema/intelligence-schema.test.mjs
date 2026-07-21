@@ -10,15 +10,16 @@ const schema = JSON.parse(await readFile(
 ));
 
 const expectedTables = [
-  'CFG_UserAccess',
+  'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
+  'CFG_ContentShare', 'CFG_UserPreference',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
   'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence',
   'WF_Alert', 'WF_Command', 'WF_AlertEvidence', 'WF_Assignment', 'WF_AnalystConclusion',
-  'WF_Outcome', 'WF_AuditEvent',
+  'WF_Outcome', 'WF_AuditEvent', 'WF_AlertNote', 'WF_Escalation',
 ];
 
-test('manifest defines the exact production-shaped 21-table backend boundary', () => {
+test('manifest defines the exact production-shaped 28-table backend boundary', () => {
   assert.deepEqual(schema.tables.map(({ name }) => name), expectedTables);
   assert.deepEqual(validateIntelligenceSchema(schema), []);
 });

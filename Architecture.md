@@ -116,9 +116,10 @@ fixtures/             synthetic records and separated hidden truth
 scripts/              builds, Catalyst diagnostics and deployment controls
 tests/                schema, analytics, API, security and Catalyst tests
 docs/                 detailed architecture, specifications and runbooks
+web/                  React role workspaces, reports, dashboards, alerts and intelligence views
 ```
 
-The frontend should be added as a separate feature-oriented application, not inside a Function bundle. No single module owns ingestion, analytics, authorization, workflow, and presentation.
+The frontend is a separate feature-oriented React application and is not inside a Function bundle. No single module owns ingestion, analytics, authorization, workflow, and presentation.
 
 ## API Boundary
 
@@ -140,6 +141,8 @@ Writes:
 - `POST /v1/alerts/{alertId}/analyst-conclusion`
 - `POST /v1/alerts/{alertId}/outcome`
 
+Platform configuration and discovery add 21 governed operations for workspaces, semantic report sources, reports, dashboards, alert discovery, notes, and escalation. The runtime contract therefore contains 33 declared operations. Raw tables, arbitrary ZCQL, and client-side authorization are not exposed.
+
 The exact response, authorization, and workflow contract is maintained in [`docs/architecture/mvp-build-contract.md`](docs/architecture/mvp-build-contract.md).
 
 ## Current Delivery Truth — July 21, 2026
@@ -150,14 +153,16 @@ Functional and tested:
 - Deterministic 50-FIR fragmented synthetic dataset with planted positive and negative controls.
 - Accepted source batch in Catalyst Development: 411 accepted rows, zero rejects.
 - Persisted coherent analytical outputs and alert evidence.
-- Two modular Catalyst Functions, governed read/workflow services, authorization, retry/idempotency, and audit logic.
-- 171 automated tests passing locally.
+- Two modular Catalyst Functions with governed read, workflow, and resource services.
+- Governed reporting, dashboards, role defaults, personal landing preferences, alert notes, and escalation across 28 backend tables.
+- React role workspace with command intelligence, governed report execution, viewer-scoped dashboards, Alert Centre, evidence, explainability, a Leaflet hotspot map, and working network search.
+- 197 backend tests and 11 frontend tests passing locally; the production web build and both Function bundles succeed.
 
 Not yet complete:
 
-- React frontend and Catalyst web hosting.
 - Final API Gateway and Authentication user configuration for the role experiences.
-- Jury-visible end-to-end browser journey and responsive design verification.
+- Catalyst web hosting and a remote fresh-browser jury journey.
+- Screenshot-level responsive browser QA; component tests and the production build pass, but the local browser could not reach the sandboxed Vite port.
 - QuickML enhancement, performance report, deployment rehearsal, video, and pitch evidence.
 - Production identity federation, KSP on-premises integration, controlled pilot, and Production deployment are deferred.
 

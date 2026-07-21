@@ -3,8 +3,9 @@ import { CatalystIntelligenceRepository } from '../repository/catalyst/catalyst-
 import { createCatalystSdkContext } from '../repository/catalyst/sdk-context.mjs';
 import { createAccessAuditService } from '../security/access-audit.mjs';
 import { resolveAccess } from '../security/identity.mjs';
-import { buildAuthorizedUnitSet } from '../security/scope.mjs';
+import { buildAuthorizedUnitSet, buildEscalationUnitSet } from '../security/scope.mjs';
 import { createReadServices } from '../services/read-services.mjs';
+import { createWorkspaceServices } from '../reporting/workspace-services.mjs';
 import { createCommandService } from '../workflow/command-service.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
@@ -66,6 +67,7 @@ export function createApiApplication({
       await context.authorize(profile);
 
       const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => idFactory('REQ') });
+      const resourceServices = createWorkspaceServices({ repository, readServices, now, idFactory });
       const commandService = createCommandService({
         repository, clock: now, idFactory,
         auditKeys: { [config.auditKeyVersion]: config.auditKey }, activeAuditKeyVersion: config.auditKeyVersion,
@@ -82,11 +84,12 @@ export function createApiApplication({
         return Object.freeze({
           ...base,
           authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }),
+          escalationUnitIds: buildEscalationUnitSet({ scopeUnitId: base.scopeUnitId, units }),
           assignments,
         });
       };
       const dispatcher = createDispatcher({
-        readServices, commandService, accessResolver,
+        readServices, resourceServices, commandService, accessResolver,
         profileRepository: repository, auditService, environment: config.environment,
       });
       return dispatcher({ request, currentUser });

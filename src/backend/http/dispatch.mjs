@@ -4,11 +4,13 @@ const publicErrors = new Set([
   'UNAUTHENTICATED', 'INACTIVE_ACCESS_PROFILE', 'FORBIDDEN_ACTION', 'FORBIDDEN_SCOPE',
   'NOT_FOUND', 'INVALID_REQUEST', 'INVALID_STATE', 'IDEMPOTENCY_CONFLICT',
   'COMMAND_IN_PROGRESS', 'DATA_NOT_READY',
+  'VERSION_CONFLICT', 'RESOURCE_IN_USE',
 ]);
 const statusByCode = Object.freeze({
   UNAUTHENTICATED: 401, INACTIVE_ACCESS_PROFILE: 403, FORBIDDEN_ACTION: 403,
   FORBIDDEN_SCOPE: 403, NOT_FOUND: 404, INVALID_REQUEST: 400, INVALID_STATE: 409,
   IDEMPOTENCY_CONFLICT: 409, COMMAND_IN_PROGRESS: 409, DATA_NOT_READY: 503,
+  VERSION_CONFLICT: 409, RESOURCE_IN_USE: 409,
   INTERNAL_ERROR: 500,
 });
 const messageByCode = Object.freeze({
@@ -22,6 +24,8 @@ const messageByCode = Object.freeze({
   IDEMPOTENCY_CONFLICT: 'The idempotency key was already used for a different request.',
   COMMAND_IN_PROGRESS: 'The command is still in progress.',
   DATA_NOT_READY: 'The requested intelligence is not ready.',
+  VERSION_CONFLICT: 'The resource version has changed.',
+  RESOURCE_IN_USE: 'The resource is currently in use.',
   INTERNAL_ERROR: 'The request could not be completed.',
 });
 const idPattern = '[A-Za-z0-9][A-Za-z0-9._:-]{0,63}';
@@ -95,7 +99,7 @@ function workflowBody(body) {
 }
 
 export function createDispatcher({
-  readServices, commandService, accessResolver, profileRepository, auditService,
+  readServices, resourceServices = {}, commandService, accessResolver, profileRepository, auditService,
   environment = 'Development',
 }) {
   if (typeof auditService?.record !== 'function') throw new TypeError('auditService is required');
@@ -123,6 +127,21 @@ export function createDispatcher({
       });
       if (access.demoPersona) {
         await auditService.record({ access, currentUser, eventType: 'DEMO_PERSONA_ASSUMED', requestId, route: route.operation.path, outcome: 'ALLOWED' });
+      }
+
+      if (route.operation.kind === 'resource') {
+        const service = resourceServices[route.operation.service];
+        if (typeof service !== 'function') throw new Error('unconfigured resource operation');
+        const body = await service({
+          access, params: route.params, query: request.query ?? {}, body: request.body ?? null,
+          requestId,
+        });
+        await auditService.record({
+          access, currentUser,
+          eventType: route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED',
+          requestId, route: route.operation.path, outcome: 'ALLOWED',
+        });
+        return { status: 200, body };
       }
 
       if (route.operation.method === 'GET') {
