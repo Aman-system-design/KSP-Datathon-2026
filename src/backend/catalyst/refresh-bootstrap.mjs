@@ -17,10 +17,15 @@ function parameters(jobRequest) {
   if (!OPERATIONS.has(operation)) invalid();
   if (operation === 'RECONCILE_GOVERNANCE') return { operation };
   const batchKey = jobRequest.getJobParam('batchKey');
+  if (!/^[A-Za-z0-9._:-]{1,128}$/u.test(batchKey ?? '')) invalid();
+  if (operation === 'REFRESH_INTELLIGENCE') {
+    const runRequestId = jobRequest.getJobParam('runRequestId');
+    if (!/^[A-Za-z0-9._:-]{1,128}$/u.test(runRequestId ?? '')) invalid();
+    return { operation, batchKey, runRequestId };
+  }
   const rawSeed = jobRequest.getJobParam('seed');
   const seed = Number(rawSeed);
-  if (!/^[A-Za-z0-9:_-]{1,36}$/u.test(batchKey ?? '')
-    || !Number.isSafeInteger(seed) || seed < 1
+  if (!Number.isSafeInteger(seed) || seed < 1
     || String(jobRequest.getJobParam('syntheticOnly')).toLowerCase() !== 'true') invalid();
   return { operation, batchKey, seed };
 }
@@ -41,12 +46,23 @@ export function createRefreshApplication({
   return async function execute(jobRequest, context) {
     const requestId = idFactory('JOB');
     let phase = 'PARAMETERS';
+    let input;
+    let repository;
     try {
-      const input = parameters(jobRequest);
+      input = parameters(jobRequest);
       phase = 'SDK_INITIALIZE';
       const application = sdk.initialize(context, { scope: 'admin' });
       phase = 'REPOSITORY_INITIALIZE';
-      const repository = repositoryFactory(application);
+      repository = repositoryFactory(application);
+      if (input.runRequestId) {
+        phase = 'RUN_REQUEST_VALIDATE';
+        const request = await repository.getRunRequest(input.runRequestId);
+        if (!request || request.Status !== 'SUBMITTED' || request.BatchKey !== input.batchKey
+          || request.Operation !== input.operation) invalid();
+        await repository.updateRunRequest(input.runRequestId, {
+          Status: 'RUNNING', StartedAt: clock(), UpdatedAt: clock(), FailedPhase: null, FailureCode: null,
+        });
+      }
       const service = createRefreshService({
         repository, sourceGenerator: generateSourceSeed, sourceValidator: validateSourceSeed,
         adapter: toIntelligenceInput, pipeline: runIntelligencePipeline,
@@ -56,11 +72,27 @@ export function createRefreshApplication({
       });
       phase = 'SERVICE_EXECUTION';
       const result = await service.execute(input);
+      if (input.runRequestId) {
+        phase = 'RUN_REQUEST_PUBLISH';
+        await repository.updateRunRequest(input.runRequestId, {
+          Status: 'PUBLISHED', CompletedAt: clock(), UpdatedAt: clock(),
+          CurrentRunGroupID: result.runGroup?.RunGroupID ?? null,
+        });
+      }
       context.closeWithSuccess();
       return { ok: true, requestId, result };
     } catch (error) {
       const allowed = new Set(['INVALID_REQUEST', 'DATA_NOT_READY', 'CATALYST_UNAVAILABLE']);
       const code = allowed.has(error?.code) ? error.code : 'INTERNAL_ERROR';
+      if (input?.runRequestId && repository) {
+        try {
+          const request = await repository.getRunRequest(input.runRequestId);
+          if (request?.Status === 'RUNNING') await repository.updateRunRequest(input.runRequestId, {
+            Status: 'FAILED_RETRYABLE', CompletedAt: clock(), UpdatedAt: clock(),
+            FailedPhase: phase, FailureCode: code,
+          });
+        } catch { /* Preserve the original worker failure; stale requests are reconciled separately. */ }
+      }
       try {
         logger.error(JSON.stringify({ event: 'intelligence_refresh_failed', requestId, phase, code }));
       } catch { /* Observability must not replace the original failure. */ }

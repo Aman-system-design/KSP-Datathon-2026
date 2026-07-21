@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 const expectedTables = [
   'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
   'CFG_ContentShare', 'CFG_UserPreference',
+  'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
   'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence',
@@ -22,7 +23,7 @@ export function validateIntelligenceSchema(schema) {
   const known = new Set(names);
 
   if (JSON.stringify(names) !== JSON.stringify(expectedTables)) {
-    errors.push('manifest must define the exact ordered 28-table backend boundary');
+    errors.push('manifest must define the exact ordered 29-table backend boundary');
   }
 
   for (const duplicate of new Set(names.filter((name, index) => names.indexOf(name) !== index))) {
@@ -31,7 +32,7 @@ export function validateIntelligenceSchema(schema) {
 
   for (const table of tables) {
     if (!namePattern.test(table.name ?? '')) errors.push(`illegal table name: ${table.name}`);
-    if (!['CONFIGURATION', 'TRANSFORMATION', 'INTELLIGENCE', 'WORKFLOW'].includes(table.zone)) {
+    if (!['CONFIGURATION', 'OPERATIONS', 'TRANSFORMATION', 'INTELLIGENCE', 'WORKFLOW'].includes(table.zone)) {
       errors.push(`${table.name} has unsupported zone ${table.zone}`);
     }
     if (!Number.isInteger(table.loadOrder) || table.loadOrder < 1) {
@@ -124,6 +125,13 @@ export function validateIntelligenceSchema(schema) {
     errors.push('raw IdempotencyKey must never be persisted');
   }
 
+  requireColumns('OPS_IntelligenceRunRequest', [
+    'RunRequestID', 'IdempotencyKeyHash', 'RequestHash', 'BatchKey', 'Operation',
+    'RequestedBy', 'Status', 'CatalystJobID', 'Attempt', 'RequestedAt', 'StartedAt',
+    'CompletedAt', 'UpdatedAt', 'FailedPhase', 'FailureCode', 'CurrentRunGroupID',
+    'SyntheticData',
+  ]);
+
   const runColumns = requireColumns('INT_AnalysisRun', [
     'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublishedAt',
   ]);
@@ -165,7 +173,7 @@ async function runCli() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS: 28 Catalyst backend tables are valid.');
+  console.log('PASS: 29 Catalyst backend tables are valid.');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -6,6 +6,19 @@ const conflict = (message) => {
   error.code = 'UNIQUE_CONFLICT';
   return error;
 };
+const invalidState = (message) => {
+  const error = new Error(message);
+  error.code = 'INVALID_STATE';
+  return error;
+};
+const runRequestTransitions = Object.freeze({
+  QUEUED: new Set(['SUBMITTED', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
+  SUBMITTED: new Set(['RUNNING', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
+  RUNNING: new Set(['PUBLISHED', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
+  FAILED_RETRYABLE: new Set(['SUBMITTED']),
+  PUBLISHED: new Set(),
+  FAILED_FINAL: new Set(),
+});
 const encodeToken = offset => Buffer.from(JSON.stringify({ offset })).toString('base64url');
 const decodeToken = (token) => {
   if (!token) return 0;
@@ -29,6 +42,7 @@ export class MemoryIntelligenceRepository {
     for (const collection of ['reports', 'dashboards', 'dashboardItems', 'contentShares', 'userPreferences']) {
       this.#state[collection] ??= [];
     }
+    this.#state.runRequests ??= [];
     this.#failureInjector = failureInjector;
   }
 
@@ -37,6 +51,34 @@ export class MemoryIntelligenceRepository {
   }
 
   async listAnalysisRuns() { return clone(this.#state.runGroups.flatMap(({ runs }) => runs)); }
+
+  async createRunRequest(request) {
+    if (this.#state.runRequests.some(row => row.RunRequestID === request.RunRequestID
+      || row.IdempotencyKeyHash === request.IdempotencyKeyHash)) throw conflict('run request unique conflict');
+    this.#state.runRequests.push(clone(request));
+    return clone(request);
+  }
+
+  async getRunRequest(runRequestId) {
+    return clone(this.#state.runRequests.find(row => row.RunRequestID === runRequestId));
+  }
+
+  async getRunRequestByIdempotencyHash(hash) {
+    return clone(this.#state.runRequests.find(row => row.IdempotencyKeyHash === hash));
+  }
+
+  async listRunRequests() { return clone(this.#state.runRequests); }
+
+  async updateRunRequest(runRequestId, changes) {
+    const request = this.#state.runRequests.find(row => row.RunRequestID === runRequestId);
+    if (!request) return undefined;
+    if (changes.Status && changes.Status !== request.Status
+      && !runRequestTransitions[request.Status]?.has(changes.Status)) {
+      throw invalidState(`invalid run request transition ${request.Status} -> ${changes.Status}`);
+    }
+    Object.assign(request, clone(changes));
+    return clone(request);
+  }
 
   async getBrief() { return clone(this.#state.brief); }
   async listPatterns(options = {}) { return this.#page(this.#state.patterns, options); }

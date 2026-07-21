@@ -69,6 +69,20 @@ The default composition is:
 
 Service launchers remain available through navigation and command search, not as six equal boxes above the decision content.
 
+### 3.4 Development persona switch
+
+For the shortlist demonstration, the extreme-right profile control contains the persona switcher. The menu shows the authenticated identity, employee identifier when available, actual role, effective demonstration persona, authorized scope and sign-out action.
+
+Persona switching is available only when the server confirms all of the following:
+
+- Catalyst environment is Development;
+- the authenticated access profile's actual role is `DEMO_PRESENTER`;
+- `DemoPersonaAllowed` is enabled;
+- the profile is restricted to synthetic data;
+- the requested persona is in the server-side allowlist.
+
+Selecting a persona updates the Development `persona` query parameter and reloads the workspace through `/v1/workspace`. The API independently revalidates the persona on every request. The browser cannot grant a role, scope, permission or evidence access. Normal police, analyst, leadership, administrator and auditor profiles never receive a persona selector.
+
 ## 4. Functional intelligence control plane
 
 ### 4.1 Purpose

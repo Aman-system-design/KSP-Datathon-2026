@@ -11,6 +11,7 @@ const policy = JSON.parse(readFileSync(new URL('../../config/access-policy.json'
 const config = Object.freeze({
   environment: 'Development', projectId: '43492000000013049', permissionVersion: '1.0.0',
   auditKey: 'test-only-api-bootstrap-key-1234567890', auditKeyVersion: 'v1',
+  intelligenceJobPool: 'KSPIntelligencePool',
 });
 
 function harness({
@@ -31,6 +32,7 @@ function harness({
     sdk, config, policy, clock: () => '2026-07-20T15:00:00.000Z',
     idFactory: prefix => `${prefix ?? 'REQ'}-${++id}`,
     repositoryFactory: repositoryFactory ?? (() => repository),
+    schedulerFactory: () => ({ submit: async () => ({ jobId: 'JOB-1' }) }),
     logger,
   });
   return { application, calls, repository };
@@ -40,17 +42,20 @@ test('runtime config is Development-only, complete and never returns unrelated e
   const loaded = loadRuntimeConfig({
     KSP_ENVIRONMENT: 'Development', KSP_PROJECT_ID: '43492000000013049',
     KSP_PERMISSION_VERSION: '1.0.0', KSP_AUDIT_KEY: 'a'.repeat(32), KSP_AUDIT_KEY_VERSION: 'v1',
+    KSP_INTELLIGENCE_JOB_POOL: 'KSPIntelligencePool',
     UNRELATED_SECRET: 'must-not-be-copied',
   });
   assert.equal(loaded.environment, 'Development');
   assert.equal(loaded.projectId, '43492000000013049');
+  assert.equal(loaded.intelligenceJobPool, 'KSPIntelligencePool');
   assert.equal(JSON.stringify(loaded).includes('must-not-be-copied'), false);
   for (const mutation of [
     { KSP_ENVIRONMENT: 'Production' }, { KSP_PROJECT_ID: 'wrong' },
-    { KSP_AUDIT_KEY: '' }, { KSP_PERMISSION_VERSION: '0.9.0' },
+    { KSP_AUDIT_KEY: '' }, { KSP_PERMISSION_VERSION: '0.9.0' }, { KSP_INTELLIGENCE_JOB_POOL: 'bad pool' },
   ]) assert.throws(() => loadRuntimeConfig({ ...{
     KSP_ENVIRONMENT: 'Development', KSP_PROJECT_ID: '43492000000013049',
     KSP_PERMISSION_VERSION: '1.0.0', KSP_AUDIT_KEY: 'a'.repeat(32), KSP_AUDIT_KEY_VERSION: 'v1',
+    KSP_INTELLIGENCE_JOB_POOL: 'KSPIntelligencePool',
   }, ...mutation }), /config|Development|project|audit|permission/i);
 });
 

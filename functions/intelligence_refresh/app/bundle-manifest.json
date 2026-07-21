@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "fea68a09e6030ed3fb57c241ea580a2a99bb7f447450d9db171f490a5c6a3276",
-      "bytes": 1354
+      "sha256": "cd2d7401bb5797634c1f89ba93717ddc304ab1b13753254e7f6aa892f2e47959",
+      "bytes": 1561
     },
     {
       "path": "data/synthetic-demo-input.json",
@@ -35,13 +35,13 @@
     },
     {
       "path": "src/backend/catalyst/refresh-bootstrap.mjs",
-      "sha256": "b306102bdcc14dd7d98cc53e0c7adcf861a5854b8f6339748316293caf7b5cfb",
-      "bytes": 3382
+      "sha256": "83f8a6dd0aec2c0b6643447d96729d650e7b3a23c5f2c29ea974e9f811b6af71",
+      "bytes": 4931
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
-      "sha256": "0f01c4e5f22762677a206b7e08573f40960e094be562311265178090e2824d70",
-      "bytes": 1049
+      "sha256": "40e620aa621da0acbf04e6fcc302a170864e11a174ce3b20aea6a0d562e4ff81",
+      "bytes": 1252
     },
     {
       "path": "src/backend/refresh/finding-projection.mjs",
@@ -60,8 +60,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "f4c4fc6b3eb532c4fa888f47d3cf1c8a34ae2a63330bb1f27afc881ab728252c",
-      "bytes": 52168
+      "sha256": "63046fbaa985519d74f28196544d79267ace5d6ccb30810fe718c766481dd514",
+      "bytes": 53827
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",

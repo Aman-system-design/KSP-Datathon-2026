@@ -40,13 +40,14 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the thirty-three platform operations', () => {
-  assert.equal(API_OPERATIONS.length, 33);
+test('the public contract contains exactly the thirty-five platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 35);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
     'GET /v1/networks/{nodeId}', 'GET /v1/district-context',
     'GET /v1/workspace', 'GET /v1/report-sources',
+    'GET /v1/intelligence-runs', 'POST /v1/intelligence-runs',
     'GET /v1/reports', 'POST /v1/reports', 'GET /v1/reports/{reportId}',
     'PATCH /v1/reports/{reportId}', 'DELETE /v1/reports/{reportId}', 'POST /v1/reports/{reportId}/execute',
     'GET /v1/dashboards', 'POST /v1/dashboards', 'GET /v1/dashboards/{dashboardId}',
@@ -113,6 +114,23 @@ test('resource operations receive authenticated viewer context and strict route 
   assert.equal(updated.status, 200);
   assert.equal(observed[1].params.reportId, 'R-1');
   assert.deepEqual(observed[1].body, { expectedVersion: 1, definition: { name: 'Updated' } });
+});
+
+test('run submission forwards the idempotency header and returns accepted', async () => {
+  let observed;
+  const dispatch = harness({ resourceServicesOverride: {
+    async submitIntelligenceRun(input) { observed = input; return { data: { status: 'SUBMITTED' } }; },
+  } });
+  const response = await dispatch({
+    request: {
+      method: 'POST', path: '/v1/intelligence-runs', query: {},
+      headers: { 'Idempotency-Key': 'run-submit-1' }, body: { batchKey: 'SOURCE-BATCH-1' }, requestId: 'REQ-API',
+    },
+    currentUser: user('CAT-DISTRICT'),
+  });
+  assert.equal(response.status, 202);
+  assert.equal(observed.headers['Idempotency-Key'], 'run-submit-1');
+  assert.deepEqual(observed.body, { batchKey: 'SOURCE-BATCH-1' });
 });
 
 test('identity headers, undeclared routes, invalid bodies and forbidden scopes fail closed', async () => {

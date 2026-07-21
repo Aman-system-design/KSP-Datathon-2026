@@ -10,3 +10,10 @@ export function readDemoPersona(search = globalThis.location?.search ?? '') {
   const persona = new URLSearchParams(search).get('persona');
   return demoPersonas.has(persona) ? persona : null;
 }
+
+export function personaSearch(search, persona) {
+  const params = new URLSearchParams(search);
+  if (persona) params.set('persona', persona); else params.delete('persona');
+  const value = params.toString();
+  return value ? `?${value}` : '';
+}

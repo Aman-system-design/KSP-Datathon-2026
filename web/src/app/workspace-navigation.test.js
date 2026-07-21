@@ -19,7 +19,7 @@ test('analyst and station navigation expose work tools without governance contro
 });
 
 test('administrator and auditor receive governance navigation without case intelligence', () => {
-  expect(paths('PLATFORM_ADMIN')).toEqual(['/', '/admin', '/admin/personas']);
+  expect(paths('PLATFORM_ADMIN')).toEqual(['/', '/admin', '/admin/intelligence-runs', '/admin/personas']);
   expect(paths('AUDITOR')).toEqual(['/', '/audit']);
   expect(paths('PLATFORM_ADMIN')).not.toContain('/networks');
 });

@@ -26,6 +26,7 @@ const roleDefinitions = Object.freeze({
     modules: [
       { to: '/', label: 'Home', icon: 'home' },
       { to: '/admin', label: 'Governance', icon: 'admin' },
+      { to: '/admin/intelligence-runs', label: 'Intelligence runs', icon: 'intelligence' },
       { to: '/admin/personas', label: 'Persona workspaces', icon: 'people' },
     ],
   },

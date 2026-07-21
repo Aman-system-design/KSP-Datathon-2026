@@ -9,6 +9,7 @@ import { AlertDetail } from '../features/alerts/AlertDetail.jsx';
 import { AlertInbox } from '../features/alerts/AlertInbox.jsx';
 import { DashboardWorkspace } from '../features/dashboards/DashboardWorkspace.jsx';
 import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
+import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor.jsx';
 import { CommandCentre } from '../features/command-centre/CommandCentre.jsx';
 import { HotspotMap } from '../features/intelligence/HotspotMap.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
@@ -180,6 +181,7 @@ export function Application({ api: providedApi }) {
     <Route path="/alerts/:alertId" element={<AlertPage api={api} />} />
     <Route path="/networks" element={<NetworkView api={api} />} />
     <Route path="/admin" element={workspace.role === 'PLATFORM_ADMIN' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
+    <Route path="/admin/intelligence-runs" element={workspace.role === 'PLATFORM_ADMIN' ? <IntelligenceRunMonitor api={api} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
     <Route path="/audit" element={workspace.role === 'AUDITOR' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
     <Route path="/admin/personas" element={<PersonaDirectory role={workspace.role} />} />
     <Route path="*" element={<Failure error={{ message: 'The requested workspace does not exist.' }} />} />

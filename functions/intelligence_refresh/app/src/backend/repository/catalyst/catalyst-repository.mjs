@@ -19,6 +19,7 @@ const TABLES = Object.freeze({
   assignments: 'WF_Assignment', commands: 'WF_Command',
   conclusions: 'WF_AnalystConclusion', outcomes: 'WF_Outcome', audits: 'WF_AuditEvent',
   alertNotes: 'WF_AlertNote', escalations: 'WF_Escalation',
+  runRequests: 'OPS_IntelligenceRunRequest',
 });
 const BUSINESS_ID = Object.freeze({
   INT_AnalysisRun: 'AnalysisRunID', TRN_CaseFeature: 'CaseFeatureID', TRN_LocationFeature: 'LocationFeatureID',
@@ -29,6 +30,7 @@ const BUSINESS_ID = Object.freeze({
   CFG_ReportDefinition: 'ReportDefinitionID', CFG_Dashboard: 'DashboardID',
   CFG_DashboardItem: 'DashboardItemID', CFG_ContentShare: 'ContentShareID',
   CFG_UserPreference: 'UserPreferenceID', WF_AlertNote: 'AlertNoteID', WF_Escalation: 'EscalationID',
+  OPS_IntelligenceRunRequest: 'RunRequestID',
 });
 const SOURCE_TABLES = Object.freeze({
   CaseMaster: 'SRC_CaseMaster', ComplainantDetails: 'SRC_ComplainantDetails', ActSectionAssociation: 'SRC_ActSectionAssociation',
@@ -53,6 +55,15 @@ const DATETIME_COLUMNS = Object.freeze({
   CFG_ReportDefinition: ['CreatedAt', 'UpdatedAt'], CFG_Dashboard: ['CreatedAt', 'UpdatedAt'],
   CFG_ContentShare: ['CreatedAt'], CFG_UserPreference: ['UpdatedAt'],
   WF_AlertNote: ['CreatedAt'], WF_Escalation: ['EscalatedAt'],
+  OPS_IntelligenceRunRequest: ['RequestedAt', 'StartedAt', 'CompletedAt', 'UpdatedAt'],
+});
+
+const RUN_REQUEST_TRANSITIONS = Object.freeze({
+  QUEUED: new Set(['SUBMITTED', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
+  SUBMITTED: new Set(['RUNNING', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
+  RUNNING: new Set(['PUBLISHED', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
+  FAILED_RETRYABLE: new Set(['SUBMITTED']),
+  PUBLISHED: new Set(), FAILED_FINAL: new Set(),
 });
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
@@ -239,6 +250,34 @@ export class CatalystIntelligenceRepository {
 
   async listAnalysisRuns() {
     return (await this.#read(TABLES.runs)).map(stripRun);
+  }
+
+  async createRunRequest(request) {
+    await this.#insert(TABLES.runRequests, request);
+    return this.getRunRequest(request.RunRequestID);
+  }
+
+  async getRunRequest(runRequestId) {
+    return clone((await this.#read(TABLES.runRequests)).find(row => row.RunRequestID === runRequestId));
+  }
+
+  async getRunRequestByIdempotencyHash(hash) {
+    return clone((await this.#read(TABLES.runRequests)).find(row => row.IdempotencyKeyHash === hash));
+  }
+
+  async listRunRequests() {
+    return clone(await this.#read(TABLES.runRequests));
+  }
+
+  async updateRunRequest(runRequestId, changes) {
+    const row = (await this.#read(TABLES.runRequests)).find(item => item.RunRequestID === runRequestId);
+    if (!row) return undefined;
+    if (changes.Status && changes.Status !== row.Status && !RUN_REQUEST_TRANSITIONS[row.Status]?.has(changes.Status)) {
+      const error = new Error(`invalid run request transition ${row.Status} -> ${changes.Status}`);
+      error.code = 'INVALID_STATE'; throw error;
+    }
+    await this.#update(TABLES.runRequests, { ...row, ...clone(changes) });
+    return this.getRunRequest(runRequestId);
   }
 
   async getBrief() {

@@ -49,10 +49,23 @@ test('bootstrap validates parameters, persists source and returns only a safe re
 test('refresh consumes an already persisted batch without regenerating a different source', async () => {
   const fixture = harness();
   await fixture.application(job({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BATCH-1', seed: '20260720', syntheticOnly: 'true' }), fixture.context);
+  await fixture.repository.createRunRequest({
+    RunRequestID: 'RUNREQ-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
+    BatchKey: 'BATCH-1', Operation: 'REFRESH_INTELLIGENCE', RequestedBy: 'CAT-ADMIN', Status: 'SUBMITTED',
+    CatalystJobID: 'JOB-1', Attempt: 1, RequestedAt: '2026-07-20T15:59:00Z', StartedAt: null,
+    CompletedAt: null, UpdatedAt: '2026-07-20T15:59:00Z', FailedPhase: null, FailureCode: null,
+    CurrentRunGroupID: null, SyntheticData: true,
+  });
   const secondContext = { closeWithSuccess() { fixture.calls.push('success-2'); }, closeWithFailure() { fixture.calls.push('failure-2'); } };
-  const result = await fixture.application(job({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'BATCH-1', seed: '999', syntheticOnly: 'true' }), secondContext);
+  const result = await fixture.application(job({
+    operation: 'REFRESH_INTELLIGENCE', batchKey: 'BATCH-1', runRequestId: 'RUNREQ-1',
+  }), secondContext);
   assert.equal(result.ok, true);
   assert.equal(result.result.status, 'COMPLETED');
+  const request = await fixture.repository.getRunRequest('RUNREQ-1');
+  assert.equal(request.Status, 'PUBLISHED');
+  assert.equal(request.CurrentRunGroupID, result.result.runGroup.RunGroupID);
+  assert.equal(request.CompletedAt, '2026-07-20T16:00:00.000Z');
   assert.ok(fixture.calls.includes('success-2'));
 });
 

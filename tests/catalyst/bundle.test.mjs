@@ -15,13 +15,13 @@ const expectedFunctions = Object.freeze([
     name: 'crime_intelligence_api',
     stack: 'node24',
     type: 'advancedio',
-    dependencies: { express: '5.1.0', 'zcatalyst-sdk-node': '^2.5.0' },
+    dependencies: { express: '5.1.0', 'zcatalyst-sdk-node': '3.4.0' },
   },
   {
     name: 'intelligence_refresh',
     stack: 'node18',
     type: 'job',
-    dependencies: { 'zcatalyst-sdk-node': '^2.5.0' },
+    dependencies: { 'zcatalyst-sdk-node': '3.4.0' },
   },
 ]);
 const temporaryRoots = [];

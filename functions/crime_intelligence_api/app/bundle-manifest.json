@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "fea68a09e6030ed3fb57c241ea580a2a99bb7f447450d9db171f490a5c6a3276",
-      "bytes": 1354
+      "sha256": "cd2d7401bb5797634c1f89ba93717ddc304ab1b13753254e7f6aa892f2e47959",
+      "bytes": 1561
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -20,23 +20,38 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "8ee7198f93dc85ff58e97256db3f64c614c8887cccfa8d884246d75c842caa21",
-      "bytes": 6035
+      "sha256": "49a665753811148f4e28a0bedf15decd3476d59bd43361f4034e66f4844b6c01",
+      "bytes": 6776
+    },
+    {
+      "path": "src/backend/catalyst/job-scheduling-adapter.mjs",
+      "sha256": "6e6710b5bc1130c47c53c24da913b2e4f1df2bb1b9d3513882fa85e3348bb8d4",
+      "bytes": 1458
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
-      "sha256": "0f01c4e5f22762677a206b7e08573f40960e094be562311265178090e2824d70",
-      "bytes": 1049
+      "sha256": "40e620aa621da0acbf04e6fcc302a170864e11a174ce3b20aea6a0d562e4ff81",
+      "bytes": 1252
     },
     {
       "path": "src/backend/http/api-contract.mjs",
-      "sha256": "5bc313abd71cfeda08dddf373d31f60aaa86d3218b119aecab0c808d04933cde",
-      "bytes": 3593
+      "sha256": "92f56efc0a38f3377bdfedf69f7d156ab9c29bc37b395544294cd4efe7a3a7a0",
+      "bytes": 3851
     },
     {
       "path": "src/backend/http/dispatch.mjs",
-      "sha256": "62035528748e8e382141fac61b7fb298e5eeed401f2faab61e2504bdad77834b",
-      "bytes": 7898
+      "sha256": "1f32cba671e050c002f4c690b6df4b9b4f2872f118d13ade6b69a966ebab2539",
+      "bytes": 7963
+    },
+    {
+      "path": "src/backend/operations/intelligence-run-resources.mjs",
+      "sha256": "3fef962a764ff238421fe40ced30d9723b41051aa3bf570aaa4b597dd7ae55e2",
+      "bytes": 1015
+    },
+    {
+      "path": "src/backend/operations/intelligence-run-service.mjs",
+      "sha256": "ad60e72a84705f580cb2595d1ba0fc4931aee029bacb095fffb2d1b5e843268c",
+      "bytes": 3486
     },
     {
       "path": "src/backend/refresh/run-groups.mjs",
@@ -70,13 +85,13 @@
     },
     {
       "path": "src/backend/reporting/workspace-services.mjs",
-      "sha256": "892ca942ca3dcb1fbc22ae1902eafee71c784f4b2ab9aba58db6c7382367a65f",
-      "bytes": 3855
+      "sha256": "6bff3f14d4a0766d37f9ed5dcc90a9ab04410bf4db3810f654703e56196d045e",
+      "bytes": 4192
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "f4c4fc6b3eb532c4fa888f47d3cf1c8a34ae2a63330bb1f27afc881ab728252c",
-      "bytes": 52168
+      "sha256": "63046fbaa985519d74f28196544d79267ace5d6ccb30810fe718c766481dd514",
+      "bytes": 53827
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
@@ -120,8 +135,8 @@
     },
     {
       "path": "src/backend/security/identity.mjs",
-      "sha256": "84749c1e55595cbf505559523c92f359d656b581811fc45ffd6931fed1c3585b",
-      "bytes": 1813
+      "sha256": "2cd0efe7bc7081285d31b85369f26fbd24c67522c87064b2b9aaaa78ff14eec2",
+      "bytes": 2156
     },
     {
       "path": "src/backend/security/scope.mjs",

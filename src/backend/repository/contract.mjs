@@ -1,6 +1,11 @@
 export const repositoryMethods = Object.freeze([
   'getCurrentRunGroup',
   'listAnalysisRuns',
+  'createRunRequest',
+  'getRunRequest',
+  'getRunRequestByIdempotencyHash',
+  'listRunRequests',
+  'updateRunRequest',
   'getBrief',
   'listPatterns',
   'getPattern',

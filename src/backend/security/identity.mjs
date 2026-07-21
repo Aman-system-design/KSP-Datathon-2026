@@ -34,6 +34,10 @@ export function resolveAccess({
 
   let role = profile.DefaultRole;
   let demoPersona = false;
+  const personaSwitchAllowed = environment === 'Development'
+    && profile.DefaultRole === 'DEMO_PRESENTER'
+    && profile.DemoPersonaAllowed === true
+    && profile.SyntheticData === true;
   if (requestedPersona) {
     const personaAllowed = environment === 'Development'
       && profile.DefaultRole === 'DEMO_PRESENTER'
@@ -48,10 +52,13 @@ export function resolveAccess({
   return Object.freeze({
     actualUserId: String(currentUser.user_id),
     employeeId: profile.EmployeeID ?? null,
+    actualRole: profile.DefaultRole,
     role,
     scopeUnitId: profile.ScopeUnitID,
     permissionVersion: policy.version,
     demoPersona,
+    personaSwitchAllowed,
+    availablePersonas: Object.freeze(personaSwitchAllowed ? [...policy.personaAllowlist] : []),
     actions: Object.freeze([...(policy.roles[role] ?? [])]),
     syntheticData: profile.SyntheticData === true,
   });

@@ -12,6 +12,34 @@ test('memory repository implements the complete asynchronous contract', () => {
   }
 });
 
+test('run requests are idempotent, transition explicitly and return clones', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const request = {
+    RunRequestID: 'RUNREQ-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
+    BatchKey: 'BATCH-1', Operation: 'REFRESH_INTELLIGENCE', RequestedBy: 'CAT-ADMIN',
+    Status: 'QUEUED', RequestedAt: '2026-07-22T00:00:00Z', SyntheticData: true,
+  };
+
+  await repository.createRunRequest(request);
+  await assert.rejects(repository.createRunRequest({ ...request, RunRequestID: 'RUNREQ-2' }), { code: 'UNIQUE_CONFLICT' });
+  assert.equal((await repository.getRunRequestByIdempotencyHash('a'.repeat(64))).RunRequestID, 'RUNREQ-1');
+
+  const submitted = await repository.updateRunRequest('RUNREQ-1', { Status: 'SUBMITTED', CatalystJobID: 'JOB-1' });
+  assert.equal(submitted.Status, 'SUBMITTED');
+  const failed = await repository.updateRunRequest('RUNREQ-1', { Status: 'FAILED_RETRYABLE', FailedPhase: 'JOB_SUBMISSION', FailureCode: 'JOB_SUBMISSION_FAILED' });
+  assert.equal(failed.Status, 'FAILED_RETRYABLE');
+  const replay = await repository.updateRunRequest('RUNREQ-1', { Status: 'SUBMITTED', CatalystJobID: 'JOB-2' });
+  assert.equal(replay.CatalystJobID, 'JOB-2');
+
+  replay.Status = 'MUTATED';
+  assert.equal((await repository.getRunRequest('RUNREQ-1')).Status, 'SUBMITTED');
+  assert.equal((await repository.listRunRequests()).length, 1);
+  await assert.rejects(
+    repository.updateRunRequest('RUNREQ-1', { Status: 'QUEUED' }),
+    { code: 'INVALID_STATE' },
+  );
+});
+
 test('demo state is derived from the accepted PDF pipeline', async () => {
   const state = buildDemoState();
   assert.equal(state.features.length, 50);

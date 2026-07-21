@@ -12,6 +12,7 @@ const schema = JSON.parse(await readFile(
 const expectedTables = [
   'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
   'CFG_ContentShare', 'CFG_UserPreference',
+  'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
   'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence',
@@ -19,9 +20,21 @@ const expectedTables = [
   'WF_Outcome', 'WF_AuditEvent', 'WF_AlertNote', 'WF_Escalation',
 ];
 
-test('manifest defines the exact production-shaped 28-table backend boundary', () => {
+test('manifest defines the exact production-shaped 29-table backend boundary', () => {
   assert.deepEqual(schema.tables.map(({ name }) => name), expectedTables);
   assert.deepEqual(validateIntelligenceSchema(schema), []);
+});
+
+test('run requests preserve durable job identity, status and safe failure details', () => {
+  const request = schema.tables.find(({ name }) => name === 'OPS_IntelligenceRunRequest');
+  assert.equal(request.businessId, 'RunRequestID');
+  for (const field of [
+    'IdempotencyKeyHash', 'RequestHash', 'BatchKey', 'Operation', 'RequestedBy',
+    'Status', 'CatalystJobID', 'RequestedAt', 'StartedAt', 'CompletedAt',
+    'FailedPhase', 'FailureCode', 'CurrentRunGroupID', 'SyntheticData',
+  ]) assert.ok(request.columns.some(({ name }) => name === field), `run request missing ${field}`);
+  assert.equal(request.columns.find(({ name }) => name === 'IdempotencyKeyHash').unique, true);
+  assert.equal(request.columns.some(({ name }) => name === 'IdempotencyKey'), false);
 });
 
 test('access and command tables preserve identity and idempotency boundaries', () => {

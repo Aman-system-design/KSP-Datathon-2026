@@ -347,3 +347,19 @@ The first approved hardening/scale slice is implemented locally, not deployed:
 - the deterministic local feature benchmark preserves the planted hotspot, repeat identity and cross-district pattern at 1K, 10K and 50K without contacting Catalyst.
 
 Observed 50K benchmark: 1,249,975,000 theoretical pairs reduced to 669,412 Pattern Fusion candidates (99.9464% reduction), 10.60 seconds elapsed and approximately 256 MB Node heap on this laptop. This is engineering evidence against obvious quadratic behavior, not an SLA or nationwide-capacity certification. Catalyst Development data, Functions, API Gateway, Jobs, Slate and Production were not changed by this local slice.
+
+### Operational Intelligence Run Control and Profile Persona Switch — July 22, 2026
+
+The next production-shaped local slice connects governed administration to the real intelligence refresh path instead of simulating an AI run in the browser:
+
+- a new `OPS_IntelligenceRunRequest` table contract persists request identity, idempotency hash, validated source batch, Catalyst Job ID, lifecycle state, attempt, stable failure phase/code and published run group;
+- Platform Administrators can submit and inspect runs through two fixed API operations; operational roles and auditors receive read-only run visibility according to explicit permissions;
+- the API Function uses the Catalyst Job Scheduling SDK to submit the existing `intelligence_refresh` Job Function with a fixed target, bounded retries and validated parameters;
+- the Job Function verifies the persisted request and source batch, moves the request through `SUBMITTED`, `RUNNING`, `PUBLISHED` or governed failure states, and retains the previously published intelligence group if refresh fails;
+- the Admin run monitor renders only persisted API state, polls only while a run is active, and exposes Catalyst job identity and stable failure diagnostics instead of fake percentage progress;
+- the application uses locally packaged Montserrat fonts, a collapsible context panel and a restrained Catalyst-style white workspace; demonstration provenance remains visible without the earlier dominant warning banner;
+- the extreme-right account profile is the only temporary persona switch surface. The backend exposes it only when the authenticated Development user is a synthetic-data `DEMO_PRESENTER`; normal production roles receive no persona selector.
+
+Observed local verification after the final provenance and polling adjustment: 224 backend tests passed; 47 frontend tests passed; both Function bundles built and inspected successfully with zero manifest, forbidden-file or unresolved-import errors; the 29-table intelligence schema validated; the Vite production build succeeded; and `git diff --check` found no whitespace errors.
+
+No Catalyst resource was created, changed or deployed by this slice. Development deployment requires a separately approved migration and smoke sequence: create `OPS_IntelligenceRunRequest`, confirm/create the intended Job Pool, set `KSP_INTELLIGENCE_JOB_POOL` on both Functions, deploy the two reviewed Function bundles and Slate build, then execute one authenticated synthetic-batch run and verify its persisted lifecycle. Production remains unchanged.

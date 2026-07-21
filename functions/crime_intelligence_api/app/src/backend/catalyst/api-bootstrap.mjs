@@ -1,6 +1,9 @@
 import { createDispatcher, isDeclaredApiRoute } from '../http/dispatch.mjs';
 import { CatalystIntelligenceRepository } from '../repository/catalyst/catalyst-repository.mjs';
 import { createCatalystSdkContext } from '../repository/catalyst/sdk-context.mjs';
+import { createCatalystJobScheduler } from './job-scheduling-adapter.mjs';
+import { createIntelligenceRunService } from '../operations/intelligence-run-service.mjs';
+import { createIntelligenceRunResources } from '../operations/intelligence-run-resources.mjs';
 import { createAccessAuditService } from '../security/access-audit.mjs';
 import { resolveAccess } from '../security/identity.mjs';
 import { buildAuthorizedUnitSet, buildEscalationUnitSet } from '../security/scope.mjs';
@@ -44,10 +47,12 @@ function isoClock(clock) {
 export function createApiApplication({
   sdk, config, policy, clock = () => new Date(), idFactory,
   repositoryFactory = application => new CatalystIntelligenceRepository({ application }),
+  schedulerFactory = (application, jobPoolName) => createCatalystJobScheduler({ app: application, jobPoolName }),
   logger = console,
 }) {
   if (config?.environment !== 'Development' || config.projectId !== EXPECTED_PROJECT
-    || config.permissionVersion !== policy?.version || !config.auditKey || !config.auditKeyVersion) {
+    || config.permissionVersion !== policy?.version || !config.auditKey || !config.auditKeyVersion
+    || !config.intelligenceJobPool) {
     throw new Error('Catalyst API runtime config is invalid.');
   }
   if (typeof idFactory !== 'function') throw new TypeError('idFactory is required.');
@@ -77,7 +82,14 @@ export function createApiApplication({
       await context.authorize(profile);
 
       const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
-      const resourceServices = createWorkspaceServices({ repository, readServices, now, idFactory });
+      const workspaceServices = createWorkspaceServices({ repository, readServices, now, idFactory });
+      const runService = createIntelligenceRunService({
+        repository, scheduler: schedulerFactory(profileApplication, config.intelligenceJobPool),
+        clock: now, idFactory,
+      });
+      const resourceServices = Object.freeze({
+        ...workspaceServices, ...createIntelligenceRunResources({ runService }),
+      });
       const commandService = createCommandService({
         repository, clock: now, idFactory,
         auditKeys: { [config.auditKeyVersion]: config.auditKey }, activeAuditKeyVersion: config.auditKeyVersion,

@@ -10,6 +10,7 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
   const tables = new Map(Object.entries({
     WF_Alert: [{ ROWID: '1001', AlertID: 'ALT-1', FindingType: 'PATTERN', FindingBusinessID: 'PAT-1', ScopeUnitID: 101, Status: 'GENERATED', AlertVersion: 0, LastCommandRef: null, Severity: 0.9, OriginalFindingJSON: '{}', MethodVersion: '1.0.0', CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true }],
     WF_Command: [], WF_Assignment: [], WF_AnalystConclusion: [], WF_Outcome: [], WF_AuditEvent: [],
+    OPS_IntelligenceRunRequest: [],
   }));
   const queries = [];
   let failureInjected = false;
@@ -33,6 +34,7 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
         INT_Hotspot: ['HotspotID'], INT_Anomaly: ['AnomalyID'], INT_AreaRisk: ['AreaRiskID'],
         INT_NetworkNode: ['NetworkNodeID'], INT_NetworkEdge: ['NetworkEdgeID'],
         INT_RepeatOffenderSignal: ['RepeatSignalID'], WF_Alert: ['AlertID'],
+        OPS_IntelligenceRunRequest: ['RunRequestID', 'IdempotencyKeyHash'],
       }[name] ?? [];
       if (rows.some(row => uniqueColumns.some(column => row[column] !== undefined && row[column] === input[column]))) {
         const error = new Error('duplicate row'); error.code = 'DUPLICATE_VALUE'; throw error;
@@ -77,6 +79,28 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
 const access = Object.freeze({
   actualUserId: 'CAT-1', employeeId: 9001, role: 'DISTRICT_LEADERSHIP', scopeUnitId: 101,
   authorizedUnitIds: new Set([101]), actions: ['ASSIGN_ALERT'], syntheticData: true,
+});
+
+test('Catalyst run requests persist idempotency and controlled status transitions', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const request = {
+    RunRequestID: 'RUNREQ-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
+    BatchKey: 'SOURCE-BATCH-1', Operation: 'REFRESH_INTELLIGENCE', RequestedBy: 'CAT-1',
+    Status: 'QUEUED', CatalystJobID: null, Attempt: 1, RequestedAt: '2026-07-22T01:00:00Z',
+    StartedAt: null, CompletedAt: null, UpdatedAt: '2026-07-22T01:00:00Z', FailedPhase: null,
+    FailureCode: null, CurrentRunGroupID: null, SyntheticData: true,
+  };
+
+  await repository.createRunRequest(request);
+  assert.equal((await repository.getRunRequestByIdempotencyHash('a'.repeat(64))).RunRequestID, 'RUNREQ-1');
+  const submitted = await repository.updateRunRequest('RUNREQ-1', {
+    Status: 'SUBMITTED', CatalystJobID: 'JOB-1', UpdatedAt: '2026-07-22T01:01:00Z',
+  });
+  assert.equal(submitted.Status, 'SUBMITTED');
+  assert.equal((await repository.listRunRequests()).length, 1);
+  await assert.rejects(repository.updateRunRequest('RUNREQ-1', { Status: 'PUBLISHED' }), { code: 'INVALID_STATE' });
+  assert.equal(fake.tables.get('OPS_IntelligenceRunRequest')[0].RequestedAt, '2026-07-22 01:00:00');
 });
 
 test('Catalyst workflow persists one command/artifact/audit and verifies compare-and-swap', async () => {

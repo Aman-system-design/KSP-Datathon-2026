@@ -13,7 +13,8 @@ const policy = JSON.parse(await readFile(
 const user = { user_id: 'CAT-USER-1', status: 'ACTIVE', role: 'UNTRUSTED_CALLER_ROLE' };
 const profile = {
   CatalystUserID: 'CAT-USER-1', DefaultRole: 'DISTRICT_LEADERSHIP', ScopeUnitID: 101,
-  Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  EmployeeID: 9001, Active: true, DemoPersonaAllowed: false,
+  PermissionVersion: '1.0.0', SyntheticData: true,
 };
 
 function errorCode(callback) {
@@ -30,8 +31,12 @@ test('identity resolution fails closed and ignores caller role fields', () => {
 
   const access = resolveAccess({ currentUser: user, profile, environment: 'Development', policy });
   assert.equal(access.role, 'DISTRICT_LEADERSHIP');
+  assert.equal(access.actualRole, 'DISTRICT_LEADERSHIP');
   assert.equal(access.actualUserId, 'CAT-USER-1');
+  assert.equal(access.employeeId, 9001);
   assert.equal(access.scopeUnitId, 101);
+  assert.equal(access.personaSwitchAllowed, false);
+  assert.deepEqual(access.availablePersonas, []);
 });
 
 test('demo persona is allowlisted, synthetic, authenticated, and Development-only', () => {
@@ -43,7 +48,10 @@ test('demo persona is allowlisted, synthetic, authenticated, and Development-onl
     environment: 'Development', policy,
   });
   assert.equal(access.role, 'CRIME_ANALYST');
+  assert.equal(access.actualRole, 'DEMO_PRESENTER');
   assert.equal(access.demoPersona, true);
+  assert.equal(access.personaSwitchAllowed, true);
+  assert.deepEqual(access.availablePersonas, policy.personaAllowlist);
 
   assert.equal(errorCode(() => resolveAccess({
     currentUser: user, profile: presenter, requestedPersona: 'CRIME_ANALYST',

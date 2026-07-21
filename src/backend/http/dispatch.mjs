@@ -134,14 +134,14 @@ export function createDispatcher({
         if (typeof service !== 'function') throw new Error('unconfigured resource operation');
         const body = await service({
           access, params: route.params, query: request.query ?? {}, body: request.body ?? null,
-          requestId,
+          headers: request.headers ?? {}, requestId,
         });
         await auditService.record({
           access, currentUser,
           eventType: route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED',
           requestId, route: route.operation.path, outcome: 'ALLOWED',
         });
-        return { status: 200, body };
+        return { status: route.operation.successStatus ?? 200, body };
       }
 
       if (route.operation.method === 'GET') {

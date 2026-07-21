@@ -57,6 +57,16 @@ export function createWorkspaceServices({ repository, readServices, now, idFacto
       ]);
       return envelope({
         role: access.role, scopeUnitId: access.scopeUnitId,
+        identity: {
+          employeeId: access.employeeId,
+          actualRole: access.actualRole,
+          effectiveRole: access.role,
+          demoPersona: access.demoPersona,
+        },
+        personaSwitch: {
+          allowed: access.personaSwitchAllowed,
+          personas: [...(access.availablePersonas ?? [])],
+        },
         landingDashboard, availableDashboards, availableReports,
         semanticSources: Object.keys(REPORT_SOURCES),
         alertSummary: { total: alertResult.data.items.length }, syntheticData: true,

@@ -6,7 +6,9 @@ import { MemoryIntelligenceRepository } from '../../src/backend/repository/memor
 import { createWorkspaceServices } from '../../src/backend/reporting/workspace-services.mjs';
 
 const analyst = {
-  actualUserId: 'CAT-ANALYST', role: 'CRIME_ANALYST', scopeUnitId: 101,
+  actualUserId: 'CAT-ANALYST', employeeId: 9001,
+  actualRole: 'CRIME_ANALYST', role: 'CRIME_ANALYST', demoPersona: false,
+  personaSwitchAllowed: false, availablePersonas: [], scopeUnitId: 101,
   authorizedUnitIds: new Set([101, 1001]),
   actions: ['READ_ALERT', 'READ_ANOMALY'], syntheticData: true,
 };
@@ -43,4 +45,33 @@ test('workspace services expose a complete report-to-dashboard-to-alert vertical
   assert.equal(workspace.data.landingDashboard.id, dashboard.data.id);
   assert.equal(workspace.data.alertSummary.total, 1);
   assert.equal(workspace.data.syntheticData, true);
+  assert.deepEqual(workspace.data.identity, {
+    employeeId: 9001, actualRole: 'CRIME_ANALYST',
+    effectiveRole: 'CRIME_ANALYST', demoPersona: false,
+  });
+  assert.deepEqual(workspace.data.personaSwitch, { allowed: false, personas: [] });
+});
+
+test('workspace exposes only the server-authorized Development persona choices', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-1`,
+  });
+  const access = {
+    ...analyst, actualUserId: 'CAT-PRESENTER', employeeId: 9900,
+    actualRole: 'DEMO_PRESENTER', role: 'STATE_LEADERSHIP', demoPersona: true,
+    personaSwitchAllowed: true,
+    availablePersonas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
+  };
+
+  const workspace = await services.getWorkspace({ access });
+
+  assert.deepEqual(workspace.data.identity, {
+    employeeId: 9900, actualRole: 'DEMO_PRESENTER',
+    effectiveRole: 'STATE_LEADERSHIP', demoPersona: true,
+  });
+  assert.deepEqual(workspace.data.personaSwitch, {
+    allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
+  });
 });
