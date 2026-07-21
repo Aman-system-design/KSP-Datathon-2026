@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { ReportBuilder } from './ReportBuilder.jsx';
+
+afterEach(cleanup);
 
 test('analyst configures, previews and saves a governed anomaly report', async () => {
   const api = {
@@ -20,4 +22,13 @@ test('analyst configures, previews and saves a governed anomaly report', async (
   fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
   expect(await screen.findByText('Unit 101')).toBeInTheDocument();
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+});
+
+test('missing report-source data renders an empty governed builder instead of crashing', async () => {
+  const api = { get: vi.fn(async () => ({ data: {} })), post: vi.fn() };
+
+  render(<ReportBuilder api={api} />);
+
+  expect(await screen.findByRole('heading', { name: 'Build a report' })).toBeInTheDocument();
+  expect(screen.getByText('Configure the report to inspect live governed results.')).toBeInTheDocument();
 });

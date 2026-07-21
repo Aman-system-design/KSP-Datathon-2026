@@ -11,7 +11,8 @@ export function ReportBuilder({ api }) {
   const [status, setStatus] = useState('');
 
   useEffect(() => { api.get('/v1/report-sources').then(({ data }) => {
-    setSources(data); setSourceKey(data[0]?.key ?? '');
+    const items = Array.isArray(data) ? data : [];
+    setSources(items); setSourceKey(items[0]?.key ?? '');
   }).catch(() => setStatus('Report sources are unavailable.')); }, [api]);
   const source = useMemo(() => sources.find(item => item.key === sourceKey), [sources, sourceKey]);
   const dimensions = Object.entries(source?.fields ?? {}).filter(([, value]) => value.dimension);
