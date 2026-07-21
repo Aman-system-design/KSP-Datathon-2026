@@ -39,6 +39,16 @@ test('Catalyst declares exactly the two approved Function targets', () => {
   assert.deepEqual(manifest.functions.targets, expectedFunctions.map(({ name }) => name));
 });
 
+test('Catalyst Slate configuration is portable and builds the reviewed Vite app', () => {
+  const manifest = readJson('catalyst.json');
+  assert.deepEqual(manifest.slate, [{ name: 'ksp-crime-intelligence', source: 'web' }]);
+  assert.equal(readJson('web/cli-config.json').slate.dev_command, 'npm run dev -- --port $ZC_SLATE_PORT');
+  const slateConfig = readFileSync(path.join(repositoryRoot, 'web/.catalyst/slate-config.toml'), 'utf8');
+  assert.match(slateConfig, /framework = "react-vite"/u);
+  assert.match(slateConfig, /build_command = "npm run build"/u);
+  assert.match(slateConfig, /build_path = "dist"/u);
+});
+
 test('Function manifests lock the approved name, runtime, type and entry', () => {
   for (const expected of expectedFunctions) {
     const root = `functions/${expected.name}`;
