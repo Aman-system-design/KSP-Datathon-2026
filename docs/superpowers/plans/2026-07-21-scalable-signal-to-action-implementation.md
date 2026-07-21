@@ -26,7 +26,7 @@
 - [x] **Step 2: Run the focused tests and observe expected failures.**
 - [x] **Step 3: Implement the smallest native Node/Catalyst solution.** Do not add logging, validation, health or rate-limit dependencies; API Gateway owns throttling.
 - [x] **Step 4: Re-run focused tests, the production web build and bundle inspection.** Confirm no `.map` artifacts.
-- [ ] **Step 5: Run the complete verification gate before committing.**
+- [x] **Step 5: Run the complete verification gate before committing.**
 
 ## File Structure
 
@@ -97,7 +97,7 @@ Use spherical Cartesian grid buckets sized from `radiusKm`, inspecting the curre
 Run: `node --test tests/intelligence/candidates.test.mjs`
 Expected: all candidate tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/intelligence-core/src/candidates.mjs packages/intelligence-core/index.mjs tests/intelligence/candidates.test.mjs
@@ -142,7 +142,7 @@ Preserve existing finding objects and algorithm labels. Return `{ findings, diag
 Run: `npm run intelligence:test`
 Expected: all intelligence tests pass, including planted and negative controls.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/intelligence-core/src/hotspot.mjs packages/intelligence-core/src/identity.mjs packages/intelligence-core/src/pipeline.mjs tests/intelligence
@@ -186,7 +186,7 @@ Create candidates from the union of time-partitioned neighboring spatial cells, 
 Run: `npm test`
 Expected: all tests pass and evaluation retains its positive/negative gates.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/intelligence-core/src tests/intelligence
@@ -225,7 +225,7 @@ Generate feature-level synthetic records without writing Catalyst rows. For 1K, 
 Run: `npm run intelligence:benchmark`
 Expected: JSON output for 1K/10K/50K; exit 0; no Catalyst network call.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/intelligence/benchmark-scale.mjs tests/intelligence/scale-benchmark.test.mjs package.json
