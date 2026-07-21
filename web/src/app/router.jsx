@@ -26,7 +26,7 @@ function useLoad(loader, dependencies = []) {
 }
 
 function Busy({ label = 'Loading authorized intelligence…' }) { return <div className="loading-state"><i /><strong>{label}</strong></div>; }
-function Failure({ error }) { return <div className="failure-state"><strong>Intelligence is unavailable</strong><span>{error?.message ?? 'The request could not be completed.'}</span><button onClick={() => location.reload()}>Retry</button></div>; }
+export function Failure() { return <div className="failure-state"><strong>Intelligence is unavailable</strong><span>The request could not be completed.</span><button onClick={() => location.reload()}>Retry</button></div>; }
 
 function CommandPage({ api }) {
   const state = useLoad(async () => {
@@ -73,8 +73,8 @@ function MapsPage({ api }) {
   return <HotspotMap hotspots={state.data} />;
 }
 
-function AlertsPage({ api }) {
-  const state = useLoad(() => api.get('/v1/alerts').then(result => result.data.items), [api]);
+export function AlertsPage({ api }) {
+  const state = useLoad(() => api.get('/v1/alerts').then(result => result.data?.items ?? []), [api]);
   if (state.loading) return <Busy label="Loading scoped alerts…" />;
   if (state.error) return <Failure error={state.error} />;
   return <AlertInbox alerts={state.data} />;
