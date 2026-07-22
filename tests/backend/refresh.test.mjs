@@ -65,6 +65,55 @@ test('refresh stages, verifies and atomically publishes one seven-type group', a
   assert.deepEqual(await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'REFRESH-2026-07-20', seed: 20260720 }), result);
 });
 
+test('publication generation is monotonic even when completed timestamps are identical', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const first = await service(repository).execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'GEN-1', seed: 20260720 });
+  const afterFirst = await repository.getCurrentRunGroup();
+  const second = await service(repository).execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'GEN-2', seed: 20260721 });
+  const afterSecond = await repository.getCurrentRunGroup();
+  assert.equal(first.runGroup.PublishedAt, second.runGroup.PublishedAt);
+  assert.equal(afterSecond.PublicationGeneration, afterFirst.PublicationGeneration + 1);
+  assert.equal(afterSecond.RunGroupID, second.runGroup.RunGroupID);
+});
+
+test('a refresh idempotency key replays only the exact same operation and input', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const refresh = service(repository);
+  const first = await refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'IDEMPOTENT-1', seed: 20260720 });
+  assert.deepEqual(await refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'IDEMPOTENT-1', seed: 20260720 }), first);
+  await assert.rejects(
+    refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'IDEMPOTENT-1', seed: 20260721 }),
+    { code: 'IDEMPOTENCY_CONFLICT' },
+  );
+  await assert.rejects(
+    refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'IDEMPOTENT-1' }),
+    { code: 'IDEMPOTENCY_CONFLICT' },
+  );
+});
+
+test('a changed persisted source snapshot conflicts with an already completed batch key', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const source = generateSourceSeed(20260720);
+  await repository.persistValidatedSource({ batchKey: 'SOURCE-HASH-1', source, ...validateSourceSeed(source) });
+  let changed = false;
+  const guardedRepository = new Proxy(repository, { get(target, property) {
+    if (property === 'getValidatedSource') return async batchKey => {
+      const value = await target.getValidatedSource(batchKey);
+      if (changed && value) value.accepted.CaseMaster[0].BriefFacts = 'Changed after the accepted snapshot was processed.';
+      return value;
+    };
+    const value = target[property];
+    return typeof value === 'function' ? value.bind(target) : value;
+  } });
+  const refresh = service(guardedRepository);
+  await refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'SOURCE-HASH-1' });
+  changed = true;
+  await assert.rejects(
+    refresh.execute({ operation: 'REFRESH_INTELLIGENCE', batchKey: 'SOURCE-HASH-1' }),
+    { code: 'IDEMPOTENCY_CONFLICT' },
+  );
+});
+
 test('refresh uses the persisted accepted batch and never silently regenerates source', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const source = generateSourceSeed(20260720);

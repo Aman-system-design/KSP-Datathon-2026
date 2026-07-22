@@ -74,23 +74,33 @@ export function createRefreshService({
       if (!['BOOTSTRAP_SYNTHETIC', 'REFRESH_INTELLIGENCE'].includes(operation)) fail('INVALID_REQUEST', 'Unsupported refresh operation.');
       if (typeof batchKey !== 'string' || !batchKey.trim() || batchKey.length > 128) fail('INVALID_REQUEST', 'batchKey is required.');
 
+      let validation;
+      let bootstrapSource;
+      if (operation === 'BOOTSTRAP_SYNTHETIC') {
+        bootstrapSource = sourceGenerator(seed);
+        if (bootstrapSource?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
+      } else {
+        onProgress('VALIDATED_SOURCE_LOOKUP');
+        validation = await repository.getValidatedSource(batchKey);
+        if (!validation) fail('DATA_NOT_READY');
+      }
+      const requestHash = hash(operation === 'BOOTSTRAP_SYNTHETIC'
+        ? { operation, seed: seed ?? null, source: bootstrapSource }
+        : { operation, batchKey, accepted: validation.accepted, reconciliation: validation.reconciliation });
+
       onProgress('REFRESH_BATCH_LOOKUP');
       let batch = await repository.getRefreshBatch(batchKey);
-      if (batch?.Status === 'COMPLETED') return publicResult(batch);
+      if (batch && (batch.Operation !== operation || batch.RequestHash !== requestHash)) fail('IDEMPOTENCY_CONFLICT');
+      if (batch?.Status === 'COMPLETED') {
+        return publicResult(await repository.publishRefreshBatch(batchKey, clock()));
+      }
       if (!batch) {
-        let validation;
         if (operation === 'BOOTSTRAP_SYNTHETIC') {
-          const source = sourceGenerator(seed);
-          if (source?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
-          const checked = sourceValidator(source);
+          const checked = sourceValidator(bootstrapSource);
           if (!checked.reconciliation?.balanced || checked.reconciliation.rejectedRows !== 0
             || checked.reconciliation.acceptedRows !== checked.reconciliation.sourceRows) fail('DATA_NOT_READY');
           onProgress('SOURCE_PERSIST');
-          validation = await repository.persistValidatedSource({ batchKey, source, ...checked });
-        } else {
-          onProgress('VALIDATED_SOURCE_LOOKUP');
-          validation = await repository.getValidatedSource(batchKey);
-          if (!validation) fail('DATA_NOT_READY');
+          validation = await repository.persistValidatedSource({ batchKey, source: bootstrapSource, ...checked });
         }
         if (!validation.reconciliation?.balanced || validation.reconciliation.acceptedRows < 1) fail('DATA_NOT_READY');
         if (operation === 'BOOTSTRAP_SYNTHETIC' && (
@@ -110,6 +120,7 @@ export function createRefreshService({
         const runs = REQUIRED_ANALYSIS_TYPES.map(type => ({
           AnalysisRunID: idFactory('RUN'), RunGroupID: runGroupId,
           AnalysisType: type, RunTypeKey: `${runGroupId}:${type}`,
+          RequestHash: requestHash,
           Status: 'COMPLETED', PublishStatus: 'STAGED', InputManifestHash: inputManifestHash,
           ObservationStart: observationStart, ObservationEnd: observationEnd,
           EngineVersion: findings.run?.engineVersion ?? '1.0.0', PublishedAt: null,
@@ -119,7 +130,7 @@ export function createRefreshService({
         const publishCandidate = runs.map(row => ({ ...row, PublishStatus: 'PUBLISHED', PublishedAt: candidatePublishedAt }));
         if (!isCompletePublishedGroup(publishCandidate)) fail('DATA_NOT_READY');
         batch = {
-          BatchKey: batchKey, Operation: operation, Status: 'STAGED',
+          BatchKey: batchKey, Operation: operation, RequestHash: requestHash, Status: 'STAGED',
           InputManifestHash: inputManifestHash,
           Reconciliation: structuredClone(validation.reconciliation),
           Rejected: structuredClone(validation.rejected), Findings: structuredClone(findings),
@@ -134,6 +145,7 @@ export function createRefreshService({
           if (error.code !== 'UNIQUE_CONFLICT') throw error;
           onProgress('REFRESH_BATCH_LOOKUP');
           batch = await repository.getRefreshBatch(batchKey);
+          if (batch && (batch.Operation !== operation || batch.RequestHash !== requestHash)) fail('IDEMPOTENCY_CONFLICT');
         }
       }
       onProgress('REFRESH_BATCH_PUBLISH');

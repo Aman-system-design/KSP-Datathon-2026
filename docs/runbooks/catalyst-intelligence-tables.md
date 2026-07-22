@@ -267,20 +267,41 @@ Create tables in the order below. Catalyst creates `ROWID`, `CREATORID`, `CREATE
 | 1 | `AnalysisRunID` | SYSTEM | Var Char | 64 | - | Yes | Yes | Yes | No | - |
 | 2 | `BatchKey` | SYSTEM | Var Char | 36 | - | Yes | No | Yes | No | - |
 | 3 | `Operation` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
-| 4 | `ReconciliationJSON` | SYSTEM | Text | - | - | Yes | No | No | No | - |
-| 5 | `RunGroupID` | SYSTEM | Var Char | 64 | - | Yes | No | Yes | No | - |
-| 6 | `AnalysisType` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
-| 7 | `RunTypeKey` | SYSTEM | Var Char | 128 | - | Yes | Yes | Yes | No | - |
-| 8 | `Status` | SYSTEM | Var Char | 24 | - | Yes | No | Yes | No | - |
-| 9 | `PublishStatus` | SYSTEM | Var Char | 24 | - | Yes | No | Yes | No | - |
-| 10 | `ObservationStart` | SYSTEM | DateTime | - | - | Yes | No | No | No | - |
-| 11 | `ObservationEnd` | SYSTEM | DateTime | - | - | Yes | No | No | No | - |
-| 12 | `EngineVersion` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
-| 13 | `MethodVersion` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
-| 14 | `InputManifestHash` | SYSTEM | Var Char | 64 | - | Yes | No | Yes | No | - |
-| 15 | `CompletedAt` | SYSTEM | DateTime | - | - | No | No | No | No | - |
-| 16 | `PublishedAt` | SYSTEM | DateTime | - | - | No | No | No | No | - |
-| 17 | `SyntheticData` | SYSTEM | Boolean | - | - | Yes | No | No | No | Yes |
+| 4 | `RequestHash` | SYSTEM | Var Char | 64 | - | Yes | No | Yes | No | - |
+| 5 | `ReconciliationJSON` | SYSTEM | Text | - | - | Yes | No | No | No | - |
+| 6 | `RunGroupID` | SYSTEM | Var Char | 64 | - | Yes | No | Yes | No | - |
+| 7 | `AnalysisType` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
+| 8 | `RunTypeKey` | SYSTEM | Var Char | 128 | - | Yes | Yes | Yes | No | - |
+| 9 | `Status` | SYSTEM | Var Char | 24 | - | Yes | No | Yes | No | - |
+| 10 | `PublishStatus` | SYSTEM | Var Char | 24 | - | Yes | No | Yes | No | - |
+| 11 | `PublicationGeneration` | SYSTEM | BigInt | - | - | No | No | Yes | No | - |
+| 12 | `ObservationStart` | SYSTEM | DateTime | - | - | Yes | No | No | No | - |
+| 13 | `ObservationEnd` | SYSTEM | DateTime | - | - | Yes | No | No | No | - |
+| 14 | `EngineVersion` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
+| 15 | `MethodVersion` | SYSTEM | Var Char | 32 | - | Yes | No | Yes | No | - |
+| 16 | `InputManifestHash` | SYSTEM | Var Char | 64 | - | Yes | No | Yes | No | - |
+| 17 | `CompletedAt` | SYSTEM | DateTime | - | - | No | No | No | No | - |
+| 18 | `PublishedAt` | SYSTEM | DateTime | - | - | No | No | No | No | - |
+| 19 | `SyntheticData` | SYSTEM | Boolean | - | - | Yes | No | No | No | Yes |
+
+## Create table: INT_PublicationState
+
+- Zone: INTELLIGENCE
+- Load order: 21
+- Application business ID: `PublicationStateID`
+
+| Order | Column | Origin | Catalyst type | Max length | Minimum | Mandatory | Unique | Search index | PII/ePHI | Default |
+|---:|---|---|---|---:|---:|---|---|---|---|---|
+| 1 | `PublicationStateID` | SYSTEM | Var Char | 32 | - | Yes | Yes | Yes | No | - |
+| 2 | `PublicationGeneration` | SYSTEM | BigInt | - | - | Yes | No | Yes | No | - |
+| 3 | `CurrentRunGroupID` | SYSTEM | Var Char | 64 | - | Yes | No | Yes | No | - |
+| 4 | `CurrentRunsJSON` | SYSTEM | Text | - | - | Yes | No | No | No | - |
+| 5 | `PointerVersion` | SYSTEM | Int | - | 1 | Yes | No | No | No | - |
+| 6 | `PublishedAt` | SYSTEM | DateTime | - | - | Yes | No | No | No | - |
+| 7 | `LatestAttemptStatus` | SYSTEM | Var Char | 24 | - | Yes | No | Yes | No | - |
+| 8 | `LatestAttemptRunGroupID` | SYSTEM | Var Char | 64 | - | No | No | Yes | No | - |
+| 9 | `LatestAttemptAt` | SYSTEM | DateTime | - | - | Yes | No | No | No | - |
+| 10 | `SyntheticData` | SYSTEM | Boolean | - | - | Yes | No | No | No | Yes |
 
 ## Create table: INT_Anomaly
 
@@ -625,7 +646,7 @@ Add these after all Phase A tables exist. For every row below select the parent 
 
 ## Post-creation verification checklist
 
-- [ ] Confirm all 31 application tables exist in Catalyst Development.
+- [ ] Confirm all 32 application tables exist in Catalyst Development.
 - [ ] Confirm each native column matches type, length, Mandatory, Unique, Search index, and PII/ePHI settings above.
 - [ ] Confirm every Foreign Key points to parent `ROWID` with On Delete = Null.
 - [ ] Confirm `INT_AreaRisk` contains no person, accused, or offender field.
@@ -648,7 +669,8 @@ Add these after all Phase A tables exist. For every row below select the parent 
 | `TRN_DistrictContext` | 9 |  |  |  |  |  |
 | `TRN_LocationFeature` | 8 |  |  |  |  |  |
 | `TRN_PersonResolution` | 8 |  |  |  |  |  |
-| `INT_AnalysisRun` | 17 |  |  |  |  |  |
+| `INT_AnalysisRun` | 19 |  |  |  |  |  |
+| `INT_PublicationState` | 10 |  |  |  |  |  |
 | `INT_Anomaly` | 10 |  |  |  |  |  |
 | `INT_AreaRisk` | 12 |  |  |  |  |  |
 | `INT_Hotspot` | 10 |  |  |  |  |  |

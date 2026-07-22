@@ -90,6 +90,12 @@ test('partial or inconsistent run groups never become current', async () => {
     run.PublishedAt = partial.PublishedAt;
   });
   state.runGroups = [complete, partial];
+  state.publicationState = {
+    PublicationGeneration: 4, PointerVersion: 4, CurrentRunGroupID: complete.RunGroupID,
+    CurrentRunGroup: complete, PublishedAt: complete.PublishedAt,
+    LatestAttemptStatus: 'STAGED', LatestAttemptRunGroupID: partial.RunGroupID,
+    LatestAttemptAt: partial.PublishedAt,
+  };
 
   const current = await new MemoryIntelligenceRepository(state).getCurrentRunGroup();
   assert.equal(current.RunGroupID, 'GROUP-OLD');

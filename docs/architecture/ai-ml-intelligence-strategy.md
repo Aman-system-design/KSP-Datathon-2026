@@ -398,6 +398,7 @@ The existing physical architecture remains authoritative.
 ### Intelligence records
 
 - `INT_AnalysisRun`
+- `INT_PublicationState`
 - `INT_Hotspot`
 - `INT_Anomaly`
 - `INT_Pattern`
@@ -407,6 +408,10 @@ The existing physical architecture remains authoritative.
 - `INT_RepeatOffenderSignal`
 
 Every analytical record requires an analysis-run reference, method/version, parameter snapshot, feature version, observation window, evidence references, confidence/severity, limitation, and synthetic-data marker.
+
+`INT_PublicationState` is the governed singleton pointer for serving intelligence. Its monotonic generation and compare-and-swap version make publication deterministic under concurrent or same-second refreshes. Map and API reads capture one generation and query only the referenced run rows, preventing mixed snapshots and unbounded historical scans. Clients send their known generation to receive a no-change response without re-downloading layer metadata.
+
+The Catalyst query contract is explicit: `PublicationStateID` is a unique search index read with the fixed value `CURRENT`; refresh replay uses indexed `INT_AnalysisRun.BatchKey` and fails if more than seven governed rows exist; findings and evidence use the `AnalysisRunRef` lookup index captured from the pointer. Finding/evidence reads paginate in 200-row pages and fail visibly above the 5,000-row governed limit rather than returning a silent partial history scan. `PublicationGeneration` is copied onto all seven run rows after pointer commit so a retry can distinguish a completed publication from a crash before pointer advancement.
 
 ### Workflow records
 

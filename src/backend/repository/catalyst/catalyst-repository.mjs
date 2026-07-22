@@ -1,4 +1,3 @@
-import { selectCurrentRunGroup } from '../../refresh/run-groups.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { buildAlertCompareAndSwap } from '../zcql-cas.mjs';
 import { fail } from '../../services/errors.mjs';
@@ -21,6 +20,7 @@ const TABLES = Object.freeze({
   conclusions: 'WF_AnalystConclusion', outcomes: 'WF_Outcome', audits: 'WF_AuditEvent',
   alertNotes: 'WF_AlertNote', escalations: 'WF_Escalation',
   runRequests: 'OPS_IntelligenceRunRequest',
+  publicationState: 'INT_PublicationState',
 });
 const BUSINESS_ID = Object.freeze({
   INT_AnalysisRun: 'AnalysisRunID', TRN_CaseFeature: 'CaseFeatureID', TRN_LocationFeature: 'LocationFeatureID',
@@ -33,6 +33,7 @@ const BUSINESS_ID = Object.freeze({
   CFG_UserPreference: 'UserPreferenceID', CFG_MapView: 'MapViewID',
   CFG_MapViewVersion: 'MapViewVersionKey', WF_AlertNote: 'AlertNoteID', WF_Escalation: 'EscalationID',
   OPS_IntelligenceRunRequest: 'RunRequestID',
+  INT_PublicationState: 'PublicationStateID',
 });
 const SOURCE_TABLES = Object.freeze({
   CaseMaster: 'SRC_CaseMaster', ComplainantDetails: 'SRC_ComplainantDetails', ActSectionAssociation: 'SRC_ActSectionAssociation',
@@ -47,6 +48,7 @@ const CONTROL_TABLES = Object.freeze(['TRN_IngestionBatch', 'TRN_RejectedRecord'
 const ALLOWED_TABLES = new Set([...Object.values(TABLES), ...Object.values(SOURCE_TABLES), ...CONTROL_TABLES]);
 const DATETIME_COLUMNS = Object.freeze({
   INT_AnalysisRun: ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt'],
+  INT_PublicationState: ['PublishedAt', 'LatestAttemptAt'],
   INT_AreaRisk: ['PeriodStart', 'PeriodEnd'],
   WF_Alert: ['CreatedAt'],
   WF_Command: ['CreatedAt', 'CompletedAt'],
@@ -210,6 +212,33 @@ export class CatalystIntelligenceRepository {
     return clone(await this.#cache.get(tableName));
   }
 
+  async #queryIndexed(tableName, column, value, { maxRows = 5000 } = {}) {
+    if (!ALLOWED_TABLES.has(tableName)) throw new TypeError('Table is not allowlisted.');
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
+      return (await this.#read(tableName)).filter(row => String(row[column]) === String(value));
+    }
+    const pageSize = 200;
+    const rows = [];
+    const literal = typeof value === 'number' || /^(0|[1-9]\d*)$/u.test(String(value))
+      ? String(value) : `'${zcqlText(String(value))}'`;
+    for (let offset = 0; offset <= maxRows; offset += pageSize) {
+      let result;
+      try {
+        result = await this.#zcql.executeZCQLQuery(
+          `SELECT * FROM ${tableName} WHERE ${column} = ${literal} LIMIT ${offset}, ${pageSize}`,
+        );
+      } catch (error) {
+        throw sanitizeCatalystSdkError(error, { operation: `QUERY_${tableName}_${column}` });
+      }
+      const values = Array.isArray(result) ? result : result?.data ?? [];
+      const pageRows = values.map(item => mapCatalystRow(item?.[tableName] ?? item, { includeRowId: true }));
+      rows.push(...pageRows);
+      if (rows.length > maxRows) fail('DATA_NOT_READY', `${tableName} indexed result exceeds its governed read limit.`);
+      if (pageRows.length < pageSize) return rows;
+    }
+    fail('DATA_NOT_READY', `${tableName} indexed result exceeds its governed read limit.`);
+  }
+
   #invalidate(...tableNames) {
     for (const tableName of tableNames) this.#cache.delete(tableName);
   }
@@ -298,20 +327,35 @@ export class CatalystIntelligenceRepository {
   }
 
   async #current() {
-    const group = selectCurrentRunGroup(await this.#read(TABLES.runs));
-    if (!group) return undefined;
-    return group;
+    const [pointer] = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
+    if (pointer) {
+      const runs = parseJson(pointer.CurrentRunsJSON, []);
+      if (!Array.isArray(runs) || runs.length !== 7) fail('DATA_NOT_READY', 'Publication pointer is invalid.');
+      return {
+        RunGroupID: pointer.CurrentRunGroupID, PublishedAt: pointer.PublishedAt,
+        PublicationGeneration: Number(pointer.PublicationGeneration), PointerVersion: Number(pointer.PointerVersion),
+        runs,
+      };
+    }
+    return undefined;
   }
 
-  async #currentRunRef(type) {
-    const group = await this.#current();
-    return group?.runs.find(row => row.AnalysisType === type)?.ROWID;
+  async #currentRunRef(type, group) {
+    group ??= await this.#current();
+    const run = group?.runs.find(row => row.AnalysisType === type);
+    return run?.ROWID ?? run?.AnalysisRunRef;
   }
 
   async getCurrentRunGroup() {
     const group = await this.#current();
     if (!group) return undefined;
-    return { ...group, runs: group.runs.map(stripRun) };
+    return {
+      ...group,
+      runs: group.runs.map(run => ({
+        ...stripRun(run),
+        ...((run.ROWID ?? run.AnalysisRunRef) ? { AnalysisRunRef: String(run.ROWID ?? run.AnalysisRunRef) } : {}),
+      })),
+    };
   }
 
   async listAnalysisRuns() {
@@ -357,9 +401,9 @@ export class CatalystIntelligenceRepository {
     };
   }
 
-  async #currentRows(tableName, analysisType) {
-    const ref = await this.#currentRunRef(analysisType);
-    return ref ? (await this.#read(tableName)).filter(row => String(row.AnalysisRunRef) === String(ref)) : [];
+  async #currentRows(tableName, analysisType, runGroup) {
+    const ref = await this.#currentRunRef(analysisType, runGroup);
+    return ref ? this.#queryIndexed(tableName, 'AnalysisRunRef', ref) : [];
   }
 
   #pattern(row) {
@@ -390,10 +434,11 @@ export class CatalystIntelligenceRepository {
   }
 
   async listHotspots(options = {}) {
-    const rows = await this.#currentRows(TABLES.hotspots, 'HOTSPOT');
+    const rows = await this.#currentRows(TABLES.hotspots, 'HOTSPOT', options.runGroup);
     const runRefs = new Set(rows.map(row => String(row.AnalysisRunRef)));
-    const evidence = (await this.#read(TABLES.evidence)).filter(row => runRefs.has(String(row.AnalysisRunRef))
-      && row.FindingType === 'HOTSPOT');
+    const evidenceRows = [];
+    for (const runRef of runRefs) evidenceRows.push(...await this.#queryIndexed(TABLES.evidence, 'AnalysisRunRef', runRef));
+    const evidence = evidenceRows.filter(row => row.FindingType === 'HOTSPOT');
     return page(rows.map((row) => {
       const contributing = evidence.filter(item => item.FindingBusinessID === row.HotspotID).map(item => ({
         caseId: item.SourceBusinessID,
@@ -475,29 +520,92 @@ export class CatalystIntelligenceRepository {
       }));
   }
 
-  async getRefreshStatus() {
-    const [currentRunGroup, rows] = await Promise.all([
-      this.getCurrentRunGroup(), this.#read(TABLES.runs),
-    ]);
-    const attempts = new Map();
-    for (const row of rows) {
-      if (!row.BatchKey) continue;
-      const attempt = attempts.get(row.BatchKey) ?? [];
-      attempt.push(row);
-      attempts.set(row.BatchKey, attempt);
+  async #publicationPointer() {
+    const rows = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
+    if (rows.length > 1) fail('DATA_NOT_READY', 'Publication pointer is not unique.');
+    return rows[0];
+  }
+
+  async #advancePublication({ runGroup, publishedAt }) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      let pointer = await this.#publicationPointer();
+      if (!pointer) {
+        try {
+          await this.#insert(TABLES.publicationState, {
+            PublicationStateID: 'CURRENT', PublicationGeneration: 1,
+            CurrentRunGroupID: runGroup.RunGroupID, CurrentRunsJSON: JSON.stringify(runGroup.runs),
+            PointerVersion: 1, PublishedAt: publishedAt, LatestAttemptStatus: 'COMPLETED',
+            LatestAttemptRunGroupID: runGroup.RunGroupID, LatestAttemptAt: publishedAt, SyntheticData: true,
+          });
+          return 1;
+        } catch (error) {
+          if (error.code !== 'UNIQUE_CONFLICT') throw error;
+          continue;
+        }
+      }
+      if (pointer.CurrentRunGroupID === runGroup.RunGroupID) {
+        const pointedRuns = parseJson(pointer.CurrentRunsJSON, []);
+        const pointedIds = pointedRuns.map(run => run.AnalysisRunID).sort();
+        const candidateIds = runGroup.runs.map(run => run.AnalysisRunID).sort();
+        if (JSON.stringify(pointedIds) === JSON.stringify(candidateIds)) {
+          return Number(pointer.PublicationGeneration);
+        }
+      }
+      const rowId = String(pointer.ROWID);
+      if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
+      const nextVersion = Number(pointer.PointerVersion) + 1;
+      const nextGeneration = Number(pointer.PublicationGeneration) + 1;
+      const query = `UPDATE INT_PublicationState SET PublicationGeneration = ${nextGeneration}, CurrentRunGroupID = '${zcqlText(runGroup.RunGroupID)}', CurrentRunsJSON = '${zcqlText(JSON.stringify(runGroup.runs))}', PointerVersion = ${nextVersion}, PublishedAt = '${catalystDateTime(publishedAt)}', LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '${zcqlText(runGroup.RunGroupID)}', LatestAttemptAt = '${catalystDateTime(publishedAt)}' WHERE ROWID = ${rowId} AND PointerVersion = ${Number(pointer.PointerVersion)}`;
+      let result;
+      try { result = await this.#zcql.executeZCQLQuery(query); }
+      catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_POINTER_COMPARE_AND_SWAP' }); }
+      this.#invalidate(TABLES.publicationState);
+      const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+      if (affected === undefined || Number(affected) === 1) {
+        const committed = await this.#publicationPointer();
+        if (committed?.CurrentRunGroupID === runGroup.RunGroupID
+          && Number(committed.PublicationGeneration) === nextGeneration) return nextGeneration;
+      }
     }
-    const latest = [...attempts.entries()].map(([batchKey, group]) => {
-      const failed = group.some(row => row.Status === 'FAILED_RETRYABLE' || row.Status === 'FAILED_FINAL');
-      const published = group.length === 7 && group.every(row => row.Status === 'COMPLETED'
-        && row.PublishStatus === 'PUBLISHED' && typeof row.PublishedAt === 'string');
-      const timestamp = group.map(row => row.CompletedAt ?? row.PublishedAt ?? row.ObservationEnd ?? '').sort().at(-1) ?? '';
-      return {
-        batchKey, status: published ? 'COMPLETED' : failed ? 'FAILED_RETRYABLE' : 'STAGED',
-        runGroupId: group[0]?.RunGroupID, createdAt: timestamp || null,
-        completedAt: published ? group[0]?.PublishedAt ?? timestamp : failed ? timestamp : null,
-      };
-    }).sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0] ?? null;
-    return { currentRunGroup, latestAttempt: latest };
+    fail('DATA_NOT_READY', 'Publication pointer contention exceeded retry budget.');
+  }
+
+  async #updatePublicationAttempt({ status, runGroupId, at }) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const pointer = await this.#publicationPointer();
+      if (!pointer) return;
+      const rowId = String(pointer.ROWID);
+      if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
+      const currentVersion = Number(pointer.PointerVersion);
+      const nextVersion = currentVersion + 1;
+      const query = `UPDATE INT_PublicationState SET PointerVersion = ${nextVersion}, LatestAttemptStatus = '${zcqlText(status)}', LatestAttemptRunGroupID = '${zcqlText(runGroupId)}', LatestAttemptAt = '${catalystDateTime(at)}' WHERE ROWID = ${rowId} AND PointerVersion = ${currentVersion}`;
+      let result;
+      try { result = await this.#zcql.executeZCQLQuery(query); }
+      catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_ATTEMPT_COMPARE_AND_SWAP' }); }
+      this.#invalidate(TABLES.publicationState);
+      const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+      if (affected === undefined || Number(affected) === 1) {
+        const committed = await this.#publicationPointer();
+        if (committed?.LatestAttemptStatus === status
+          && committed?.LatestAttemptRunGroupID === runGroupId
+          && Number(committed.PointerVersion) === nextVersion) return;
+      }
+    }
+    fail('DATA_NOT_READY', 'Publication attempt pointer contention exceeded retry budget.');
+  }
+
+  async getRefreshStatus() {
+    const [pointer] = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
+    if (pointer) return {
+      currentRunGroup: await this.getCurrentRunGroup(),
+      publicationGeneration: Number(pointer.PublicationGeneration),
+      latestAttempt: {
+        status: pointer.LatestAttemptStatus, runGroupId: pointer.LatestAttemptRunGroupID ?? null,
+        createdAt: pointer.LatestAttemptAt,
+        completedAt: pointer.LatestAttemptStatus === 'COMPLETED' ? pointer.LatestAttemptAt : null,
+      },
+    };
+    return { currentRunGroup: undefined, publicationGeneration: 0, latestAttempt: null };
   }
 
   #mapView(row) {
@@ -1090,7 +1198,7 @@ export class CatalystIntelligenceRepository {
   }
 
   async getRefreshBatch(batchKey) {
-    const rows = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batchKey);
+    const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length === 0) return undefined;
     if (rows.length !== 7 || rows.some(row => row.Status === 'STAGING')) return undefined;
     const runs = rows.map(stripRun);
@@ -1107,7 +1215,7 @@ export class CatalystIntelligenceRepository {
     const completed = runs.length === 7 && runs.every(run => run.Status === 'COMPLETED'
       && run.PublishStatus === 'PUBLISHED' && typeof run.PublishedAt === 'string');
     return {
-      BatchKey: batchKey, Operation: rows[0].Operation,
+      BatchKey: batchKey, Operation: rows[0].Operation, RequestHash: rows[0].RequestHash,
       Status: completed ? 'COMPLETED'
         : rows.some(row => row.Status === 'FAILED_RETRYABLE') ? 'FAILED_RETRYABLE'
           : rows.some(row => row.Status === 'FAILED_FINAL') ? 'FAILED_FINAL' : 'STAGED',
@@ -1135,13 +1243,16 @@ export class CatalystIntelligenceRepository {
       MethodVersion: run.MethodVersion ?? run.EngineVersion,
       CompletedAt: run.CompletedAt ?? batch.CreatedAt,
     }));
-    const existingRuns = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batch.BatchKey);
+    const existingRuns = await this.#queryIndexed(TABLES.runs, 'BatchKey', batch.BatchKey, { maxRows: 8 });
     const insertedRuns = existingRuns.length > 0 ? existingRuns : await this.#ensureMany(TABLES.runs, rows);
     if (insertedRuns.length !== 7 || insertedRuns.some(row => row.RunGroupID !== batch.RunGroup.RunGroupID)) {
       fail('DATA_NOT_READY', 'Refresh staging rows are inconsistent.');
     }
     await this.#stageRefreshFindings(batch, insertedRuns);
     for (const run of insertedRuns) await this.#update(TABLES.runs, { ...run, Status: 'COMPLETED' });
+    await this.#updatePublicationAttempt({
+      status: 'STAGED', runGroupId: batch.RunGroup.RunGroupID, at: batch.CreatedAt,
+    });
     return this.getRefreshBatch(batch.BatchKey);
   }
 
@@ -1266,7 +1377,7 @@ export class CatalystIntelligenceRepository {
   }
 
   async updateRefreshBatch(batchKey, changes) {
-    const rows = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batchKey);
+    const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length === 0) return undefined;
     for (const row of rows) {
       await this.#update(TABLES.runs, {
@@ -1277,23 +1388,43 @@ export class CatalystIntelligenceRepository {
         CompletedAt: changes.CompletedAt ?? row.CompletedAt,
       });
     }
+    if (changes.Status) await this.#updatePublicationAttempt({
+      status: changes.Status, runGroupId: rows[0].RunGroupID,
+      at: changes.CompletedAt ?? rows[0].CompletedAt ?? rows[0].ObservationEnd,
+    });
     return this.getRefreshBatch(batchKey);
   }
 
   async publishRefreshBatch(batchKey, publishedAt) {
     const existing = await this.getRefreshBatch(batchKey);
     if (!existing) return undefined;
-    if (existing.Status === 'COMPLETED') return existing;
-    const rows = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batchKey);
+    const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length !== 7) fail('DATA_NOT_READY', 'Refresh run group is incomplete.');
-    for (const row of rows) {
-      await this.#update(TABLES.runs, {
-        ...row, Status: 'COMPLETED', PublishStatus: 'PUBLISHED',
-        PublishedAt: publishedAt, CompletedAt: row.CompletedAt ?? publishedAt,
-      });
+    const persistedGenerations = [...new Set(rows.map(row => row.PublicationGeneration).filter(value => value !== null && value !== undefined))];
+    if (persistedGenerations.length === 1 && rows.every(row => row.PublicationGeneration !== null && row.PublicationGeneration !== undefined)) {
+      return existing;
+    }
+    if (persistedGenerations.length > 0) fail('DATA_NOT_READY', 'Refresh publication generation is incoherent.');
+    if (existing.Status !== 'COMPLETED') {
+      for (const row of rows) {
+        await this.#update(TABLES.runs, {
+          ...row, Status: 'COMPLETED', PublishStatus: 'PUBLISHED',
+          PublishedAt: publishedAt, CompletedAt: row.CompletedAt ?? publishedAt,
+        });
+      }
     }
     const completed = await this.getRefreshBatch(batchKey);
     if (completed?.Status !== 'COMPLETED') fail('DATA_NOT_READY', 'Refresh publication is incoherent.');
-    return completed;
+    const publishedRows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
+    const publicationGeneration = await this.#advancePublication({
+      runGroup: {
+        RunGroupID: completed.RunGroup.RunGroupID,
+        PublishedAt: completed.RunGroup.PublishedAt,
+        runs: publishedRows.map(row => ({ ...stripRun(row), ROWID: String(row.ROWID) })),
+      },
+      publishedAt,
+    });
+    for (const row of publishedRows) await this.#update(TABLES.runs, { ...row, PublicationGeneration: publicationGeneration });
+    return this.getRefreshBatch(batchKey);
   }
 }

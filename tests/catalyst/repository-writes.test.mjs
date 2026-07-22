@@ -34,6 +34,7 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
         INT_Hotspot: ['HotspotID'], INT_Anomaly: ['AnomalyID'], INT_AreaRisk: ['AreaRiskID'],
         INT_NetworkNode: ['NetworkNodeID'], INT_NetworkEdge: ['NetworkEdgeID'],
         INT_RepeatOffenderSignal: ['RepeatSignalID'], WF_Alert: ['AlertID'],
+        INT_PublicationState: ['PublicationStateID'],
         OPS_IntelligenceRunRequest: ['RunRequestID', 'IdempotencyKeyHash'],
       }[name] ?? [];
       if (rows.some(row => uniqueColumns.some(column => row[column] !== undefined && row[column] === input[column]))) {
@@ -63,6 +64,41 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
   });
   const zcql = () => ({ async executeZCQLQuery(query) {
     queries.push(query);
+    const select = query.match(/^SELECT \* FROM ([A-Za-z0-9_]+) WHERE ([A-Za-z0-9_]+) = (?:'((?:''|[^'])*)'|(\d+)) LIMIT (\d+), (\d+)$/u);
+    if (select) {
+      const [, tableName, column, textValue, numberValue, offset, limit] = select;
+      const value = textValue === undefined ? numberValue : textValue.replaceAll("''", "'");
+      return (tables.get(tableName) ?? [])
+        .filter(row => String(row[column]) === String(value))
+        .slice(Number(offset), Number(offset) + Number(limit))
+        .map(row => ({ [tableName]: structuredClone(row) }));
+    }
+    const pointer = query.match(/^UPDATE INT_PublicationState SET PublicationGeneration = (\d+), CurrentRunGroupID = '((?:''|[^'])*)', CurrentRunsJSON = '((?:''|[^'])*)', PointerVersion = (\d+), PublishedAt = '([^']+)', LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '((?:''|[^'])*)', LatestAttemptAt = '([^']+)' WHERE ROWID = (\d+) AND PointerVersion = (\d+)$/u);
+    if (pointer) {
+      const [, generation, groupId, runsJson, version, publishedAt, latestGroup, latestAt, rowId, expectedVersion] = pointer;
+      const row = (tables.get('INT_PublicationState') ?? []).find(item => item.ROWID === rowId
+        && item.PointerVersion === Number(expectedVersion));
+      if (!row) return [{ affected_rows: 0 }];
+      Object.assign(row, {
+        PublicationGeneration: Number(generation), CurrentRunGroupID: groupId.replaceAll("''", "'"),
+        CurrentRunsJSON: runsJson.replaceAll("''", "'"), PointerVersion: Number(version),
+        PublishedAt: publishedAt, LatestAttemptStatus: 'COMPLETED',
+        LatestAttemptRunGroupID: latestGroup.replaceAll("''", "'"), LatestAttemptAt: latestAt,
+      });
+      return [{ affected_rows: 1 }];
+    }
+    const attempt = query.match(/^UPDATE INT_PublicationState SET PointerVersion = (\d+), LatestAttemptStatus = '([^']+)', LatestAttemptRunGroupID = '([^']+)', LatestAttemptAt = '([^']+)' WHERE ROWID = (\d+) AND PointerVersion = (\d+)$/u);
+    if (attempt) {
+      const [, version, status, groupId, at, rowId, expectedVersion] = attempt;
+      const row = (tables.get('INT_PublicationState') ?? []).find(item => item.ROWID === rowId
+        && item.PointerVersion === Number(expectedVersion));
+      if (!row) return [{ affected_rows: 0 }];
+      Object.assign(row, {
+        PointerVersion: Number(version), LatestAttemptStatus: status,
+        LatestAttemptRunGroupID: groupId, LatestAttemptAt: at,
+      });
+      return [{ affected_rows: 1 }];
+    }
     const match = query.match(/Status = '([^']+)', AlertVersion = (\d+), LastCommandRef = (\d+) WHERE ROWID = (\d+) AND Status = '([^']+)' AND AlertVersion = (\d+)/u);
     if (!match) throw new Error('unexpected ZCQL');
     const [, target, targetVersion, commandRef, alertRef, expected, expectedVersion] = match;
@@ -160,13 +196,14 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
   const types = ['FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK', 'IDENTITY_RESOLUTION'];
   const runs = types.map((AnalysisType, index) => ({
     AnalysisRunID: `RUN-${index}`, RunGroupID: 'GROUP-1', AnalysisType,
+    RequestHash: 'b'.repeat(64),
     RunTypeKey: `GROUP-1:${AnalysisType}`, Status: 'COMPLETED', PublishStatus: 'STAGED',
     InputManifestHash: 'a'.repeat(64), ObservationStart: '2026-06-01T00:00:00Z',
     ObservationEnd: '2026-07-01T00:00:00Z', EngineVersion: '1.0.0', MethodVersion: '1.0.0',
     CompletedAt: '2026-07-20T12:00:00Z', PublishedAt: null, SyntheticData: true,
   }));
   const batch = {
-    BatchKey: 'KSP-DEMO-20260720-V1', Operation: 'BOOTSTRAP_SYNTHETIC', Status: 'STAGED',
+    BatchKey: 'KSP-DEMO-20260720-V1', Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: 'b'.repeat(64), Status: 'STAGED',
     Reconciliation: { sourceRows: 200, acceptedRows: 200, rejectedRows: 0, balanced: true },
     Findings: {}, PublishedFindings: (() => {
       const state = buildDemoState();
@@ -175,7 +212,7 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
     CreatedAt: '2026-07-20T12:00:00Z', CompletedAt: null, SyntheticData: true,
   };
   await repository.createRefreshBatch(batch);
-  assert.equal((await repository.getRefreshStatus()).latestAttempt.status, 'STAGED');
+  assert.equal((await repository.getRefreshStatus()).latestAttempt, null, 'no read pointer exists before the first atomic publication');
   const storedRuns = fake.tables.get('INT_AnalysisRun');
   assert.equal(storedRuns.every(run => run.ObservationStart === '2026-06-01 00:00:00'), true);
   assert.equal(storedRuns.every(run => run.ObservationEnd === '2026-07-01 00:00:00'), true);
@@ -210,7 +247,7 @@ test('partial refresh staging stays invisible and a retry converges without dupl
     EngineVersion: '1.0.0', MethodVersion: '1.0.0', CompletedAt: '2026-07-20T00:00:00Z', PublishedAt: null, SyntheticData: true,
   }));
   const feature = buildDemoState().features[0];
-  const batch = { BatchKey: 'RETRY-BATCH-1', Operation: 'BOOTSTRAP_SYNTHETIC', Reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true }, PublishedFindings: { features: [feature] }, RunGroup: { RunGroupID: 'RETRY-GROUP', runs }, CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true };
+  const batch = { BatchKey: 'RETRY-BATCH-1', Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: 'c'.repeat(64), Reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true }, PublishedFindings: { features: [feature] }, RunGroup: { RunGroupID: 'RETRY-GROUP', runs: runs.map(run => ({ ...run, RequestHash: 'c'.repeat(64) })) }, CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true };
   await assert.rejects(repository.createRefreshBatch(batch), { code: 'CATALYST_UNAVAILABLE' });
   assert.equal(await repository.getRefreshBatch(batch.BatchKey), undefined);
   await repository.createRefreshBatch(batch);

@@ -38,6 +38,13 @@ export function buildDemoState() {
     source,
     features: projected.features,
     runGroups: [{ RunGroupID: runGroupId, PublishedAt: publishedAt, runs }],
+    publicationState: {
+      PublicationGeneration: 1, PointerVersion: 1, CurrentRunGroupID: runGroupId,
+      CurrentRunGroup: { RunGroupID: runGroupId, PublishedAt: publishedAt, runs },
+      PublishedAt: publishedAt, LatestAttemptStatus: 'COMPLETED',
+      LatestAttemptRunGroupID: runGroupId, LatestAttemptAt: publishedAt,
+    },
+    findingsByRunGroup: { [runGroupId]: projected },
     brief: projected.brief,
     patterns: projected.patterns,
     hotspots: projected.hotspots,

@@ -6,7 +6,7 @@ const expectedTables = [
   'CFG_ContentShare', 'CFG_UserPreference', 'CFG_MapView', 'CFG_MapViewVersion',
   'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
-  'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
+  'INT_AnalysisRun', 'INT_PublicationState', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
   'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence',
   'WF_Alert', 'WF_Command', 'WF_AlertEvidence', 'WF_Assignment', 'WF_AnalystConclusion',
   'WF_Outcome', 'WF_AuditEvent', 'WF_AlertNote', 'WF_Escalation',
@@ -23,7 +23,7 @@ export function validateIntelligenceSchema(schema) {
   const known = new Set(names);
 
   if (JSON.stringify(names) !== JSON.stringify(expectedTables)) {
-    errors.push('manifest must define the exact ordered 31-table backend boundary');
+    errors.push('manifest must define the exact ordered 32-table backend boundary');
   }
 
   for (const duplicate of new Set(names.filter((name, index) => names.indexOf(name) !== index))) {
@@ -92,7 +92,7 @@ export function validateIntelligenceSchema(schema) {
     errors.push('INT_AreaRisk must not contain person-level fields');
   }
 
-  for (const table of tables.filter(({ name }) => /^INT_(?!AnalysisRun)/.test(name))) {
+  for (const table of tables.filter(({ name }) => /^INT_(?!AnalysisRun|PublicationState)/.test(name))) {
     const columnNames = new Set(table.columns.map(({ name }) => name));
     if (!columnNames.has('AnalysisRunRef')) errors.push(`${table.name} missing AnalysisRunRef`);
   }
@@ -185,12 +185,18 @@ export function validateIntelligenceSchema(schema) {
   ]);
 
   const runColumns = requireColumns('INT_AnalysisRun', [
-    'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublishedAt',
+    'RequestHash', 'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus',
+    'PublicationGeneration', 'PublishedAt',
   ]);
   const runTypeKey = runColumns.find(({ name }) => name === 'RunTypeKey');
   if (runTypeKey && runTypeKey.unique !== true) {
     errors.push('INT_AnalysisRun.RunTypeKey must be unique');
   }
+  requireColumns('INT_PublicationState', [
+    'PublicationStateID', 'PublicationGeneration', 'CurrentRunGroupID', 'CurrentRunsJSON',
+    'PointerVersion', 'PublishedAt', 'LatestAttemptStatus', 'LatestAttemptRunGroupID',
+    'LatestAttemptAt', 'SyntheticData',
+  ]);
 
   requireColumns('WF_Alert', ['AlertVersion', 'LastCommandRef']);
   for (const tableName of ['WF_Assignment', 'WF_AnalystConclusion', 'WF_Outcome']) {
@@ -225,7 +231,7 @@ async function runCli() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS: 31 Catalyst backend tables are valid.');
+  console.log('PASS: 32 Catalyst backend tables are valid.');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

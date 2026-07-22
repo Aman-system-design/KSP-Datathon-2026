@@ -206,12 +206,14 @@
         {"name":"AnalysisRunID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"BatchKey","origin":"SYSTEM","type":"varchar","maxLength":36,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"Operation","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"RequestHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"ReconciliationJSON","origin":"SYSTEM","type":"text","mandatory":true,"unique":false,"indexed":false,"pii":false},
         {"name":"RunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"AnalysisType","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"RunTypeKey","origin":"SYSTEM","type":"varchar","maxLength":128,"mandatory":true,"unique":true,"indexed":true,"pii":false},
         {"name":"Status","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"PublishStatus","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"PublicationGeneration","origin":"SYSTEM","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":false},
         {"name":"ObservationStart","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
         {"name":"ObservationEnd","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
         {"name":"EngineVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
@@ -219,6 +221,21 @@
         {"name":"InputManifestHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
         {"name":"CompletedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
         {"name":"PublishedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
+      "name": "INT_PublicationState", "zone": "INTELLIGENCE", "loadOrder": 21, "businessId": "PublicationStateID",
+      "columns": [
+        {"name":"PublicationStateID","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"PublicationGeneration","origin":"SYSTEM","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CurrentRunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"CurrentRunsJSON","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+        {"name":"PointerVersion","origin":"SYSTEM","type":"int","minimum":1,"mandatory":true,"pii":false},
+        {"name":"PublishedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"LatestAttemptStatus","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"LatestAttemptRunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":false,"unique":false,"indexed":true,"pii":false},
+        {"name":"LatestAttemptAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
         {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
       ]
     },

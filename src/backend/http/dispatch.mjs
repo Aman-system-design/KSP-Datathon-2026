@@ -136,12 +136,14 @@ export function createDispatcher({
           access, params: route.params, query: request.query ?? {}, body: request.body ?? null,
           headers: request.headers ?? {}, requestId,
         });
-        const { auditDetails, ...body } = result;
-        await auditService.record({
-          access, currentUser,
-          eventType: route.operation.auditEventType ?? (route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED'),
-          requestId, route: route.operation.path, outcome: 'ALLOWED', details: auditDetails,
-        });
+        const { auditDetails, auditMode, ...body } = result;
+        if (auditMode !== 'COALESCED_UNCHANGED') {
+          await auditService.record({
+            access, currentUser,
+            eventType: route.operation.auditEventType ?? (route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED'),
+            requestId, route: route.operation.path, outcome: 'ALLOWED', details: auditDetails,
+          });
+        }
         return { status: route.operation.successStatus ?? 200, body };
       }
 

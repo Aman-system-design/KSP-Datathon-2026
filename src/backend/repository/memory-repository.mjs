@@ -43,11 +43,28 @@ export class MemoryIntelligenceRepository {
       this.#state[collection] ??= [];
     }
     this.#state.runRequests ??= [];
+    const initial = selectCurrentRunGroup(this.#state.runGroups.flatMap(({ runs }) => runs));
+    this.#state.publicationState ??= initial ? {
+      PublicationGeneration: 1, PointerVersion: 1, CurrentRunGroupID: initial.RunGroupID,
+      CurrentRunGroup: initial, PublishedAt: initial.PublishedAt,
+      LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: initial.RunGroupID,
+      LatestAttemptAt: initial.PublishedAt,
+    } : undefined;
+    this.#state.findingsByRunGroup ??= initial ? { [initial.RunGroupID]: {
+      brief: this.#state.brief, features: this.#state.features, patterns: this.#state.patterns,
+      hotspots: this.#state.hotspots, anomalies: this.#state.anomalies, areaRisks: this.#state.areaRisks,
+      networks: this.#state.networks, districtContexts: this.#state.districtContexts,
+    } } : {};
     this.#failureInjector = failureInjector;
   }
 
   async getCurrentRunGroup() {
-    return clone(selectCurrentRunGroup(this.#state.runGroups.flatMap(({ runs }) => runs)));
+    const pointer = this.#state.publicationState;
+    return pointer ? clone({
+      ...pointer.CurrentRunGroup,
+      PublicationGeneration: pointer.PublicationGeneration,
+      PointerVersion: pointer.PointerVersion,
+    }) : undefined;
   }
 
   async getRefreshStatus() {
@@ -55,6 +72,7 @@ export class MemoryIntelligenceRepository {
     const latest = (this.#state.refreshBatches ?? []).at(-1);
     return clone({
       currentRunGroup,
+      publicationGeneration: this.#state.publicationState?.PublicationGeneration ?? 0,
       latestAttempt: latest ? {
         batchKey: latest.BatchKey, status: latest.Status, runGroupId: latest.RunGroup?.RunGroupID,
         createdAt: latest.CreatedAt ?? null, completedAt: latest.CompletedAt ?? null,
@@ -95,7 +113,12 @@ export class MemoryIntelligenceRepository {
   async getBrief() { return clone(this.#state.brief); }
   async listPatterns(options = {}) { return this.#page(this.#state.patterns, options); }
   async getPattern(id) { return clone(this.#state.patterns.find(row => row.id === id)); }
-  async listHotspots(options = {}) { return this.#page(this.#state.hotspots, options); }
+  async listHotspots(options = {}) {
+    const rows = options.runGroup
+      ? this.#state.findingsByRunGroup?.[options.runGroup.RunGroupID]?.hotspots ?? []
+      : this.#state.hotspots;
+    return this.#page(rows, options);
+  }
   async listAnomalies(options = {}) { return this.#page(this.#state.anomalies, options); }
   async getAreaRisk() { return clone(this.#state.areaRisks[0]); }
   async getNetwork(id) { return clone(this.#state.networks.find(({ node }) => node.id === id)); }
@@ -350,6 +373,10 @@ export class MemoryIntelligenceRepository {
     this.#state.refreshBatches ??= [];
     if (this.#state.refreshBatches.some(row => row.BatchKey === batch.BatchKey)) throw conflict('refresh batch conflict');
     this.#state.refreshBatches.push(clone(batch));
+    if (this.#state.publicationState) Object.assign(this.#state.publicationState, {
+      LatestAttemptStatus: 'STAGED', LatestAttemptRunGroupID: batch.RunGroup.RunGroupID,
+      LatestAttemptAt: batch.CreatedAt,
+    });
     return clone(batch);
   }
 
@@ -357,6 +384,10 @@ export class MemoryIntelligenceRepository {
     const batch = (this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey);
     if (!batch) return undefined;
     Object.assign(batch, clone(changes));
+    if (this.#state.publicationState) Object.assign(this.#state.publicationState, {
+      LatestAttemptStatus: batch.Status, LatestAttemptRunGroupID: batch.RunGroup?.RunGroupID,
+      LatestAttemptAt: batch.CompletedAt ?? batch.CreatedAt,
+    });
     return clone(batch);
   }
 
@@ -379,6 +410,15 @@ export class MemoryIntelligenceRepository {
       if (!this.#state.alerts.some(row => row.AlertID === alert.AlertID)) this.#state.alerts.push(clone(alert));
     }
     this.#state.runGroups.push(runGroup);
+    this.#state.findingsByRunGroup[runGroup.RunGroupID] = clone(findings);
+    const previousGeneration = this.#state.publicationState?.PublicationGeneration ?? 0;
+    const previousVersion = this.#state.publicationState?.PointerVersion ?? 0;
+    this.#state.publicationState = {
+      PublicationGeneration: previousGeneration + 1, PointerVersion: previousVersion + 1,
+      CurrentRunGroupID: runGroup.RunGroupID, CurrentRunGroup: clone(runGroup), PublishedAt: publishedAt,
+      LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: runGroup.RunGroupID,
+      LatestAttemptAt: publishedAt,
+    };
     Object.assign(batch, { Status: 'COMPLETED', RunGroup: runGroup, CompletedAt: publishedAt });
     return clone(batch);
   }

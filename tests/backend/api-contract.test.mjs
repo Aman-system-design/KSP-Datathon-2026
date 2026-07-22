@@ -82,6 +82,29 @@ test('geospatial freshness is an authenticated audited resource with no feature 
   assert.doesNotMatch(JSON.stringify(response), /features|evidenceCaseIds|centroid/iu);
 });
 
+test('unchanged freshness polls are coalesced out of the immutable audit stream', async () => {
+  const audits = [];
+  let changed = true;
+  const dispatch = harness({
+    auditServiceOverride: { async record(event) { audits.push(event); } },
+    resourceServicesOverride: {
+      async getGeospatialFreshness({ requestId }) {
+        if (changed) return { data: { layers: [] }, meta: { requestId, publicationGeneration: 2, unchanged: false } };
+        return { data: { layers: [] }, meta: { requestId, publicationGeneration: 2, unchanged: true }, auditMode: 'COALESCED_UNCHANGED' };
+      },
+    },
+  });
+  await dispatch({ request: get('/v1/geospatial/freshness'), currentUser: user('CAT-DISTRICT') });
+  changed = false;
+  const unchanged = await dispatch({ request: get('/v1/geospatial/freshness', { knownGeneration: '2' }), currentUser: user('CAT-DISTRICT') });
+  assert.equal(audits.length, 1);
+  assert.equal(unchanged.body.auditMode, undefined);
+  assert.equal(unchanged.body.meta.unchanged, true);
+  changed = true;
+  await dispatch({ request: get('/v1/geospatial/freshness', { knownGeneration: '2' }), currentUser: user('CAT-DISTRICT') });
+  assert.equal(audits.length, 2);
+});
+
 test('geospatial execution is audited as a sensitive read', async () => {
   const audits = [];
   const dispatch = harness({

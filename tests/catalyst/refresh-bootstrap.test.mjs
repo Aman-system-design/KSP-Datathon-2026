@@ -5,6 +5,8 @@ import test from 'node:test';
 import { createRefreshApplication } from '../../src/backend/catalyst/refresh-bootstrap.mjs';
 import { buildDemoState } from '../../src/backend/repository/build-demo-state.mjs';
 import { MemoryIntelligenceRepository } from '../../src/backend/repository/memory-repository.mjs';
+import { validateSourceSeed } from '../../src/ingestion/validate-source-seed.mjs';
+import { generateSourceSeed } from '../../src/synthetic/source-seed.mjs';
 
 const sourceManifest = JSON.parse(readFileSync(new URL('../../schema/catalyst/source-schema.json', import.meta.url), 'utf8'));
 const config = Object.freeze({ environment: 'Development', projectId: '43492000000013049', permissionVersion: '1.0.0', auditKey: 'test-only-refresh-key-123456789012', auditKeyVersion: 'v1' });
@@ -48,7 +50,8 @@ test('bootstrap validates parameters, persists source and returns only a safe re
 
 test('refresh consumes an already persisted batch without regenerating a different source', async () => {
   const fixture = harness();
-  await fixture.application(job({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BATCH-1', seed: '20260720', syntheticOnly: 'true' }), fixture.context);
+  const source = generateSourceSeed(20260720);
+  await fixture.repository.persistValidatedSource({ batchKey: 'BATCH-1', source, ...validateSourceSeed(source) });
   await fixture.repository.createRunRequest({
     RunRequestID: 'RUNREQ-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
     BatchKey: 'BATCH-1', Operation: 'REFRESH_INTELLIGENCE', RequestedBy: 'CAT-ADMIN', Status: 'SUBMITTED',

@@ -29,6 +29,13 @@ function catalystRows() {
     tables: {
       TRN_CaseFeature: state.features.map((feature, index) => ({ ROWID: `FEATURE-${index}`, CaseFeatureID: `FEATURE-${index}`, SourceCaseMasterID: index + 1, SyntheticData: true })),
       INT_AnalysisRun: [...runRows, { ...runRows[0], ROWID: 'PARTIAL-ROW', RunGroupID: 'PARTIAL-NEW', AnalysisRunID: 'PARTIAL-1', RunTypeKey: 'PARTIAL-NEW:HOTSPOT', PublishedAt: '2026-07-30T00:00:00Z' }],
+      INT_PublicationState: [{
+        ROWID: '9001', PublicationStateID: 'CURRENT', PublicationGeneration: 1,
+        CurrentRunGroupID: state.runGroups[0].RunGroupID, CurrentRunsJSON: JSON.stringify(runRows),
+        PointerVersion: 1, PublishedAt: state.runGroups[0].PublishedAt,
+        LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: state.runGroups[0].RunGroupID,
+        LatestAttemptAt: state.runGroups[0].PublishedAt, SyntheticData: true,
+      }],
       INT_Pattern: [{ ROWID: 'PAT-ROW', PatternID: pattern.id, AnalysisRunRef: runRef('PATTERN'), PatternType: pattern.method, Title: pattern.title, Confidence: pattern.confidence, SignalComponentsJSON: JSON.stringify(pattern), Recommendation: pattern.recommendation, MethodVersion: pattern.version, Limitation: pattern.limitations.join('|'), SyntheticData: true }],
       INT_Hotspot: [{ ROWID: 'HOT-ROW', HotspotID: hotspot.id, AnalysisRunRef: runRef('HOTSPOT'), AreaID: 'AREA-101', CentroidLatitude: hotspot.centroid.latitude, CentroidLongitude: hotspot.centroid.longitude, CaseCount: hotspot.magnitude, Severity: hotspot.confidence, MethodVersion: hotspot.version, Limitation: hotspot.limitations.join('|'), SyntheticData: true }],
       INT_Anomaly: [{ ROWID: 'ANOM-ROW', AnomalyID: anomaly.id, AnalysisRunRef: runRef('ANOMALY'), AreaID: anomaly.seriesId, SignalType: anomaly.method, ObservedValue: anomaly.observed, BaselineValue: anomaly.expected, Severity: anomaly.confidence, MethodVersion: anomaly.version, Limitation: anomaly.limitations.join('|'), SyntheticData: true }],
@@ -49,8 +56,20 @@ function catalystRows() {
 
 function fakeApplication(tableRows, { failureTable } = {}) {
   const calls = [];
+  const zcqlCalls = [];
   return {
-    calls,
+    calls, zcqlCalls,
+    zcql: () => ({ async executeZCQLQuery(query) {
+      zcqlCalls.push(query);
+      const match = query.match(/^SELECT \* FROM ([A-Za-z0-9_]+) WHERE ([A-Za-z0-9_]+) = (?:'((?:''|[^'])*)'|(\d+)) LIMIT (\d+), (\d+)$/u);
+      if (!match) throw new Error(`unexpected ZCQL: ${query}`);
+      const [, tableName, column, textValue, numberValue, offset, limit] = match;
+      if (tableName === failureTable) throw new Error('secret token ROWID 999');
+      const value = textValue === undefined ? numberValue : textValue.replaceAll("''", "'");
+      return (tableRows[tableName] ?? []).filter(row => String(row[column]) === String(value))
+        .slice(Number(offset), Number(offset) + Number(limit))
+        .map(row => ({ [tableName]: structuredClone(row) }));
+    } }),
     datastore: () => ({ table: name => ({
       async getPagedRows(options) {
         calls.push({ name, options });
@@ -75,6 +94,23 @@ test('selects only the newest complete seven-run publication and derives the bri
   assert.equal(current.runs.length, 7);
   assert.deepEqual(await repository.getBrief(), fixture.state.brief);
   assert.ok(app.calls.every(call => call.options.maxRows <= 200));
+  assert.equal(app.calls.some(call => call.name === 'INT_AnalysisRun'), false);
+});
+
+test('current pointer and hotspot evidence stay indexed with more than ten thousand historical runs', async () => {
+  const fixture = catalystRows();
+  fixture.tables.INT_AnalysisRun.push(...Array.from({ length: 10_001 }, (_, index) => ({
+    ROWID: `HIST-${index}`, AnalysisRunID: `HIST-${index}`, BatchKey: `OLD-${index}`,
+  })));
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+  assert.equal((await repository.getCurrentRunGroup()).RunGroupID, 'RUN-GROUP-DEMO-1');
+  const hotspots = await repository.listHotspots({ limit: 50, runGroup: await repository.getCurrentRunGroup() });
+  assert.equal(hotspots.data.length, 1);
+  assert.equal(app.calls.some(call => ['INT_AnalysisRun', 'INT_Hotspot', 'INT_FindingEvidence'].includes(call.name)), false);
+  assert.ok(app.zcqlCalls.some(query => query.includes('INT_PublicationState WHERE PublicationStateID')));
+  assert.ok(app.zcqlCalls.some(query => query.includes('INT_Hotspot WHERE AnalysisRunRef')));
+  assert.ok(app.zcqlCalls.some(query => query.includes('INT_FindingEvidence WHERE AnalysisRunRef')));
 });
 
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {

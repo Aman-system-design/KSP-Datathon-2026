@@ -84,6 +84,7 @@ export function useGeospatialWorkspace({
   const viewsRequestToken = useRef(0);
   const layerSequence = useRef(0);
   const executionDescriptorsRef = useRef(executionDescriptors);
+  const freshnessRequest = useRef({ sequence: 0, inFlight: null, generation: undefined });
   layersRef.current = layers;
   selectedFeatureRef.current = selectedFeature;
   viewportRef.current = viewport;
@@ -212,11 +213,25 @@ export function useGeospatialWorkspace({
     }
   }, [executeLayer, executionSignature]);
 
-  const refreshFreshness = useCallback(async () => {
+  const refreshFreshness = useCallback(async ({ supersede = false } = {}) => {
     if (document.visibilityState !== 'visible') return;
-    try {
-      const response = await api.get('/v1/geospatial/freshness');
+    if (!supersede && freshnessRequest.current.inFlight) return freshnessRequest.current.inFlight;
+    const sequence = freshnessRequest.current.sequence + 1;
+    freshnessRequest.current.sequence = sequence;
+    const known = freshnessRequest.current.generation;
+    const path = known === undefined
+      ? '/v1/geospatial/freshness'
+      : `/v1/geospatial/freshness?knownGeneration=${known}`;
+    const operation = (async () => {
+      try {
+      const response = await api.get(path);
+      if (freshnessRequest.current.sequence !== sequence) return;
+      const nextGeneration = response?.meta?.publicationGeneration;
+      if (Number.isSafeInteger(nextGeneration) && nextGeneration >= 0) {
+        freshnessRequest.current.generation = Math.max(known ?? 0, nextGeneration);
+      }
       setFreshnessError(null);
+      if (response?.meta?.unchanged === true) return;
       const updates = Array.isArray(response?.data?.layers) ? response.data.layers : [];
       setLayers(current => current.map(layer => {
         const update = updates.find(item => item.datasetId === layer.datasetId);
@@ -230,12 +245,19 @@ export function useGeospatialWorkspace({
         return { ...layer, freshnessState: update.state };
       }));
       for (const layer of layersRef.current) {
+        if (freshnessRequest.current.sequence !== sequence) return;
         const update = updates.find(item => item.datasetId === layer.datasetId);
         const effectiveRunGroupId = layer.pendingUpdate?.meta?.runGroupId ?? layer.meta?.runGroupId;
         if (layer.visible && update && update.runGroupId !== effectiveRunGroupId) void executeLayer(layer.id);
       }
-    } catch (error) {
+      } catch (error) {
+      if (freshnessRequest.current.sequence !== sequence) return;
       setFreshnessError(messageOf(error));
+      }
+    })();
+    freshnessRequest.current.inFlight = operation;
+    try { return await operation; } finally {
+      if (freshnessRequest.current.inFlight === operation) freshnessRequest.current.inFlight = null;
     }
   }, [api, executeLayer]);
 
@@ -401,6 +423,6 @@ export function useGeospatialWorkspace({
     addDataset, setLayerVisibility, moveLayer, updateLayer, removeLayer, reportLayerError,
     setSelectedLayerId, loadView, saveView,
     selectFeature, setViewport, setTimeWindow, acceptLayerUpdate,
-    retryLayer: executeLayer, retryFreshness: refreshFreshness, retryViews,
+    retryLayer: executeLayer, retryFreshness: () => refreshFreshness({ supersede: true }), retryViews,
   };
 }

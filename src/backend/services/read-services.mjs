@@ -24,9 +24,9 @@ const evidenceForAccess = (finding, access) => ({
 });
 
 export function createReadServices({ repository, clock, idFactory }) {
-  async function context(access, action) {
+  async function context(access, action, snapshot) {
     requireAction(access, action);
-    const runGroup = await repository.getCurrentRunGroup();
+    const runGroup = snapshot ?? await repository.getCurrentRunGroup();
     if (!runGroup) fail('DATA_NOT_READY');
     return { runGroup, requestId: idFactory(), generatedAt: clock() };
   }
@@ -72,9 +72,11 @@ export function createReadServices({ repository, clock, idFactory }) {
       return wrap(projectPattern({ pattern, access }), access, request);
     },
 
-    async listHotspots({ access, query = {} }) {
-      const request = await context(access, actions.hotspot);
-      const page = await repository.listHotspots({ limit: validateLimit(query), nextToken: query.nextToken });
+    async listHotspots({ access, query = {}, snapshot }) {
+      const request = await context(access, actions.hotspot, snapshot);
+      const page = await repository.listHotspots({
+        limit: validateLimit(query), nextToken: query.nextToken, runGroup: request.runGroup,
+      });
       return wrap({ items: page.data.map(row => evidenceForAccess(row, access)), nextToken: page.nextToken }, access, request);
     },
 

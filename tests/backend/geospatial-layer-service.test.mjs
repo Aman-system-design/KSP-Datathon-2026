@@ -137,6 +137,47 @@ test('freshness returns only authorized dataset run metadata without feature or 
   assert.doesNotMatch(JSON.stringify(response), /CASE-1|centroid|features|evidence/iu);
 });
 
+test('freshness returns a cheap no-change response for a known publication generation', async () => {
+  const statusRepository = {
+    ...repository,
+    async getRefreshStatus() {
+      return { currentRunGroup: { ...structuredClone(currentRunGroup), PublicationGeneration: 7 }, publicationGeneration: 7, latestAttempt: null };
+    },
+  };
+  const service = createGeospatialLayerService({
+    repository: statusRepository, readServices: { async listHotspots() { return envelope([]); } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'),
+  });
+  const response = await service.getFreshness({ access: allowed, requestId: 'REQ-NO-CHANGE', query: { knownGeneration: '7' } });
+  assert.deepEqual(response.data.layers, []);
+  assert.deepEqual(response.meta, {
+    requestId: 'REQ-NO-CHANGE', publicationGeneration: 7, etag: 'pub-7', unchanged: true,
+  });
+  assert.equal(response.auditMode, 'COALESCED_UNCHANGED');
+});
+
+test('layer execution keeps one captured snapshot when publication changes between reads', async () => {
+  const oldGroup = structuredClone(currentRunGroup);
+  let currentCalls = 0;
+  const changingRepository = {
+    async getCurrentRunGroup() { currentCalls += 1; return oldGroup; },
+    async getRefreshStatus() {
+      return { currentRunGroup: { ...oldGroup, RunGroupID: 'RUN-NEW' }, publicationGeneration: 2, latestAttempt: null };
+    },
+  };
+  const snapshots = [];
+  const service = createGeospatialLayerService({
+    repository: changingRepository,
+    readServices: { async listHotspots({ snapshot }) { snapshots.push(snapshot); return envelope([{ id: 'HOT-OLD', centroid: { latitude: 12.9, longitude: 77.5 } }]); } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'),
+  });
+  const response = await service.executeLayer({ access: allowed, body: hotspotRequest, requestId: 'REQ-SNAPSHOT' });
+  assert.equal(currentCalls, 1);
+  assert.equal(snapshots[0].RunGroupID, 'RUN-1');
+  assert.equal(response.meta.runGroupId, 'RUN-1');
+  assert.equal(response.meta.freshnessState, 'STALE');
+});
+
 test('output limit applies after local viewport filtering', async () => {
   const rows = [
     { id: 'OUTSIDE', centroid: { latitude: 20, longitude: 80 } },

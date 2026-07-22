@@ -41,7 +41,7 @@ function apiHarness({
     get: vi.fn(path => {
       if (path === '/v1/geospatial/datasets') return Promise.resolve({ data: { items: datasets } });
       if (path === '/v1/geospatial/views') return viewLoader();
-      if (path === '/v1/geospatial/freshness') return freshnessLoader();
+      if (path.startsWith('/v1/geospatial/freshness')) return freshnessLoader(path);
       throw new Error(`unexpected GET ${path}`);
     }),
     post: vi.fn((path, body) => {
@@ -338,6 +338,42 @@ describe('useGeospatialWorkspace', () => {
     expect(freshnessLoader).toHaveBeenCalledTimes(2);
     expect(executions).toHaveLength(2);
     expect(result.current.layers[0].pendingUpdate?.meta.runGroupId).toBe('RUN-2');
+  });
+
+  test('an older slow freshness response cannot overwrite or re-trigger after a newer generation wins', async () => {
+    const freshnessRequests = [];
+    const { api, executions } = apiHarness({ freshnessLoader: () => {
+      const request = deferred(); freshnessRequests.push(request); return request.promise;
+    } });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    await act(async () => { executions[0].resolve(execution('RUN-1')); await executions[0].promise; });
+
+    act(() => { void result.current.retryFreshness(); });
+    await waitFor(() => expect(freshnessRequests).toHaveLength(1));
+    act(() => { void result.current.retryFreshness(); });
+    await waitFor(() => expect(freshnessRequests).toHaveLength(2));
+    await act(async () => {
+      freshnessRequests[1].resolve({
+        data: { layers: [{ datasetId: 'hotspots', runGroupId: 'RUN-3', state: 'CURRENT' }] },
+        meta: { publicationGeneration: 3, unchanged: false },
+      });
+      await freshnessRequests[1].promise;
+    });
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => { executions[1].resolve(execution('RUN-3')); await executions[1].promise; });
+
+    await act(async () => {
+      freshnessRequests[0].resolve({
+        data: { layers: [{ datasetId: 'hotspots', runGroupId: 'RUN-2', state: 'CURRENT' }] },
+        meta: { publicationGeneration: 2, unchanged: false },
+      });
+      await freshnessRequests[0].promise;
+    });
+    expect(executions).toHaveLength(2);
+    expect(result.current.layers[0].meta.runGroupId).toBe('RUN-3');
   });
 
   test('marks retained verified evidence stale when freshness reports a failed publication without re-downloading features', async () => {

@@ -14,13 +14,13 @@ const expectedTables = [
   'CFG_ContentShare', 'CFG_UserPreference', 'CFG_MapView', 'CFG_MapViewVersion',
   'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
-  'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
+  'INT_AnalysisRun', 'INT_PublicationState', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
   'INT_NetworkNode', 'INT_NetworkEdge', 'INT_RepeatOffenderSignal', 'INT_FindingEvidence',
   'WF_Alert', 'WF_Command', 'WF_AlertEvidence', 'WF_Assignment', 'WF_AnalystConclusion',
   'WF_Outcome', 'WF_AuditEvent', 'WF_AlertNote', 'WF_Escalation',
 ];
 
-test('manifest defines the exact production-shaped 31-table backend boundary', () => {
+test('manifest defines the exact production-shaped 32-table backend boundary', () => {
   assert.deepEqual(schema.tables.map(({ name }) => name), expectedTables);
   assert.deepEqual(validateIntelligenceSchema(schema), []);
 });
@@ -99,10 +99,14 @@ test('access and command tables preserve identity and idempotency boundaries', (
 
 test('run publication and workflow consistency are explicit', () => {
   const run = schema.tables.find(({ name }) => name === 'INT_AnalysisRun');
-  for (const field of ['BatchKey', 'Operation', 'ReconciliationJSON', 'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublishedAt']) {
+  for (const field of ['BatchKey', 'Operation', 'RequestHash', 'ReconciliationJSON', 'RunGroupID', 'AnalysisType', 'RunTypeKey', 'PublishStatus', 'PublicationGeneration', 'PublishedAt']) {
     assert.ok(run.columns.some(({ name }) => name === field), `INT_AnalysisRun missing ${field}`);
   }
   assert.equal(run.columns.find(({ name }) => name === 'RunTypeKey').unique, true);
+  const pointer = schema.tables.find(({ name }) => name === 'INT_PublicationState');
+  for (const field of ['PublicationGeneration', 'CurrentRunGroupID', 'CurrentRunsJSON', 'PointerVersion', 'LatestAttemptStatus']) {
+    assert.ok(pointer.columns.some(({ name }) => name === field), `INT_PublicationState missing ${field}`);
+  }
 
   const alert = schema.tables.find(({ name }) => name === 'WF_Alert');
   assert.ok(alert.columns.some(({ name }) => name === 'AlertVersion'));

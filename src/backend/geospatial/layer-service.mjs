@@ -185,12 +185,17 @@ export function createGeospatialLayerService({ repository, readServices, clock }
       });
     },
 
-    async getFreshness({ access, requestId }) {
+    async getFreshness({ access, requestId, query = {} }) {
       const status = await repository.getRefreshStatus();
       const group = status?.currentRunGroup;
       if (!group) fail('DATA_NOT_READY');
+      const generation = Number(status.publicationGeneration ?? group.PublicationGeneration ?? 0);
+      const knownGeneration = query.knownGeneration === undefined ? undefined : Number(query.knownGeneration);
+      if (knownGeneration !== undefined && (!Number.isSafeInteger(knownGeneration) || knownGeneration < 0)) fail('INVALID_REQUEST');
+      const unchanged = knownGeneration === generation;
       const layers = DATASET_CATALOG
         .filter(dataset => access?.actions?.includes(dataset.requiredAction))
+        .filter(() => !unchanged)
         .map(dataset => {
           const run = group.runs.find(row => row.AnalysisType === ({
             hotspots: 'HOTSPOT', anomalies: 'ANOMALY', areaRisk: 'AREA_RISK', alerts: 'PATTERN',
@@ -201,7 +206,11 @@ export function createGeospatialLayerService({ repository, readServices, clock }
             observationEnd: run.ObservationEnd, state: freshnessState(status, group.RunGroupID),
           };
         });
-      return deepFreeze({ data: { layers }, meta: { requestId } });
+      return deepFreeze({
+        data: { layers },
+        meta: { requestId, publicationGeneration: generation, etag: `pub-${generation}`, unchanged },
+        ...(unchanged ? { auditMode: 'COALESCED_UNCHANGED' } : {}),
+      });
     },
 
     async executeLayer({ access, body, requestId }) {
@@ -214,6 +223,8 @@ export function createGeospatialLayerService({ repository, readServices, clock }
       if (plan.timeWindow && !dataset.timeField) fail('INVALID_REQUEST');
       const source = sources.get(plan.sourceReference);
       if (!source) throw new TypeError('unconfigured geospatial source');
+      const snapshot = await repository.getCurrentRunGroup();
+      if (!snapshot) fail('DATA_NOT_READY');
       let envelope;
       let nextToken;
       let pageCount = 0;
@@ -225,7 +236,7 @@ export function createGeospatialLayerService({ repository, readServices, clock }
       let omittedFeatureCount = 0;
       while (features.length < plan.limit) {
         if (pageCount >= MAX_PAGES) { scanTruncated = true; break; }
-        const page = await source({ access, params: {}, query: queryFor(plan, access, nextToken) });
+        const page = await source({ access, params: {}, query: queryFor(plan, access, nextToken), snapshot });
         pageCount += 1;
         const pageFingerprint = snapshotFingerprint(page?.meta);
         if (governingFingerprint === undefined) governingFingerprint = pageFingerprint;
