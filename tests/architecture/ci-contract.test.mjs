@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { parse } from 'yaml';
 
-import { verifyGeospatial } from '../../scripts/ci/verify-geospatial.mjs';
+import { assertNoLeafletReferences, verifyGeospatial } from '../../scripts/ci/verify-geospatial.mjs';
 
 const repositoryUrl = new URL('../../', import.meta.url);
 
@@ -64,4 +64,40 @@ test('geospatial verification validates the canonical repository architecture', 
   assert.equal(result.requiredFilesChecked > 10, true);
   assert.equal(result.bundleBudgetWired, true);
   assert.equal(result.generatedFunctionPathsChecked, 0);
+});
+
+test('Leaflet removal rejects every JavaScript package loading form', async () => {
+  const violations = [
+    "import 'leaflet';",
+    "import 'leaflet/dist/leaflet.css';",
+    "import map from 'leaflet';",
+    "await import('react-leaflet');",
+    "const map = require('leaflet');",
+  ];
+  for (const source of violations) {
+    await assert.rejects(() => assertNoLeafletReferences(source, 'web/src/example.js'), /imports Leaflet/u);
+  }
+});
+
+test('Leaflet removal rejects CSS imports and package asset URLs', async () => {
+  const violations = [
+    '@import "leaflet/dist/leaflet.css";',
+    '@import url("leaflet/dist/leaflet.css");',
+    '.marker { background-image: url("leaflet/images/marker-icon.png"); }',
+  ];
+  for (const source of violations) {
+    await assert.rejects(() => assertNoLeafletReferences(source, 'web/src/example.css'), /references Leaflet/u);
+  }
+});
+
+test('Leaflet words in comments and inert strings do not fail the removal check', async () => {
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    // import 'leaflet';
+    /* require('react-leaflet'); */
+    const migrationNote = "import 'leaflet' was removed";
+  `, 'web/src/example.js'));
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    /* @import "leaflet/dist/leaflet.css"; */
+    .note::before { content: "url(leaflet/images/marker.png)"; }
+  `, 'web/src/example.css'));
 });

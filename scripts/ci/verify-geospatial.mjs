@@ -63,14 +63,167 @@ function assertNoLeafletDependency(manifest, label) {
   invariant(!names.has('leaflet') && !names.has('react-leaflet'), `${label} still declares Leaflet`);
 }
 
-function assertNoLeafletImport(source, relativePath) {
-  const importSpecifiers = [
-    ...source.matchAll(/\bfrom\s*['"]([^'"]+)['"]/gu),
-    ...source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/gu),
-    ...source.matchAll(/\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/gu),
-  ].map(match => match[1].toLowerCase());
-  invariant(!importSpecifiers.some(value => value === 'leaflet' || value.startsWith('leaflet/')
-    || value === 'react-leaflet' || value.startsWith('react-leaflet/')), `${relativePath} imports Leaflet`);
+function isIdentifierCharacter(value) {
+  return value !== undefined && /[\p{ID_Continue}$]/u.test(value);
+}
+
+function skipQuoted(source, start) {
+  const quote = source[start];
+  let value = '';
+  for (let index = start + 1; index < source.length; index += 1) {
+    if (source[index] === '\\') {
+      value += source[index + 1] ?? '';
+      index += 1;
+    } else if (source[index] === quote) {
+      return { end: index + 1, value };
+    } else {
+      value += source[index];
+    }
+  }
+  return { end: source.length, value: null };
+}
+
+function skipSpaceAndComments(source, start) {
+  let index = start;
+  while (index < source.length) {
+    if (/\s/u.test(source[index])) index += 1;
+    else if (source.startsWith('//', index)) {
+      index = source.indexOf('\n', index + 2);
+      if (index === -1) return source.length;
+    } else if (source.startsWith('/*', index)) {
+      const end = source.indexOf('*/', index + 2);
+      index = end === -1 ? source.length : end + 2;
+    } else break;
+  }
+  return index;
+}
+
+function startsKeyword(source, index, keyword) {
+  return source.startsWith(keyword, index)
+    && !isIdentifierCharacter(source[index - 1])
+    && !isIdentifierCharacter(source[index + keyword.length]);
+}
+
+function sourceAfterFrom(source, start) {
+  for (let index = start; index < source.length;) {
+    index = skipSpaceAndComments(source, index);
+    if (source[index] === ';') return { end: index + 1 };
+    if (source[index] === "'" || source[index] === '"' || source[index] === '`') {
+      index = skipQuoted(source, index).end;
+      continue;
+    }
+    if (startsKeyword(source, index, 'from')) {
+      const literalStart = skipSpaceAndComments(source, index + 4);
+      if (source[literalStart] === "'" || source[literalStart] === '"') return skipQuoted(source, literalStart);
+      return { end: literalStart };
+    }
+    index += 1;
+  }
+  return { end: source.length };
+}
+
+function javascriptModuleSpecifiers(source) {
+  const values = [];
+  for (let index = 0; index < source.length;) {
+    if (source.startsWith('//', index) || source.startsWith('/*', index)) {
+      index = skipSpaceAndComments(source, index);
+      continue;
+    }
+    if (source[index] === "'" || source[index] === '"' || source[index] === '`') {
+      index = skipQuoted(source, index).end;
+      continue;
+    }
+    if (startsKeyword(source, index, 'import')) {
+      let cursor = skipSpaceAndComments(source, index + 6);
+      if (source[cursor] === '.') { index = cursor + 1; continue; }
+      if (source[cursor] === '(') cursor = skipSpaceAndComments(source, cursor + 1);
+      if (source[cursor] === "'" || source[cursor] === '"' || source[cursor] === '`') {
+        const literal = skipQuoted(source, cursor);
+        if (literal.value !== null && !literal.value.includes('${')) values.push(literal.value);
+        index = literal.end;
+        continue;
+      }
+      const literal = sourceAfterFrom(source, cursor);
+      if (literal.value !== undefined && literal.value !== null) values.push(literal.value);
+      index = literal.end;
+      continue;
+    }
+    if (startsKeyword(source, index, 'export')) {
+      const cursor = skipSpaceAndComments(source, index + 6);
+      if (source[cursor] !== '*' && source[cursor] !== '{') { index = cursor; continue; }
+      const literal = sourceAfterFrom(source, cursor);
+      if (literal.value !== undefined && literal.value !== null) values.push(literal.value);
+      index = literal.end;
+      continue;
+    }
+    if (startsKeyword(source, index, 'require')) {
+      let cursor = skipSpaceAndComments(source, index + 7);
+      if (source[cursor] === '(') cursor = skipSpaceAndComments(source, cursor + 1);
+      else { index += 7; continue; }
+      if (source[cursor] === "'" || source[cursor] === '"') {
+        const literal = skipQuoted(source, cursor);
+        cursor = skipSpaceAndComments(source, literal.end);
+        if (literal.value !== null && source[cursor] === ')') values.push(literal.value);
+        index = literal.end;
+        continue;
+      }
+    }
+    index += 1;
+  }
+  return values;
+}
+
+function cssReferences(source) {
+  const values = [];
+  for (let index = 0; index < source.length;) {
+    if (source.startsWith('/*', index)) {
+      index = skipSpaceAndComments(source, index);
+      continue;
+    }
+    if (source[index] === "'" || source[index] === '"') {
+      index = skipQuoted(source, index).end;
+      continue;
+    }
+    const importAtRule = source.slice(index).match(/^@import(?![\w-])/iu);
+    const urlFunction = !isIdentifierCharacter(source[index - 1]) && source[index - 1] !== '-'
+      ? source.slice(index).match(/^url\s*\(/iu)
+      : null;
+    if (importAtRule || urlFunction) {
+      let cursor = skipSpaceAndComments(source, index + (importAtRule ? importAtRule[0].length : urlFunction[0].length));
+      if (importAtRule) {
+        const nestedUrl = source.slice(cursor).match(/^url\s*\(/iu);
+        if (nestedUrl) cursor = skipSpaceAndComments(source, cursor + nestedUrl[0].length);
+      }
+      if (source[cursor] === "'" || source[cursor] === '"') {
+        const literal = skipQuoted(source, cursor);
+        if (literal.value !== null) values.push(literal.value);
+        index = literal.end;
+        continue;
+      }
+      const end = source.indexOf(')', cursor);
+      if (end !== -1) {
+        values.push(source.slice(cursor, end).trim());
+        index = end + 1;
+        continue;
+      }
+    }
+    index += 1;
+  }
+  return values;
+}
+
+function isLeafletPackage(value) {
+  const normalized = value.trim().toLowerCase().replace(/^~/u, '');
+  return /^(?:react-)?leaflet(?:\/|$)/u.test(normalized)
+    || /(?:^|\/)node_modules\/(?:react-)?leaflet(?:\/|$)/u.test(normalized);
+}
+
+export async function assertNoLeafletReferences(source, relativePath) {
+  if (/\.css$/iu.test(relativePath)) {
+    invariant(!cssReferences(source).some(isLeafletPackage), `${relativePath} references Leaflet`);
+    return;
+  }
+  invariant(!javascriptModuleSpecifiers(source).some(isLeafletPackage), `${relativePath} imports Leaflet`);
 }
 
 export async function verifyGeospatial(repositoryRoot) {
@@ -86,8 +239,8 @@ export async function verifyGeospatial(repositoryRoot) {
   assertNoLeafletDependency(repository, 'root package');
   assertNoLeafletDependency(web, 'web package');
   for (const relativePath of await filesBelow(root, 'web/src')) {
-    if (!/\.(?:[cm]?[jt]sx?)$/u.test(relativePath)) continue;
-    assertNoLeafletImport(await readFile(path.join(root, relativePath), 'utf8'), relativePath);
+    if (!/\.(?:[cm]?[jt]sx?|css)$/u.test(relativePath)) continue;
+    await assertNoLeafletReferences(await readFile(path.join(root, relativePath), 'utf8'), relativePath);
   }
 
   await Promise.all(REQUIRED_FILES.map(relativePath => access(path.join(root, relativePath))));
