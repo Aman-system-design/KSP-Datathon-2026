@@ -9,6 +9,8 @@ export const API_OPERATIONS = Object.freeze([
   Object.freeze({ method: 'GET', path: '/v1/district-context', service: 'getDistrictContext' }),
   Object.freeze({ method: 'GET', path: '/v1/workspace', kind: 'resource', service: 'getWorkspace' }),
   Object.freeze({ method: 'GET', path: '/v1/report-sources', kind: 'resource', service: 'listReportSources' }),
+  Object.freeze({ method: 'GET', path: '/v1/geospatial/datasets', kind: 'resource', service: 'listGeospatialDatasets', auditEventType: 'SENSITIVE_READ' }),
+  Object.freeze({ method: 'POST', path: '/v1/geospatial/layers/execute', kind: 'resource', service: 'executeGeospatialLayer', auditEventType: 'SENSITIVE_READ' }),
   Object.freeze({ method: 'GET', path: '/v1/intelligence-runs', kind: 'resource', service: 'listIntelligenceRuns' }),
   Object.freeze({ method: 'POST', path: '/v1/intelligence-runs', kind: 'resource', service: 'submitIntelligenceRun', successStatus: 202 }),
   Object.freeze({ method: 'GET', path: '/v1/reports', kind: 'resource', service: 'listReports' }),

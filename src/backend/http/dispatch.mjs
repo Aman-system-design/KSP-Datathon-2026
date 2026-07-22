@@ -138,7 +138,7 @@ export function createDispatcher({
         });
         await auditService.record({
           access, currentUser,
-          eventType: route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED',
+          eventType: route.operation.auditEventType ?? (route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED'),
           requestId, route: route.operation.path, outcome: 'ALLOWED',
         });
         return { status: route.operation.successStatus ?? 200, body };

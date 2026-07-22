@@ -40,13 +40,14 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the thirty-five platform operations', () => {
-  assert.equal(API_OPERATIONS.length, 35);
+test('the public contract contains exactly the thirty-seven platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 37);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
     'GET /v1/networks/{nodeId}', 'GET /v1/district-context',
     'GET /v1/workspace', 'GET /v1/report-sources',
+    'GET /v1/geospatial/datasets', 'POST /v1/geospatial/layers/execute',
     'GET /v1/intelligence-runs', 'POST /v1/intelligence-runs',
     'GET /v1/reports', 'POST /v1/reports', 'GET /v1/reports/{reportId}',
     'PATCH /v1/reports/{reportId}', 'DELETE /v1/reports/{reportId}', 'POST /v1/reports/{reportId}/execute',
@@ -59,6 +60,18 @@ test('the public contract contains exactly the thirty-five platform operations',
     'POST /v1/alerts/{alertId}/acknowledge', 'POST /v1/alerts/{alertId}/assign',
     'POST /v1/alerts/{alertId}/analyst-conclusion', 'POST /v1/alerts/{alertId}/outcome',
   ]);
+});
+
+test('geospatial execution is audited as a sensitive read', async () => {
+  const dispatch = harness({ resourceServicesOverride: {
+    async executeGeospatialLayer() { return { data: { type: 'FeatureCollection', features: [] } }; },
+  } });
+  const response = await dispatch({ request: {
+    method: 'POST', path: '/v1/geospatial/layers/execute', query: {}, headers: {}, body: {}, requestId: 'REQ-API',
+  }, currentUser: user('CAT-DISTRICT') });
+  assert.equal(response.status, 200);
+  const audit = await dispatch.repository.listAuditEvents();
+  assert.equal(audit.at(-1).EventType, 'SENSITIVE_READ');
 });
 
 test('all eight reads dispatch through authenticated, scoped services', async () => {

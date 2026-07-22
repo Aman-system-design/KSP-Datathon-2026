@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { DATASET_CATALOG } from '../../src/backend/geospatial/dataset-catalog.mjs';
+import { createGeospatialLayerService } from '../../src/backend/geospatial/layer-service.mjs';
+
+const allowed = Object.freeze({ actions: ['READ_HOTSPOT'], scopeUnitId: 101, syntheticData: true });
+const denied = Object.freeze({ actions: [], scopeUnitId: 101, syntheticData: true });
+const hotspotRequest = Object.freeze({
+  layer: { id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', tooltipFields: ['id', 'magnitude'] },
+  runtime: { limit: 2, viewport: { bounds: [77, 12, 78, 14] } },
+});
+
+function envelope(items) {
+  return {
+    data: { items },
+    meta: {
+      requestId: 'READ-1', analysisRunId: 'RUN-1', generatedAt: '2026-07-20T14:00:00.000Z',
+      observationPeriod: { from: '2026-06-01T00:00:00.000Z', to: '2026-06-30T23:59:59.000Z' },
+      methodVersion: 'engine-1', dataQualityStatus: 'ACCEPTED', syntheticData: true,
+    },
+  };
+}
+
+function harness(items = [{
+  id: 'HOT-1', centroid: { latitude: 12.9718, longitude: 77.5949 }, magnitude: 6,
+  confidence: 0.9, method: 'HAVERSINE_DBSCAN', version: '1.0.0', limitations: ['SYNTHETIC_DATA'],
+  evidenceCaseIds: ['CASE-1'],
+}]) {
+  const calls = [];
+  const service = createGeospatialLayerService({
+    readServices: { async listHotspots(input) { calls.push(input); return envelope(items); } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => 'REQ-GEO-1',
+  });
+  return { service, calls };
+}
+
+test('catalog is immutable, authorized, truthful, and strips server-only fields', async () => {
+  assert.ok(Object.isFrozen(DATASET_CATALOG));
+  assert.ok(DATASET_CATALOG.every(Object.isFrozen));
+  const { service } = harness();
+  const response = await service.listDatasets({ access: allowed });
+  assert.deepEqual(response.data.items.map(item => item.id), ['hotspots']);
+  const [dataset] = response.data.items;
+  assert.deepEqual(dataset.access, { actions: ['READ_HOTSPOT'] });
+  assert.equal(dataset.spatialStatus, 'AVAILABLE');
+  for (const hidden of ['sourceReference', 'service', 'requiredAction', 'internalService', 'evidenceCaseIds']) {
+    assert.equal(hidden in dataset, false);
+  }
+  assert.deepEqual((await service.listDatasets({ access: denied })).data.items, []);
+});
+
+test('catalog reports unavailable geometry without inventing mappings', async () => {
+  const access = { ...allowed, actions: ['READ_ANOMALY', 'READ_AREA_RISK', 'READ_ALERT'] };
+  const items = (await harness().service.listDatasets({ access })).data.items;
+  assert.deepEqual(items.map(item => item.id), ['anomalies', 'areaRisk', 'alerts']);
+  for (const item of items) {
+    assert.equal(item.spatialStatus, 'GEOMETRY_NOT_AVAILABLE');
+    assert.ok(item.missingRequiredFields.length > 0);
+    assert.equal('geometry' in item, false);
+  }
+});
+
+test('execution enforces action and emits governed GeoJSON metadata', async () => {
+  const { service, calls } = harness();
+  await assert.rejects(service.executeLayer({ access: denied, body: hotspotRequest }), { code: 'FORBIDDEN_ACTION' });
+  const response = await service.executeLayer({ access: allowed, body: hotspotRequest });
+  assert.equal(response.data.type, 'FeatureCollection');
+  assert.deepEqual(response.data.features[0].geometry.coordinates, [77.5949, 12.9718]);
+  assert.equal(response.data.features[0].properties.evidenceCaseIds[0], 'CASE-1');
+  assert.equal(response.meta.runGroupId, 'RUN-1');
+  assert.equal(response.meta.requestId, 'READ-1');
+  assert.equal(response.meta.analysisRunId, 'RUN-1');
+  assert.equal(response.meta.generatedAt, '2026-07-20T14:00:00.000Z');
+  assert.deepEqual(response.meta.observationPeriod, envelope([]).meta.observationPeriod);
+  assert.deepEqual(response.meta.observationWindow, envelope([]).meta.observationPeriod);
+  assert.equal(response.meta.engineVersion, 'engine-1');
+  assert.equal(response.meta.methodVersion, 'engine-1');
+  assert.equal(response.meta.recordMethodVersion, '1.0.0');
+  assert.equal(response.meta.dataQualityStatus, 'ACCEPTED');
+  assert.equal(response.meta.syntheticData, true);
+  assert.equal(response.meta.sourceRecordCount, 1);
+  assert.equal(response.meta.outputFeatureCount, 1);
+  assert.equal(response.meta.omittedFeatureCount, 0);
+  assert.deepEqual(response.meta.limitations, ['SYNTHETIC_DATA']);
+  assert.deepEqual(calls[0].query, { limit: 2, unitId: 101, bounds: '77,12,78,14' });
+});
+
+test('invalid coordinates are omitted, counted, and never defaulted', async () => {
+  const valid = { id: 'HOT-1', centroid: { latitude: 12.9718, longitude: 77.5949 } };
+  const invalid = { id: 'HOT-2', centroid: { latitude: Number.NaN, longitude: undefined } };
+  const response = await harness([invalid, valid]).service.executeLayer({ access: allowed, body: hotspotRequest });
+  assert.equal(response.data.features.length, 1);
+  assert.deepEqual(response.data.features[0].geometry.coordinates, [77.5949, 12.9718]);
+  assert.equal(response.meta.omittedFeatureCount, 1);
+  assert.doesNotMatch(JSON.stringify(response.data), /\[0,0\]/u);
+});
+
+test('output remains bounded when a source ignores its requested limit', async () => {
+  const rows = [1, 2, 3].map(index => ({
+    id: `HOT-${index}`, centroid: { latitude: 12.9 + index / 100, longitude: 77.5 },
+  }));
+  const response = await harness(rows).service.executeLayer({ access: allowed, body: hotspotRequest });
+  assert.equal(response.data.features.length, 2);
+  assert.equal(response.meta.sourceRecordCount, 3);
+});
+
+test('execution rejects excessive limits, authority filters, malformed bodies, and unavailable geometry', async () => {
+  const { service } = harness();
+  await assert.rejects(service.executeLayer({ access: allowed, body: { ...hotspotRequest, runtime: { limit: 201 } } }), { code: 'INVALID_REQUEST' });
+  await assert.rejects(service.executeLayer({ access: allowed, body: {
+    ...hotspotRequest, layer: { ...hotspotRequest.layer, filter: { organizationId: 'other' } },
+  } }), { code: 'INVALID_REQUEST' });
+  await assert.rejects(service.executeLayer({ access: allowed, body: { ...hotspotRequest, role: 'ADMIN' } }), { code: 'INVALID_REQUEST' });
+  await assert.rejects(service.executeLayer({
+    access: { ...allowed, actions: ['READ_ANOMALY'] },
+    body: { layer: { id: 'layer-2', datasetId: 'anomalies', renderer: 'POINT' }, runtime: {} },
+  }), { code: 'DATA_NOT_READY' });
+});
+
+test('all unavailable coordinates return DATA_NOT_READY', async () => {
+  const { service } = harness([{ id: 'HOT-1', centroid: { latitude: null, longitude: null } }]);
+  await assert.rejects(service.executeLayer({ access: allowed, body: hotspotRequest }), { code: 'DATA_NOT_READY' });
+});
+
+test('source dispatch never resolves inherited services', async () => {
+  let called = false;
+  const readServices = Object.create({ async listHotspots() { called = true; return envelope([]); } });
+  const service = createGeospatialLayerService({
+    readServices, clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => 'REQ-GEO-1',
+  });
+  await assert.rejects(service.executeLayer({ access: allowed, body: hotspotRequest }));
+  assert.equal(called, false);
+});
