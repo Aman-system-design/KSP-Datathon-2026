@@ -22,6 +22,11 @@ const REQUIRED_FILES = Object.freeze([
   'tests/backend/map-view-service.test.mjs',
   'tests/catalyst/geospatial-repository.test.mjs',
   'tests/architecture/web-bundle-budget.test.mjs',
+  'tests/compat/node18-refresh-runtime.test.mjs',
+  'tests/architecture/node-runtime-isolation.test.mjs',
+  'scripts/ci/run-node18-compat.mjs',
+  'tools/node18-runtime/package.json',
+  'tools/node18-runtime/package-lock.json',
   'web/src/app/router.test.jsx',
   'web/src/features/geospatial/MapCanvas.test.jsx',
   'web/src/features/geospatial/GeospatialStudio.test.jsx',
@@ -302,8 +307,30 @@ function cssReferences(source) {
 
 function literalAttributes(tag) {
   const values = [];
-  const pattern = /\b(src|href|style)\s*=\s*(?:\{\s*)?(['"])(.*?)\2(?:\s*\})?/gisu;
-  for (const match of tag.matchAll(pattern)) values.push({ name: match[1].toLowerCase(), value: match[3] });
+  let index = /^<[A-Za-z][\w-]*/u.exec(tag)?.[0].length ?? 1;
+  while (index < tag.length) {
+    while (/\s/u.test(tag[index])) index += 1;
+    const nameStart = index;
+    while (index < tag.length && !/[\s=/>]/u.test(tag[index])) index += 1;
+    const name = tag.slice(nameStart, index).toLowerCase();
+    while (/\s/u.test(tag[index])) index += 1;
+    if (tag[index] !== '=') { index += 1; continue; }
+    index += 1;
+    while (/\s/u.test(tag[index])) index += 1;
+    if (tag[index] === '{') {
+      index += 1;
+      while (/\s/u.test(tag[index])) index += 1;
+    }
+    if (!['"', "'", '`'].includes(tag[index])) {
+      while (index < tag.length && !/[\s>]/u.test(tag[index])) index += 1;
+      continue;
+    }
+    const literal = skipQuoted(tag, index);
+    index = literal.end;
+    if (literal.value !== null && !literal.value.includes('${') && ['src', 'href', 'style'].includes(name)) {
+      values.push({ name, value: literal.value });
+    }
+  }
   return values;
 }
 
@@ -357,7 +384,8 @@ function markupReferences(source, { javascript = false } = {}) {
 
 function isLeafletPackage(value) {
   const normalized = value.trim().toLowerCase().replace(/^~/u, '');
-  const packageSegment = segment => /^(?:react-)?leaflet(?:@[^/]+)?$/u.test(segment);
+  const packageSegment = segment => /^(?:react-)?leaflet(?:@[^/]+)?$/u.test(segment)
+    || /^(?:react-)?leaflet(?:\.min)?\.(?:js|css)$/u.test(segment);
   if (/^(?:react-)?leaflet(?:\/|$)/u.test(normalized)
     || /(?:^|\/)node_modules\/(?:react-)?leaflet(?:\/|$)/u.test(normalized)) return true;
   if (!/^[a-z][a-z\d+.-]*:/u.test(normalized)

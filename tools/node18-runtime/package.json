@@ -1,0 +1,9 @@
+{
+  "name": "@ksp/node18-compatibility-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned Catalyst Node 18 compatibility runtime; not application code.",
+  "devDependencies": {
+    "node": "18.20.8"
+  }
+}

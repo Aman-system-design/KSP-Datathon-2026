@@ -39,11 +39,21 @@ test('CircleCI performs one deterministic verification job on a pinned compatibl
   const engineFloor = Number(/^>=(\d+)$/.exec(repository.engines?.node ?? '')?.[1]);
   assert.ok(Number(match[1]) >= engineFloor, `${image} must satisfy ${repository.engines.node}`);
   assert.equal(repository.scripts?.['geospatial:verify'], 'node scripts/ci/verify-geospatial.mjs');
+  assert.equal(repository.scripts?.['compat:node18'], 'node scripts/ci/run-node18-compat.mjs');
+  assert.equal(repository.scripts?.postinstall, undefined);
+  assert.equal(repository.devDependencies?.node, undefined);
+  const node18Package = await readJson('tools/node18-runtime/package.json');
+  const node18Lock = await readJson('tools/node18-runtime/package-lock.json');
+  assert.equal(node18Package.private, true);
+  assert.equal(node18Package.devDependencies?.node, '18.20.8');
+  assert.equal(node18Lock.packages?.['']?.devDependencies?.node, '18.20.8');
+  assert.equal(node18Lock.packages?.['node_modules/node']?.version, '18.20.8');
 
   assert.equal(namedStep(job.steps, 'run'), 'npm ci');
   const runCommands = job.steps.filter(step => typeof step === 'object' && step.run).map(step => step.run);
   assert.deepEqual(runCommands, [
-    'npm ci', 'npm run verify', 'npm run compat:node18', 'npm run geospatial:verify',
+    'npm ci', 'npm ci --prefix tools/node18-runtime',
+    'npm run verify', 'npm run compat:node18', 'npm run geospatial:verify',
   ]);
 });
 
@@ -52,7 +62,7 @@ test('CircleCI caches only the npm download cache under the lockfile checksum', 
   const steps = config.jobs.verify.steps;
   const restore = namedStep(steps, 'restore_cache');
   const save = namedStep(steps, 'save_cache');
-  const expectedKey = 'npm-v1-node24-{{ checksum "package-lock.json" }}';
+  const expectedKey = 'npm-v2-node24-{{ checksum "package-lock.json" }}-{{ checksum "tools/node18-runtime/package-lock.json" }}';
   assert.deepEqual(restore.keys, [expectedKey]);
   assert.equal(save.key, expectedKey);
   assert.deepEqual(save.paths, ['~/.npm']);
@@ -158,10 +168,24 @@ test('Leaflet removal scans HTML entry points and JSX resource elements', async 
     ['<style>@import url("https://esm.sh/leaflet@1.9.4");</style>', 'web/index.html'],
     ['export const CDN = () => <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" />;', 'web/src/cdn.jsx'],
     ["export const CDN = () => <link href={'https://unpkg.com/react-leaflet@5.0.0/style.css'} />;", 'web/src/cdn.tsx'],
+    ['export const CDN = () => <script src={`https://cdn.example.invalid/vendor/leaflet.min.js`} />;', 'web/src/cdn.jsx'],
+    ['<script src="/vendor/leaflet.min.js"></script>', 'web/index.html'],
+    ['<link rel="stylesheet" href="/vendor/react-leaflet.css">', 'web/index.html'],
+    ["import '/vendor/leaflet.css';", 'web/src/vendor.js'],
   ];
   for (const [source, file] of violations) {
     await assert.rejects(() => assertNoLeafletReferences(source, file), /Leaflet/u);
   }
+});
+
+test('resource scanning requires exact src and href attributes', async () => {
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    <script data-src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link data-href="/vendor/leaflet.css">
+  `, 'web/index.html'));
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    export const Deferred = () => <script data-src={'/vendor/leaflet.min.js'} />;
+  `, 'web/src/deferred.jsx'));
 });
 
 test('recursive web asset scan includes nested public assets', async () => {
