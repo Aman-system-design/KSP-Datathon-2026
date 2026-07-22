@@ -76,6 +76,36 @@ test('uses the bounded default limit and rejects excessive layer limits', () => 
   }), /limit/);
 });
 
+test('default projection includes declared display evidence and excludes filter-only fields', () => {
+  const plan = compileLayerExecution({
+    dataset,
+    layer: { id: 'layer-default', datasetId: 'hotspots', renderer: 'POINT' },
+    runtime: {},
+  });
+  assert.deepEqual(plan.fields, ['caseCount', 'latitude', 'longitude', 'severity']);
+  assert.equal(plan.fields.includes('category'), false);
+});
+
+test('default display evidence projection is deterministically bounded', () => {
+  const displayFields = Object.fromEntries(Array.from({ length: 101 }, (_, index) => [
+    `display${String(index).padStart(3, '0')}`, { type: 'string', uses: ['display'] },
+  ]));
+  const plan = compileLayerExecution({
+    dataset: {
+      ...dataset, fields: { ...dataset.fields, ...displayFields },
+      weightField: 'caseCount', severityField: 'severity',
+    },
+    layer: { id: 'layer-bounded', datasetId: 'hotspots', renderer: 'POINT' },
+    runtime: {},
+  });
+  assert.equal(plan.fields.filter(field => (
+    field === 'caseCount' || field === 'severity' || field.startsWith('display')
+  )).length, 100);
+  assert.equal(plan.fields.includes('caseCount'), true);
+  assert.equal(plan.fields.includes('severity'), true);
+  assert.equal(plan.fields.includes('display100'), false);
+});
+
 test('rejects non-finite or invalid coordinates and reversed time windows', () => {
   for (const bounds of [
     [77, 12, Number.NaN, 13],

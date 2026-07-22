@@ -91,6 +91,22 @@ test('execution enforces action and emits governed GeoJSON metadata', async () =
   assert.deepEqual(calls[0].query, { limit: 200, unitId: 101, bounds: '77,12,78,14' });
 });
 
+test('default execution emits the catalog display evidence projection without undeclared source fields', async () => {
+  const { service } = harness();
+  const response = await service.executeLayer({
+    access: allowed,
+    requestId: 'REQ-GEO-DISPLAY',
+    body: { layer: { id: 'layer-default', datasetId: 'hotspots', renderer: 'POINT' }, runtime: {} },
+  });
+  assert.deepEqual(response.data.features[0].properties, {
+    id: 'HOT-1', confidence: 0.9, magnitude: 6,
+    method: 'HAVERSINE_DBSCAN', version: '1.0.0',
+  });
+  for (const hidden of ['centroid', 'evidenceCaseIds', 'evidenceUnits', 'internal', 'futureField']) {
+    assert.equal(hidden in response.data.features[0].properties, false);
+  }
+});
+
 test('output limit applies after local viewport filtering', async () => {
   const rows = [
     { id: 'OUTSIDE', centroid: { latitude: 20, longitude: 80 } },

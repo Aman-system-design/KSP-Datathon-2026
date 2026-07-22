@@ -8,6 +8,7 @@ import {
 } from './contracts.mjs';
 
 const RUNTIME_KEYS = new Set(['viewport', 'timeWindow', 'limit']);
+const MAX_DISPLAY_FIELDS = 100;
 
 function plain(value, label) {
   if (value === null || typeof value !== 'object' || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
@@ -15,12 +16,23 @@ function plain(value, label) {
   }
 }
 
+function defaultDisplayProjection(dataset) {
+  const declared = Object.entries(dataset.fields)
+    .filter(([, definition]) => definition.uses.includes('display'))
+    .map(([field]) => field)
+    .sort();
+  return [...new Set([
+    ...(dataset.labelFields ?? []), dataset.weightField, dataset.severityField, ...declared,
+  ].filter(Boolean))].slice(0, MAX_DISPLAY_FIELDS);
+}
+
 function requiredFields(dataset, layer) {
   const fields = new Set(Object.values(dataset.geometry));
   for (const key of ['weightField', 'colorField', 'sizeField', 'labelField']) {
     if (layer[key]) fields.add(layer[key]);
   }
-  for (const field of layer.tooltipFields ?? []) fields.add(field);
+  const displayProjection = layer.tooltipFields ?? defaultDisplayProjection(dataset);
+  for (const field of displayProjection) fields.add(field);
   const visitFilter = filter => {
     for (const [key, value] of Object.entries(filter)) {
       if (key === '$and' || key === '$or') value.forEach(visitFilter);

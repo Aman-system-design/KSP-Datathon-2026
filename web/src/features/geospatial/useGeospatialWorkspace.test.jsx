@@ -94,6 +94,53 @@ describe('useGeospatialWorkspace', () => {
     expect(result.current.renderLayers).toHaveLength(0);
   });
 
+  test('applies the global time window only to datasets declaring a time field', async () => {
+    const timed = dataset({
+      id: 'timed', name: 'Timed intelligence', timeField: 'observedAt',
+      fields: {
+        id: { type: 'string', uses: ['display', 'label'] },
+        observedAt: { type: 'datetime', uses: ['time'] },
+      },
+    });
+    const timeless = dataset({ id: 'timeless', name: 'Timeless boundaries' });
+    const { api, executions } = apiHarness({ datasets: [timed, timeless] });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+
+    act(() => {
+      result.current.addDataset('timed');
+      result.current.addDataset('timeless');
+    });
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => {
+      executions[0].resolve(execution('RUN-TIMED'));
+      executions[1].resolve(execution('RUN-TIMELESS'));
+      await Promise.all(executions.slice(0, 2).map(item => item.promise));
+    });
+
+    act(() => result.current.setTimeWindow({
+      from: '2026-07-01T00:00:00.000Z', to: '2026-07-22T00:00:00.000Z',
+    }));
+    await waitFor(() => expect(executions).toHaveLength(4));
+    const latestByDataset = new Map(executions.slice(2).map(item => [item.body.layer.datasetId, item.body]));
+    expect(latestByDataset.get('timed').runtime.timeWindow).toEqual({
+      from: '2026-07-01T00:00:00.000Z', to: '2026-07-22T00:00:00.000Z',
+    });
+    expect(latestByDataset.get('timeless').runtime).not.toHaveProperty('timeWindow');
+  });
+
+  test('allocates a unique layer ID after loading arbitrary saved-view IDs', async () => {
+    const { api } = apiHarness();
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.loadView({ definition: {
+      layers: [{ id: 'hotspots-2', datasetId: 'hotspots', renderer: 'POINT', visible: false, order: 0 }],
+    } }));
+    act(() => result.current.addDataset('hotspots'));
+    expect(result.current.layers.map(layer => layer.id)).toEqual(['hotspots-2', 'hotspots-3']);
+    expect(new Set(result.current.layers.map(layer => layer.id)).size).toBe(2);
+  });
+
   test('ignores an older viewport response and commits only the latest generation', async () => {
     const { api, executions } = apiHarness();
     const { result } = renderHook(() => useGeospatialWorkspace({ api }));

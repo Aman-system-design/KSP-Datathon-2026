@@ -9,6 +9,7 @@ const EMPTY_COLLECTION = Object.freeze({ type: 'FeatureCollection', features: Ob
 const UNAUTHORIZED_CODES = new Set(['FORBIDDEN_ACTION', 'UNAUTHENTICATED', 'UNAUTHORIZED']);
 const defaultIdFactory = () => `MAP-${crypto.randomUUID()}`;
 const NEUTRAL_VIEWPORT = Object.freeze({ center: Object.freeze([0, 0]), zoom: 1.3 });
+const MAX_DISPLAY_FIELDS = 100;
 
 function messageOf(error) {
   return typeof error?.message === 'string' && error.message ? error.message : 'The layer could not be refreshed.';
@@ -18,6 +19,16 @@ function rendererFor(dataset) {
   if (dataset.geometryType === 'H3') return 'H3';
   if (['POLYGON', 'MULTI_POLYGON', 'ADMIN_BOUNDARY'].includes(dataset.geometryType)) return 'CHOROPLETH';
   return 'POINT';
+}
+
+function displayFieldsFor(dataset) {
+  const declared = Object.entries(dataset.fields ?? {})
+    .filter(([, definition]) => Array.isArray(definition?.uses) && definition.uses.includes('display'))
+    .map(([field]) => field)
+    .sort();
+  return [...new Set([
+    ...(dataset.labelFields ?? []), dataset.weightField, dataset.severityField, ...declared,
+  ].filter(Boolean))].slice(0, MAX_DISPLAY_FIELDS);
 }
 
 function layerDefinition(layer) {
@@ -95,7 +106,8 @@ export function useGeospatialWorkspace({
       const response = await api.post('/v1/geospatial/layers/execute', {
         layer: layerDefinition(current),
         runtime: Object.fromEntries([
-          ['viewport', viewportRef.current], ['timeWindow', timeWindowRef.current],
+          ['viewport', viewportRef.current],
+          ['timeWindow', current.dataset?.timeField ? timeWindowRef.current : null],
         ].filter(([, value]) => value !== null && value !== undefined)),
       });
       if (generations.current.get(layerId) !== generation) return;
@@ -184,12 +196,15 @@ export function useGeospatialWorkspace({
   const addDataset = useCallback(datasetId => {
     const dataset = datasets.find(item => item.id === datasetId);
     if (!dataset) return;
-    layerSequence.current += 1;
-    const id = `${dataset.id}-${layerSequence.current}`;
+    let id;
+    do {
+      layerSequence.current += 1;
+      id = `${dataset.id}-${layerSequence.current}`;
+    } while (layersRef.current.some(layer => layer.id === id));
     const available = dataset.spatialStatus === 'AVAILABLE';
     const added = {
       id, datasetId: dataset.id, name: dataset.name, renderer: rendererFor(dataset), visible: true,
-      order: layersRef.current.length, tooltipFields: dataset.labelFields ?? ['id'],
+      order: layersRef.current.length, tooltipFields: displayFieldsFor(dataset),
       spatialStatus: dataset.spatialStatus, dataset, state: available ? 'IDLE' : 'GEOMETRY_NOT_AVAILABLE',
       featureCollection: EMPTY_COLLECTION, meta: null, pendingUpdate: null, error: null,
     };
