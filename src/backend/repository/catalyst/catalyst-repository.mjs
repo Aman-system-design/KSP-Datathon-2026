@@ -574,9 +574,7 @@ export class CatalystIntelligenceRepository {
       ...row, Name: summary.name, Visibility: summary.visibility,
       CurrentVersion: expectedVersion + 1, UpdatedAt: updatedAt,
     });
-    let result;
-    try { result = await this.#zcql.executeZCQLQuery(query); }
-    catch (error) {
+    const reconcile = async () => {
       this.#invalidate(TABLES.mapViews, TABLES.mapViewVersions);
       const [current, stored] = await Promise.all([
         this.getMapView(mapViewId, organizationId),
@@ -585,18 +583,20 @@ export class CatalystIntelligenceRepository {
       const sameVersion = sameMapVersion(stored, prepareCatalystRow(TABLES.mapViewVersions, intendedVersion));
       if (sameVersion && current?.CurrentVersion >= expectedVersion + 1) return committed();
       if (!sameVersion || current?.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
+      return undefined;
+    };
+    let result;
+    try { result = await this.#zcql.executeZCQLQuery(query); }
+    catch (error) {
+      const reconciled = await reconcile();
+      if (reconciled) return reconciled;
       throw sanitizeCatalystSdkError(error, { operation: 'MAP_VIEW_COMPARE_AND_SWAP' });
     }
     this.#invalidate(TABLES.mapViews);
     const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
     if (affected !== undefined && Number(affected) === 0) fail('VERSION_CONFLICT', 'Map view version changed.');
     if (affected !== undefined && Number(affected) === 1) return committed();
-    const updated = await this.getMapView(mapViewId, organizationId);
-    if (updated?.CurrentVersion !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt
-      || updated?.Name !== summary.name || updated?.Visibility !== summary.visibility) {
-      fail('VERSION_CONFLICT', 'Map view version changed.');
-    }
-    return updated;
+    return (await reconcile()) ?? fail('VERSION_CONFLICT', 'Map view version changed.');
   }
 
   #mapReport(row) {

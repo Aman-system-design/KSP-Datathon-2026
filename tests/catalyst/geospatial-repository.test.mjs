@@ -169,6 +169,18 @@ test('ambiguous CAS responses reconcile through scoped root reads', async () => 
   assert.equal(updated.CurrentVersion, 2);
 });
 
+test('ambiguous CAS reconciles exact v2 after a concurrent v3 advance', async () => {
+  const fake = fakeApplication({ ambiguousCas: true, advanceAfterCas: true });
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  const result = await repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+    nextVersion: version(2, { CreatedAt: '2026-07-22T11:00:00Z' }),
+  });
+  assert.equal(result.CurrentVersion, 2);
+  assert.equal(fake.tables.get('CFG_MapView')[0].CurrentVersion, 3);
+});
+
 test('reports stale updates and never advances the pointer when CAS loses', async () => {
   const fake = fakeApplication();
   const repository = new CatalystIntelligenceRepository({ application: fake.application });
