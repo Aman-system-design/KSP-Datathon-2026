@@ -1,4 +1,5 @@
-import { access, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { lstat, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -7,6 +8,8 @@ const REQUIRED_FILES = Object.freeze([
   'docs/superpowers/specs/2026-07-22-geospatial-studio-design.md',
   'docs/superpowers/plans/2026-07-22-geospatial-studio-core.md',
   'docs/runbooks/catalyst-publication-pointer-migration.md',
+  'docs/runbooks/circleci-verification-security-boundary.md',
+  'schema/catalyst/migrations/2026-07-22-publication-pointer.after.json',
   'packages/geospatial-core/src/index.mjs',
   'src/backend/geospatial/dataset-catalog.mjs',
   'src/backend/geospatial/layer-service.mjs',
@@ -26,6 +29,9 @@ const REQUIRED_FILES = Object.freeze([
   'web/src/features/geospatial/EmbeddedMapView.test.jsx',
 ]);
 
+const PUBLICATION_AFTER_DIGEST = 'cc55386a1f3c42f25c48f9e89722934eee6d413dccbfc415c80ff0a206e0e52b';
+const PUBLICATION_MIGRATION_DIGEST = 'f2e98e55765ac3616b2d4ca651b9da415301d38a7949df3748459ddec6ec509a';
+
 function invariant(condition, message) {
   if (!condition) throw new Error(`Geospatial verification failed: ${message}`);
 }
@@ -36,15 +42,51 @@ function rootPath(root) {
 }
 
 async function readJson(root, relativePath) {
-  return JSON.parse(await readFile(path.join(root, relativePath), 'utf8'));
+  return JSON.parse(await readRepositoryFile(root, relativePath));
+}
+
+function contained(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+async function checkedRepositoryEntry(root, relativePath, expectedType) {
+  const repository = await realpath(root);
+  const absolute = path.resolve(root, relativePath);
+  invariant(contained(path.resolve(root), absolute), `${relativePath} escapes repository`);
+  const stats = await lstat(absolute);
+  invariant(!stats.isSymbolicLink(), `${relativePath} must not be a symbolic link`);
+  invariant(expectedType === 'directory' ? stats.isDirectory() : stats.isFile(),
+    `${relativePath} must be a ${expectedType === 'directory' ? 'directory' : 'regular file'}`);
+  const resolved = await realpath(absolute);
+  invariant(contained(repository, resolved), `${relativePath} resolves outside repository`);
+  return resolved;
+}
+
+export async function assertRegularContainedFile(root, relativePath) {
+  return checkedRepositoryEntry(rootPath(root), relativePath, 'file');
+}
+
+async function readRepositoryFile(root, relativePath) {
+  return readFile(await assertRegularContainedFile(root, relativePath), 'utf8');
 }
 
 async function filesBelow(root, relativeDirectory) {
-  const directory = path.join(root, relativeDirectory);
-  const entries = await readdir(directory, { withFileTypes: true });
-  const nested = await Promise.all(entries.map(async entry => {
-    const relative = path.posix.join(relativeDirectory.replaceAll('\\', '/'), entry.name);
-    return entry.isDirectory() ? filesBelow(root, relative) : [relative];
+  const directory = await checkedRepositoryEntry(root, relativeDirectory, 'directory');
+  const entries = await readdir(directory);
+  const nested = await Promise.all(entries.sort().map(async name => {
+    const relative = path.posix.join(relativeDirectory.replaceAll('\\', '/'), name);
+    const absolute = path.join(directory, name);
+    const stats = await lstat(absolute);
+    invariant(!stats.isSymbolicLink(), `${relative} must not be a symbolic link`);
+    if (stats.isDirectory()) {
+      invariant(!/\.(?:[cm]?[jt]sx?|css|html?)$/iu.test(name), `${relative} must be a regular file`);
+      return filesBelow(root, relative);
+    }
+    invariant(stats.isFile(), `${relative} must be a regular file`);
+    const resolved = await realpath(absolute);
+    invariant(contained(await realpath(root), resolved), `${relative} resolves outside repository`);
+    return [relative];
   }));
   return nested.flat();
 }
@@ -258,15 +300,73 @@ function cssReferences(source) {
   return values;
 }
 
+function literalAttributes(tag) {
+  const values = [];
+  const pattern = /\b(src|href|style)\s*=\s*(?:\{\s*)?(['"])(.*?)\2(?:\s*\})?/gisu;
+  for (const match of tag.matchAll(pattern)) values.push({ name: match[1].toLowerCase(), value: match[3] });
+  return values;
+}
+
+function markupReferences(source, { javascript = false } = {}) {
+  const values = [];
+  for (let index = 0; index < source.length;) {
+    if (source.startsWith('<!--', index)) {
+      const end = source.indexOf('-->', index + 4);
+      index = end === -1 ? source.length : end + 3;
+      continue;
+    }
+    if (javascript && (source.startsWith('//', index) || source.startsWith('/*', index))) {
+      index = skipSpaceAndComments(source, index);
+      continue;
+    }
+    if (javascript && (source[index] === "'" || source[index] === '"' || source[index] === '`')) {
+      index = source[index] === '`' ? scanTemplateLiteral(source, index).end : skipQuoted(source, index).end;
+      continue;
+    }
+    if (source[index] !== '<' || !/[A-Za-z]/u.test(source[index + 1] ?? '')) { index += 1; continue; }
+    let end = index + 1;
+    let quote;
+    while (end < source.length) {
+      if (quote) {
+        if (source[end] === '\\') end += 2;
+        else if (source[end] === quote) { quote = undefined; end += 1; }
+        else end += 1;
+      } else if (source[end] === "'" || source[end] === '"') { quote = source[end]; end += 1; }
+      else if (source[end] === '>') break;
+      else end += 1;
+    }
+    if (end >= source.length) break;
+    const tag = source.slice(index, end + 1);
+    const tagName = /^<([A-Za-z][\w-]*)/u.exec(tag)?.[1]?.toLowerCase();
+    for (const attribute of literalAttributes(tag)) {
+      if ((tagName === 'script' && attribute.name === 'src')
+        || (tagName === 'link' && attribute.name === 'href')) values.push(attribute.value);
+      if (attribute.name === 'style') values.push(...cssReferences(attribute.value));
+    }
+    const closing = tagName === 'style' || tagName === 'script'
+      ? source.toLowerCase().indexOf(`</${tagName}>`, end + 1)
+      : -1;
+    if (closing !== -1) {
+      const body = source.slice(end + 1, closing);
+      values.push(...(tagName === 'style' ? cssReferences(body) : javascriptModuleSpecifiers(body)));
+      index = closing + tagName.length + 3;
+    } else index = end + 1;
+  }
+  return values;
+}
+
 function isLeafletPackage(value) {
   const normalized = value.trim().toLowerCase().replace(/^~/u, '');
+  const packageSegment = segment => /^(?:react-)?leaflet(?:@[^/]+)?$/u.test(segment);
   if (/^(?:react-)?leaflet(?:\/|$)/u.test(normalized)
     || /(?:^|\/)node_modules\/(?:react-)?leaflet(?:\/|$)/u.test(normalized)) return true;
+  if (!/^[a-z][a-z\d+.-]*:/u.test(normalized)
+    && normalized.split('/').filter(Boolean).some(packageSegment)) return true;
   try {
     const url = new URL(normalized.startsWith('//') ? `https:${normalized}` : normalized);
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
     return url.pathname.split('/').filter(Boolean).some(segment => {
-      try { return /^(?:react-)?leaflet(?:@[^/]+)?$/u.test(decodeURIComponent(segment).toLowerCase()); }
+      try { return packageSegment(decodeURIComponent(segment).toLowerCase()); }
       catch { return false; }
     });
   } catch {
@@ -279,59 +379,117 @@ export async function assertNoLeafletReferences(source, relativePath) {
     invariant(!cssReferences(source).some(isLeafletPackage), `${relativePath} references Leaflet`);
     return;
   }
-  invariant(!javascriptModuleSpecifiers(source).some(isLeafletPackage), `${relativePath} imports Leaflet`);
+  if (/\.html?$/iu.test(relativePath)) {
+    invariant(!markupReferences(source).some(isLeafletPackage), `${relativePath} references Leaflet`);
+    return;
+  }
+  const references = [...javascriptModuleSpecifiers(source), ...markupReferences(source, { javascript: true })];
+  invariant(!references.some(isLeafletPackage), `${relativePath} imports Leaflet`);
+}
+
+export async function scanWebAssets(repositoryRoot) {
+  const root = rootPath(repositoryRoot);
+  const candidates = ['web/index.html'];
+  for (const directory of ['web/src', 'web/public']) candidates.push(...await filesBelow(root, directory));
+  for (const relativePath of candidates) {
+    if (!/\.(?:[cm]?[jt]sx?|css|html?)$/iu.test(relativePath)) continue;
+    await assertNoLeafletReferences(await readRepositoryFile(root, relativePath), relativePath);
+  }
+  return Object.freeze({ filesChecked: candidates.length });
+}
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === 'object') return Object.fromEntries(
+    Object.keys(value).sort().map(key => [key, canonicalValue(value[key])]),
+  );
+  return value;
+}
+
+function semanticDigest(value) {
+  return createHash('sha256').update(JSON.stringify(canonicalValue(value))).digest('hex');
+}
+
+function assertColumnContract(table, expectedColumn) {
+  const actual = table?.columns?.find(column => column.name === expectedColumn.name);
+  invariant(actual, `${table?.name ?? 'schema'} is missing ${expectedColumn.name}`);
+  for (const [key, expected] of Object.entries(expectedColumn)) {
+    invariant(JSON.stringify(actual[key]) === JSON.stringify(expected),
+      `${table.name}.${expectedColumn.name}.${key} does not match the migration after-state`);
+  }
+}
+
+export function validatePublicationMigration({ schema, migration, migrationState, after }) {
+  invariant(semanticDigest(migration) === PUBLICATION_MIGRATION_DIGEST, 'publication migration artifact was mutated');
+  invariant(semanticDigest(after) === PUBLICATION_AFTER_DIGEST, 'publication migration after-state artifact was mutated');
+  invariant(after.migrationId === migration.migrationId && migrationState.migrationId === migration.migrationId,
+    'migration state or after-state does not match the migration artifact');
+  invariant(after.fromTableCount === migration.fromTableCount && after.toTableCount === migration.toTableCount,
+    'migration before/after table counts do not match');
+  invariant(migration.fromTableCount + 1 === migration.toTableCount, 'migration must add exactly one table');
+  invariant(after.newTable.name === migration.newTable, 'migration new table does not match its immutable after-state');
+  const alteredColumnNames = after.alteredTables.flatMap(table => table.columns.map(column => column.name)).sort();
+  invariant(JSON.stringify(alteredColumnNames) === JSON.stringify([...migration.nullableRunColumns].sort()),
+    'migration altered columns do not match its immutable after-state');
+
+  const tables = new Map(schema.tables?.map(table => [table.name, table]));
+  invariant(migration.legacyRequiredTables.length === migration.fromTableCount, 'migration legacy table count is inconsistent');
+  invariant(migration.legacyRequiredTables.every(table => tables.has(table)), 'current schema lost a migration baseline table');
+  const currentNewTable = tables.get(after.newTable.name);
+  invariant(currentNewTable, `current schema is missing ${after.newTable.name}`);
+  for (const key of ['name', 'zone', 'businessId']) {
+    invariant(currentNewTable[key] === after.newTable[key], `${after.newTable.name}.${key} does not match the migration after-state`);
+  }
+  for (const column of after.newTable.columns) assertColumnContract(currentNewTable, column);
+  for (const expectedTable of after.alteredTables) {
+    const currentTable = tables.get(expectedTable.name);
+    invariant(currentTable, `current schema is missing ${expectedTable.name}`);
+    for (const column of expectedTable.columns) assertColumnContract(currentTable, column);
+  }
+  invariant(['NOT_APPLIED', 'APPLIED', 'VERIFIED'].includes(migrationState.status), 'migration state status is unsupported');
+  return Object.freeze({ schemaTableCount: tables.size });
 }
 
 export async function verifyGeospatial(repositoryRoot) {
   const root = rootPath(repositoryRoot);
-  const [repository, web, schema, migration, migrationState] = await Promise.all([
+  const [repository, web, schema, migration, migrationState, after] = await Promise.all([
     readJson(root, 'package.json'),
     readJson(root, 'web/package.json'),
     readJson(root, 'schema/catalyst/intelligence-schema.json'),
     readJson(root, 'schema/catalyst/migrations/2026-07-22-publication-pointer.json'),
     readJson(root, 'schema/catalyst/migrations/2026-07-22-publication-pointer.state.json'),
+    readJson(root, 'schema/catalyst/migrations/2026-07-22-publication-pointer.after.json'),
   ]);
 
   assertNoLeafletDependency(repository, 'root package');
   assertNoLeafletDependency(web, 'web package');
-  for (const relativePath of await filesBelow(root, 'web/src')) {
-    if (!/\.(?:[cm]?[jt]sx?|css)$/u.test(relativePath)) continue;
-    await assertNoLeafletReferences(await readFile(path.join(root, relativePath), 'utf8'), relativePath);
-  }
+  await scanWebAssets(root);
 
-  await Promise.all(REQUIRED_FILES.map(relativePath => access(path.join(root, relativePath))));
+  await Promise.all(REQUIRED_FILES.map(relativePath => assertRegularContainedFile(root, relativePath)));
   invariant(REQUIRED_FILES.every(relativePath => !relativePath.startsWith('functions/')),
     'architecture checks must target canonical source, not generated Functions');
 
-  const router = await readFile(path.join(root, 'web/src/app/router.jsx'), 'utf8');
+  const router = await readRepositoryFile(root, 'web/src/app/router.jsx');
   invariant(/<Route\s+path=['"]\/geospatial['"]\s+element=/u.test(router), '/geospatial route is not declared');
   invariant(/lazy\(\(\)\s*=>\s*import\(['"]\.\.\/features\/geospatial\/GeospatialStudio\.jsx['"]\)\)/u.test(router),
     'Geospatial Studio must remain lazy-loaded');
 
-  const canvas = await readFile(path.join(root, 'web/src/features/geospatial/MapCanvas.jsx'), 'utf8');
+  const canvas = await readRepositoryFile(root, 'web/src/features/geospatial/MapCanvas.jsx');
   invariant(/import\s*\{\s*Protocol\s*\}\s*from\s*['"]pmtiles['"]/u.test(canvas), 'PMTiles Protocol import is missing');
   invariant(/Symbol\.for\(['"]ksp\.geospatial\.pmtiles-protocol['"]\)/u.test(canvas), 'PMTiles singleton guard is missing');
   invariant(/addProtocol\(['"]pmtiles['"]\s*,/u.test(canvas), 'pmtiles:// protocol registration is missing');
 
+  const migrationContract = validatePublicationMigration({ schema, migration, migrationState, after });
   const tables = new Set(schema.tables?.map(table => table.name));
-  invariant(tables.size === migration.toTableCount, 'current schema table count does not match migration contract');
   invariant(tables.has('CFG_MapView') && tables.has('CFG_MapViewVersion'), 'map-view schema is incomplete');
-  invariant(tables.has(migration.newTable), 'publication-state table is missing from current schema');
-  invariant(migration.legacyRequiredTables.every(table => tables.has(table)), 'migration references a missing legacy table');
-  invariant(migration.legacyRequiredTables.length === migration.fromTableCount, 'migration legacy table count is inconsistent');
-  invariant(migration.fromTableCount + 1 === migration.toTableCount, 'migration must add exactly the publication table');
-  invariant([...tables].every(table => table === migration.newTable || migration.legacyRequiredTables.includes(table)),
-    'current schema contains a table outside the migration contract');
-  invariant(migrationState.migrationId === migration.migrationId, 'migration state does not match the migration manifest');
-  invariant(['NOT_APPLIED', 'APPLIED', 'VERIFIED'].includes(migrationState.status), 'migration state status is unsupported');
 
   invariant(repository.scripts?.['web:build']?.includes('npm run web:bundle:check'), 'web build does not enforce bundle budgets');
-  const budgetModule = await import(pathToFileURL(path.join(root, 'scripts/ci/check-web-bundle.mjs')).href);
+  const budgetModule = await import(pathToFileURL(await assertRegularContainedFile(root, 'scripts/ci/check-web-bundle.mjs')).href);
   invariant(budgetModule.BUDGETS?.mainGzip <= 100 * 1024, 'main bundle budget is too large');
   invariant(budgetModule.BUDGETS?.studioGzip <= 100 * 1024, 'Studio bundle budget is too large');
   invariant(budgetModule.BUDGETS?.chunkGzip <= 300 * 1024, 'chunk bundle budget is too large');
 
-  const buildModule = await import(pathToFileURL(path.join(root, 'scripts/catalyst/build-functions.mjs')).href);
+  const buildModule = await import(pathToFileURL(await assertRegularContainedFile(root, 'scripts/catalyst/build-functions.mjs')).href);
   const functionRoot = await mkdtemp(path.join(tmpdir(), 'ksp-geospatial-ci-'));
   try {
     const manifest = buildModule.buildFunctionBundle({ target: 'api', repositoryRoot: root, functionRoot });
@@ -345,7 +503,7 @@ export async function verifyGeospatial(repositoryRoot) {
   }
 
   return Object.freeze({
-    schemaTableCount: tables.size,
+    schemaTableCount: migrationContract.schemaTableCount,
     requiredFilesChecked: REQUIRED_FILES.length,
     bundleBudgetWired: true,
     generatedFunctionPathsChecked: 0,

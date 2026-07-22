@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0.0",
+  "migrationId": "2026-07-22-publication-pointer-v1",
+  "fromTableCount": 31,
+  "toTableCount": 32,
+  "newTable": {
+    "name": "INT_PublicationState",
+    "zone": "INTELLIGENCE",
+    "businessId": "PublicationStateID",
+    "columns": [
+      {"name":"PublicationStateID","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+      {"name":"PublicationGeneration","origin":"SYSTEM","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+      {"name":"CurrentRunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":false,"unique":false,"indexed":true,"pii":false},
+      {"name":"CurrentRunsJSON","origin":"SYSTEM","type":"text","mandatory":true,"pii":false},
+      {"name":"PointerVersion","origin":"SYSTEM","type":"int","minimum":1,"mandatory":true,"pii":false},
+      {"name":"PublishedAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
+      {"name":"LastReservedAttemptSequence","origin":"SYSTEM","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+      {"name":"LatestAttemptSequence","origin":"SYSTEM","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+      {"name":"LatestAttemptStatus","origin":"SYSTEM","type":"varchar","maxLength":24,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+      {"name":"LatestAttemptRunGroupID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":false,"unique":false,"indexed":true,"pii":false},
+      {"name":"LatestAttemptAt","origin":"SYSTEM","type":"datetime","mandatory":false,"pii":false},
+      {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+    ]
+  },
+  "alteredTables": [
+    {
+      "name": "INT_AnalysisRun",
+      "columns": [
+        {"name":"RequestHash","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"PublicationGeneration","origin":"SYSTEM","type":"bigint","mandatory":false,"unique":false,"indexed":true,"pii":false},
+        {"name":"AttemptSequence","origin":"SYSTEM","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false}
+      ]
+    }
+  ]
+}

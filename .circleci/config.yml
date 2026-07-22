@@ -15,6 +15,7 @@ jobs:
           paths:
             - ~/.npm
       - run: npm run verify
+      - run: npm run compat:node18
       - run: npm run geospatial:verify
 
 workflows:
