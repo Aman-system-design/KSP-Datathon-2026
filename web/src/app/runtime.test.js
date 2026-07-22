@@ -4,11 +4,12 @@ import { governedAppLocation, personaSearch, readRuntime } from './runtime.js';
 
 const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
 
-test('Slate runtime accepts only the approved Catalyst Development Function origin', () => {
-  expect(readRuntime({ VITE_API_BASE: developmentApi })).toEqual({
-    apiBase: developmentApi,
-    authOrigin: 'https://kspdatathon2026-60077844198.development.catalystserverless.in',
+test('Slate runtime uses only the same-origin Catalyst Function route', () => {
+  expect(readRuntime({})).toEqual({
+    apiBase: '/server/crime_intelligence_api',
+    authOrigin: '',
   });
+  expect(() => readRuntime({ VITE_API_BASE: developmentApi })).toThrow(TypeError);
   expect(() => readRuntime({ VITE_API_BASE: 'https://example.com/server/crime_intelligence_api' })).toThrow(TypeError);
 });
 

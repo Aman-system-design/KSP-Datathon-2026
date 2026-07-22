@@ -19,8 +19,6 @@ import { governedAppLocation, readDemoPersona, readRuntime } from './runtime.js'
 
 const GeospatialStudio = lazy(() => import('../features/geospatial/GeospatialStudio.jsx'));
 
-const fallbackWorkspace = { role: 'LOADING', availableDashboards: [], alertSummary: { total: 0 }, syntheticData: true };
-
 function useLoad(loader, dependencies = []) {
   const [state, setState] = useState({ loading: true });
   useEffect(() => {
@@ -88,6 +86,10 @@ export class GeospatialRouteErrorBoundary extends Component {
       <button type="button" onClick={() => (this.props.reload ?? (() => globalThis.location?.reload?.()))()}>Reload map workspace</button>
     </div>;
   }
+}
+
+function validWorkspace(value) {
+  return value && typeof value.role === 'string' && value.role !== 'LOADING';
 }
 
 export function GeospatialPage({ api, Studio = GeospatialStudio, reload }) {
@@ -184,10 +186,11 @@ export function Application({ api: providedApi }) {
   }), [providedApi, demoPersona, runtime.apiBase, runtime.authOrigin, auth]);
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
-  if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired loginUrl={auth.loginUrl} />;
+  if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
   if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
   if (state.error) return <main className="application-gate"><Failure error={state.error} /></main>;
-  const workspace = state.data ?? fallbackWorkspace;
+  if (!validWorkspace(state.data)) return <main className="application-gate"><Failure /></main>;
+  const workspace = state.data;
   if (location.pathname === '/command-centre') {
     if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" />;
     return <CommandCentrePage api={api} workspace={workspace} />;

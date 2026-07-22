@@ -1,13 +1,5 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
 
-export function loadCatalystInit(document = globalThis.document, source = '/__catalyst/sdk/init.js') {
-  if (!document || document.querySelector('script[data-catalyst-init]')) return;
-  const script = document.createElement('script');
-  script.src = source;
-  script.dataset.catalystInit = 'true';
-  document.head.append(script);
-}
-
 export function createCatalystAuth({
   catalyst,
   location = globalThis.location,

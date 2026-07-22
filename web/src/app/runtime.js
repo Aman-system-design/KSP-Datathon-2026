@@ -1,10 +1,8 @@
-const DEVELOPMENT_API = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
-
 export function readRuntime(environment = import.meta.env) {
   const apiBase = environment.VITE_API_BASE ?? '/server/crime_intelligence_api';
   const relative = apiBase.startsWith('/') && !apiBase.startsWith('//');
-  if (!relative && apiBase !== DEVELOPMENT_API) throw new TypeError('VITE_API_BASE is not an approved Catalyst endpoint');
-  return Object.freeze({ apiBase, authOrigin: relative ? '' : new URL(apiBase).origin });
+  if (!relative) throw new TypeError('VITE_API_BASE must be a same-origin Catalyst endpoint');
+  return Object.freeze({ apiBase, authOrigin: '' });
 }
 
 const demoPersonas = new Set(['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']);

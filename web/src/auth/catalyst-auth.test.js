@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { createCatalystAuth, loadCatalystInit } from './catalyst-auth.js';
+import { createCatalystAuth } from './catalyst-auth.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -66,17 +68,13 @@ test('Slate authentication uses the approved Catalyst Function origin for hosted
   expect(assign).toHaveBeenCalledWith(`${authOrigin}/__catalyst/auth/login`);
 });
 
-test('loads the same-origin Catalyst initializer once', () => {
-  loadCatalystInit(document);
-  loadCatalystInit(document);
-  const scripts = document.querySelectorAll('script[data-catalyst-init]');
-  expect(scripts).toHaveLength(1);
-  expect(scripts[0]).toHaveAttribute('src', '/__catalyst/sdk/init.js');
-});
+test('web entry loads Catalyst v4 and same-origin initialization before the application module', () => {
+  const html = readFileSync('index.html', 'utf8');
+  const sdk = html.indexOf('https://static.zohocdn.com/catalyst/sdk/js/4.6.2/catalystWebSDK.js');
+  const init = html.indexOf('/__catalyst/sdk/init.js');
+  const application = html.indexOf('/src/main.jsx');
 
-test('Slate loads Catalyst initialization from the approved Function origin', () => {
-  document.querySelectorAll('script[data-catalyst-init]').forEach(script => script.remove());
-  const source = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/__catalyst/sdk/init.js';
-  loadCatalystInit(document, source);
-  expect(document.querySelector('script[data-catalyst-init]')).toHaveAttribute('src', source);
+  expect(sdk).toBeGreaterThan(-1);
+  expect(init).toBeGreaterThan(sdk);
+  expect(application).toBeGreaterThan(init);
 });

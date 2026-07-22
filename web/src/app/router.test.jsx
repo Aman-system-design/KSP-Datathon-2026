@@ -50,11 +50,24 @@ test('alerts page treats a missing collection as an empty authorized result', as
 });
 
 test('unauthenticated workspace renders native Catalyst sign-in without protected navigation', async () => {
+  const signIn = vi.fn();
+  vi.stubGlobal('catalyst', { auth: { signIn } });
   const api = { get: vi.fn(async () => { throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Sign in with Catalyst' })).toHaveAttribute('href', '/__catalyst/auth/login');
+  expect(screen.getByLabelText('Catalyst sign in')).toHaveAttribute('id', 'loginDivElementId');
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+  expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
+});
+
+test('missing workspace data fails closed instead of rendering a loading persona', async () => {
+  const api = { get: vi.fn(async () => ({ data: null })) };
+  render(<MemoryRouter><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByText('Intelligence is unavailable')).toBeInTheDocument();
+  expect(screen.queryByText('Authorized workspace unavailable')).not.toBeInTheDocument();
+  expect(screen.queryByText('Role Loading')).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
 
@@ -127,6 +140,8 @@ test('legacy maps route redirects to the canonical geospatial workspace', async 
 });
 
 test('governed persona reaches workspace and Studio API requests through the same identity header', async () => {
+  const generateAuthToken = vi.fn();
+  vi.stubGlobal('catalyst', { auth: { generateAuthToken } });
   const fetch = vi.fn(async (url, options) => {
     const path = String(url).replace('/server/crime_intelligence_api', '');
     const data = path === '/v1/workspace' ? analystWorkspace
@@ -145,6 +160,7 @@ test('governed persona reaches workspace and Studio API requests through the sam
   expect(screen.getByTestId('location')).toHaveTextContent('/geospatial?persona=CRIME_ANALYST');
   expect(fetch).toHaveBeenCalledTimes(4);
   for (const [, options] of fetch.mock.calls) expect(options.headers['X-Demo-Persona']).toBe('CRIME_ANALYST');
+  expect(generateAuthToken).not.toHaveBeenCalled();
 });
 
 test('geospatial route failure is contained and offers a safe reload without blanking its parent shell', () => {
