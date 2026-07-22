@@ -40,14 +40,15 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the forty-one platform operations', () => {
-  assert.equal(API_OPERATIONS.length, 41);
+test('the public contract contains exactly the forty-two platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 42);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
     'GET /v1/networks/{nodeId}', 'GET /v1/district-context',
     'GET /v1/workspace', 'GET /v1/report-sources',
     'GET /v1/geospatial/datasets', 'POST /v1/geospatial/layers/execute',
+    'GET /v1/geospatial/freshness',
     'GET /v1/geospatial/views', 'POST /v1/geospatial/views',
     'GET /v1/geospatial/views/{mapViewId}', 'PATCH /v1/geospatial/views/{mapViewId}',
     'GET /v1/intelligence-runs', 'POST /v1/intelligence-runs',
@@ -62,6 +63,23 @@ test('the public contract contains exactly the forty-one platform operations', (
     'POST /v1/alerts/{alertId}/acknowledge', 'POST /v1/alerts/{alertId}/assign',
     'POST /v1/alerts/{alertId}/analyst-conclusion', 'POST /v1/alerts/{alertId}/outcome',
   ]);
+});
+
+test('geospatial freshness is an authenticated audited resource with no feature payload', async () => {
+  const audits = [];
+  const dispatch = harness({
+    auditServiceOverride: { async record(event) { audits.push(event); } },
+    resourceServicesOverride: {
+      async getGeospatialFreshness({ access, requestId }) {
+        assert.equal(access.actions.includes('READ_HOTSPOT'), true);
+        return { data: { layers: [{ datasetId: 'hotspots', runGroupId: 'RUN-1', state: 'CURRENT' }] }, meta: { requestId } };
+      },
+    },
+  });
+  const response = await dispatch({ request: get('/v1/geospatial/freshness'), currentUser: user('CAT-DISTRICT') });
+  assert.equal(response.status, 200);
+  assert.equal(audits.at(-1).eventType, 'SENSITIVE_READ');
+  assert.doesNotMatch(JSON.stringify(response), /features|evidenceCaseIds|centroid/iu);
 });
 
 test('geospatial execution is audited as a sensitive read', async () => {

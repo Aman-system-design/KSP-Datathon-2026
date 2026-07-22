@@ -46,8 +46,8 @@ export function evaluateCatalystPreflight({
 
   invariant(sourceSchema?.tables?.length === 29, 'source schema must contain exactly 29 tables');
   invariant(intelligenceSchema?.tables?.length === 28, 'intelligence schema must contain exactly 28 tables');
-  invariant(apiOperations?.length === 41, 'API contract must contain exactly 41 operations');
-  invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 41, 'API operations must be unique');
+  invariant(apiOperations?.length === 42, 'API contract must contain exactly 42 operations');
+  invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 42, 'API operations must be unique');
   invariant(versionAtLeast(cliVersion, projectConfig.cliMinimumVersion), `Catalyst CLI must be at least ${projectConfig.cliMinimumVersion}`);
 
   const clean = String(gitStatus ?? '').trim() === '';

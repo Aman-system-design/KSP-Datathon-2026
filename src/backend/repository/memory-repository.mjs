@@ -50,6 +50,18 @@ export class MemoryIntelligenceRepository {
     return clone(selectCurrentRunGroup(this.#state.runGroups.flatMap(({ runs }) => runs)));
   }
 
+  async getRefreshStatus() {
+    const currentRunGroup = await this.getCurrentRunGroup();
+    const latest = (this.#state.refreshBatches ?? []).at(-1);
+    return clone({
+      currentRunGroup,
+      latestAttempt: latest ? {
+        batchKey: latest.BatchKey, status: latest.Status, runGroupId: latest.RunGroup?.RunGroupID,
+        createdAt: latest.CreatedAt ?? null, completedAt: latest.CompletedAt ?? null,
+      } : null,
+    });
+  }
+
   async listAnalysisRuns() { return clone(this.#state.runGroups.flatMap(({ runs }) => runs)); }
 
   async createRunRequest(request) {

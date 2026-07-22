@@ -6,6 +6,7 @@ import { DATASET_CATALOG } from './dataset-catalog.mjs';
 const EXECUTION_KEYS = new Set(['layer', 'runtime']);
 const RENDER_USES = new Set(['display', 'label', 'weight', 'color', 'size']);
 const SEMANTIC_LIMIT = 200;
+const EVIDENCE_CASE_LIMIT = 200;
 const MAX_PAGES = Math.ceil(MAX_FEATURES / SEMANTIC_LIMIT);
 
 function plain(value) {
@@ -45,6 +46,11 @@ function projectProperties(row, plan, dataset) {
     if (field === 'id' || !dataset.fields[field]?.uses.some(use => RENDER_USES.has(use))) continue;
     const value = valueAt(row, field);
     if (value !== undefined) properties[field] = structuredClone(value);
+  }
+  if (Array.isArray(row.evidenceCaseIds)) {
+    properties.evidenceCaseIds = row.evidenceCaseIds
+      .filter(value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(value))
+      .slice(0, EVIDENCE_CASE_LIMIT);
   }
   return properties;
 }
@@ -109,11 +115,28 @@ function snapshotFingerprint(meta) {
   });
 }
 
-function metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated }) {
+function freshnessState(status, runGroupId) {
+  const currentId = status?.currentRunGroup?.RunGroupID;
+  if (currentId !== runGroupId) return 'STALE';
+  const latest = status?.latestAttempt;
+  if (!latest || latest.runGroupId === currentId || latest.status === 'COMPLETED') return 'CURRENT';
+  if (latest.status === 'FAILED_RETRYABLE' || latest.status === 'FAILED_FINAL') return 'REFRESH_FAILED';
+  return 'REFRESHING';
+}
+
+function runMetadata(status, runGroupId) {
+  const group = status?.currentRunGroup?.RunGroupID === runGroupId ? status.currentRunGroup : undefined;
+  const run = group?.runs?.find(row => row.AnalysisType === 'HOTSPOT') ?? group?.runs?.[0];
+  return { group, run };
+}
+
+function metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated, refreshStatus }) {
   const sourceMeta = plain(envelope.meta) ? structuredClone(envelope.meta) : {};
   const limitations = [...new Set([
     ...(Array.isArray(sourceMeta.limitations) ? sourceMeta.limitations : []),
     ...rows.flatMap(row => Array.isArray(row.limitations) ? row.limitations : []),
+    ...(rows.some(row => Array.isArray(row.evidenceCaseIds) && row.evidenceCaseIds.length > EVIDENCE_CASE_LIMIT)
+      ? ['EVIDENCE_CASE_IDS_TRUNCATED'] : []),
     ...(scanTruncated ? ['GEOSPATIAL_SCAN_LIMIT_REACHED'] : []),
   ])].sort();
   const recordMethodVersion = rows.find(row => typeof row.version === 'string')?.version;
@@ -122,20 +145,32 @@ function metadata({ envelope, rows, features, omittedFeatureCount, clock, reques
     if (!(generatedAt instanceof Date) || !Number.isFinite(generatedAt.getTime())) throw new TypeError('clock must return a valid Date');
     sourceMeta.generatedAt = generatedAt.toISOString();
   }
+  const runGroupId = sourceMeta.runGroupId ?? sourceMeta.analysisRunId;
+  const { group, run } = runMetadata(refreshStatus, runGroupId);
+  const observationStart = sourceMeta.observationPeriod?.from ?? run?.ObservationStart;
+  const observationEnd = sourceMeta.observationPeriod?.to ?? run?.ObservationEnd;
+  const engineVersion = sourceMeta.engineVersion ?? sourceMeta.methodVersion ?? run?.EngineVersion ?? recordMethodVersion;
   return deepFreeze({
     ...sourceMeta,
     ...(sourceMeta.requestId && sourceMeta.requestId !== requestId ? { sourceRequestId: sourceMeta.requestId } : {}),
-    requestId, runGroupId: sourceMeta.analysisRunId,
+    requestId, runGroupId,
+    publishedAt: sourceMeta.publishedAt ?? group?.PublishedAt ?? run?.PublishedAt ?? null,
+    observationStart: observationStart ?? null, observationEnd: observationEnd ?? null,
     observationWindow: sourceMeta.observationPeriod,
-    ...(sourceMeta.methodVersion ? { engineVersion: sourceMeta.methodVersion } : {}),
+    engineVersion: engineVersion ?? null,
     ...(recordMethodVersion ? { recordMethodVersion } : {}),
     sourceRecordCount: rows.length, outputFeatureCount: features.length, omittedFeatureCount,
     resultComplete: !scanTruncated, scanTruncated, limitations,
+    freshnessState: freshnessState(refreshStatus, runGroupId),
   });
 }
 
-export function createGeospatialLayerService({ readServices, clock }) {
-  if (!readServices || typeof clock !== 'function') throw new TypeError('readServices and clock are required');
+export function createGeospatialLayerService({ repository, readServices, clock }) {
+  if (!readServices || typeof clock !== 'function'
+    || typeof repository?.getCurrentRunGroup !== 'function'
+    || typeof repository?.getRefreshStatus !== 'function') {
+    throw new TypeError('repository, readServices and clock are required');
+  }
   const sources = new Map(DATASET_CATALOG.flatMap(dataset => (
     Object.hasOwn(readServices, dataset.service) && typeof readServices[dataset.service] === 'function'
       ? [[dataset.sourceReference, readServices[dataset.service].bind(readServices)]] : []
@@ -148,6 +183,25 @@ export function createGeospatialLayerService({ readServices, clock }) {
       return deepFreeze({
         data: { items }, meta: { requestId, generatedAt: generatedAt.toISOString() },
       });
+    },
+
+    async getFreshness({ access, requestId }) {
+      const status = await repository.getRefreshStatus();
+      const group = status?.currentRunGroup;
+      if (!group) fail('DATA_NOT_READY');
+      const layers = DATASET_CATALOG
+        .filter(dataset => access?.actions?.includes(dataset.requiredAction))
+        .map(dataset => {
+          const run = group.runs.find(row => row.AnalysisType === ({
+            hotspots: 'HOTSPOT', anomalies: 'ANOMALY', areaRisk: 'AREA_RISK', alerts: 'PATTERN',
+          })[dataset.id]) ?? group.runs[0];
+          return {
+            datasetId: dataset.id, version: run.EngineVersion, runGroupId: group.RunGroupID,
+            publishedAt: group.PublishedAt, observationStart: run.ObservationStart,
+            observationEnd: run.ObservationEnd, state: freshnessState(status, group.RunGroupID),
+          };
+        });
+      return deepFreeze({ data: { layers }, meta: { requestId } });
     },
 
     async executeLayer({ access, body, requestId }) {
@@ -210,9 +264,10 @@ export function createGeospatialLayerService({ readServices, clock }) {
         nextToken = returnedToken;
       }
       if (!scanTruncated && features.length === 0 && omittedFeatureCount === rows.length && rows.length > 0) fail('DATA_NOT_READY');
+      const refreshStatus = await repository.getRefreshStatus();
       return deepFreeze({
         data: { type: 'FeatureCollection', features },
-        meta: metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated }),
+        meta: metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated, refreshStatus }),
       });
     },
   });

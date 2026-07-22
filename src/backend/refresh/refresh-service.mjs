@@ -115,7 +115,8 @@ export function createRefreshService({
           EngineVersion: findings.run?.engineVersion ?? '1.0.0', PublishedAt: null,
           SyntheticData: true,
         }));
-        const publishCandidate = runs.map(row => ({ ...row, PublishStatus: 'PUBLISHED', PublishedAt: clock() }));
+        const candidatePublishedAt = clock();
+        const publishCandidate = runs.map(row => ({ ...row, PublishStatus: 'PUBLISHED', PublishedAt: candidatePublishedAt }));
         if (!isCompletePublishedGroup(publishCandidate)) fail('DATA_NOT_READY');
         batch = {
           BatchKey: batchKey, Operation: operation, Status: 'STAGED',
@@ -136,8 +137,15 @@ export function createRefreshService({
         }
       }
       onProgress('REFRESH_BATCH_PUBLISH');
-      const completed = await repository.publishRefreshBatch(batchKey, clock());
-      return publicResult(completed);
+      try {
+        const completed = await repository.publishRefreshBatch(batchKey, clock());
+        return publicResult(completed);
+      } catch (error) {
+        try {
+          await repository.updateRefreshBatch(batchKey, { Status: 'FAILED_RETRYABLE', CompletedAt: clock() });
+        } catch { /* Preserve the publication failure; stale state remains safely unpublished. */ }
+        throw error;
+      }
     },
   });
 }

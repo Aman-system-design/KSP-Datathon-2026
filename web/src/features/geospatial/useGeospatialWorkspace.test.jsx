@@ -340,6 +340,24 @@ describe('useGeospatialWorkspace', () => {
     expect(result.current.layers[0].pendingUpdate?.meta.runGroupId).toBe('RUN-2');
   });
 
+  test('marks retained verified evidence stale when freshness reports a failed publication without re-downloading features', async () => {
+    const freshnessLoader = vi.fn(() => Promise.resolve({
+      data: { layers: [{ datasetId: 'hotspots', runGroupId: 'RUN-1', state: 'REFRESH_FAILED' }] },
+    }));
+    const { api, executions } = apiHarness({ freshnessLoader });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    await act(async () => { executions[0].resolve(execution('RUN-1')); await executions[0].promise; });
+
+    await act(async () => { await result.current.retryFreshness(); });
+    expect(result.current.layers[0].state).toBe('STALE');
+    expect(result.current.layers[0].freshnessState).toBe('REFRESH_FAILED');
+    expect(result.current.visibleFeatures).toHaveLength(1);
+    expect(executions).toHaveLength(1);
+  });
+
   test('holds a new run while evidence is open and replaces it only after explicit acceptance', async () => {
     const { api, executions } = apiHarness();
     const { result } = renderHook(() => useGeospatialWorkspace({ api }));

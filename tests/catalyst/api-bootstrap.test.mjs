@@ -105,8 +105,13 @@ test('API composition serves authorized geospatial catalog and layer execution',
   assert.equal(layer.body.data.type, 'FeatureCollection');
   assert.ok(layer.body.data.features.length > 0);
   assert.match(layer.body.meta.requestId, /^REQ-\d+$/u);
+  const freshness = await application({ method: 'GET', url: '/v1/geospatial/freshness', headers: {}, body: null });
+  assert.equal(freshness.status, 200);
+  assert.deepEqual(freshness.body.data.layers.map(item => item.datasetId), ['hotspots', 'anomalies', 'areaRisk', 'alerts']);
+  assert.ok(freshness.body.data.layers.every(item => item.runGroupId === layer.body.meta.runGroupId));
+  assert.doesNotMatch(JSON.stringify(freshness.body), /features|evidenceCaseIds|centroid/iu);
   assert.ok((await repository.listAuditEvents()).every(row => row.EventType === 'SENSITIVE_READ'));
-  assert.equal(logs.at(-1).requestId, layer.body.meta.requestId);
+  assert.equal(logs.at(-1).requestId, freshness.body.meta.requestId);
 });
 
 test('API composition persists and reads an audited organization-scoped map view', async () => {

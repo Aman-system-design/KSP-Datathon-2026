@@ -391,12 +391,24 @@ export class CatalystIntelligenceRepository {
 
   async listHotspots(options = {}) {
     const rows = await this.#currentRows(TABLES.hotspots, 'HOTSPOT');
-    return page(rows.map(row => ({
-      id: row.HotspotID, areaId: row.AreaID,
-      centroid: { latitude: row.CentroidLatitude, longitude: row.CentroidLongitude },
-      magnitude: row.CaseCount, confidence: row.Severity, method: 'HAVERSINE_DBSCAN',
-      version: row.MethodVersion, limitations: limitations(row.Limitation), synthetic: row.SyntheticData === true,
-    })).sort((left, right) => left.id.localeCompare(right.id)), options);
+    const runRefs = new Set(rows.map(row => String(row.AnalysisRunRef)));
+    const evidence = (await this.#read(TABLES.evidence)).filter(row => runRefs.has(String(row.AnalysisRunRef))
+      && row.FindingType === 'HOTSPOT');
+    return page(rows.map((row) => {
+      const contributing = evidence.filter(item => item.FindingBusinessID === row.HotspotID).map(item => ({
+        caseId: item.SourceBusinessID,
+        unitId: Number(parseJson(item.EvidenceSummary, {}).unitId),
+      }));
+      return {
+        id: row.HotspotID, areaId: row.AreaID,
+        centroid: { latitude: row.CentroidLatitude, longitude: row.CentroidLongitude },
+        magnitude: row.CaseCount, confidence: row.Severity, method: 'HAVERSINE_DBSCAN',
+        version: row.MethodVersion, limitations: limitations(row.Limitation), synthetic: row.SyntheticData === true,
+        evidenceCaseIds: contributing.map(item => item.caseId),
+        evidenceUnits: Object.fromEntries(contributing.filter(item => Number.isInteger(item.unitId))
+          .map(item => [item.caseId, item.unitId])),
+      };
+    }).sort((left, right) => left.id.localeCompare(right.id)), options);
   }
 
   async listAnomalies(options = {}) {
@@ -461,6 +473,31 @@ export class CatalystIntelligenceRepository {
       .map(row => parseJson(row.IndicatorsJSON, {
         unitId: Number(row.UnitID), sourceLabel: row.SourceLabel, limitation: row.Limitation, synthetic: true,
       }));
+  }
+
+  async getRefreshStatus() {
+    const [currentRunGroup, rows] = await Promise.all([
+      this.getCurrentRunGroup(), this.#read(TABLES.runs),
+    ]);
+    const attempts = new Map();
+    for (const row of rows) {
+      if (!row.BatchKey) continue;
+      const attempt = attempts.get(row.BatchKey) ?? [];
+      attempt.push(row);
+      attempts.set(row.BatchKey, attempt);
+    }
+    const latest = [...attempts.entries()].map(([batchKey, group]) => {
+      const failed = group.some(row => row.Status === 'FAILED_RETRYABLE' || row.Status === 'FAILED_FINAL');
+      const published = group.length === 7 && group.every(row => row.Status === 'COMPLETED'
+        && row.PublishStatus === 'PUBLISHED' && typeof row.PublishedAt === 'string');
+      const timestamp = group.map(row => row.CompletedAt ?? row.PublishedAt ?? row.ObservationEnd ?? '').sort().at(-1) ?? '';
+      return {
+        batchKey, status: published ? 'COMPLETED' : failed ? 'FAILED_RETRYABLE' : 'STAGED',
+        runGroupId: group[0]?.RunGroupID, createdAt: timestamp || null,
+        completedAt: published ? group[0]?.PublishedAt ?? timestamp : failed ? timestamp : null,
+      };
+    }).sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0] ?? null;
+    return { currentRunGroup, latestAttempt: latest };
   }
 
   #mapView(row) {
@@ -1071,7 +1108,9 @@ export class CatalystIntelligenceRepository {
       && run.PublishStatus === 'PUBLISHED' && typeof run.PublishedAt === 'string');
     return {
       BatchKey: batchKey, Operation: rows[0].Operation,
-      Status: completed ? 'COMPLETED' : 'STAGED',
+      Status: completed ? 'COMPLETED'
+        : rows.some(row => row.Status === 'FAILED_RETRYABLE') ? 'FAILED_RETRYABLE'
+          : rows.some(row => row.Status === 'FAILED_FINAL') ? 'FAILED_FINAL' : 'STAGED',
       Reconciliation: parseJson(rows[0].ReconciliationJSON, {}),
       Findings: {
         features, hotspots, anomalies, patterns, identityResolutions: repeatSignals,
@@ -1139,20 +1178,29 @@ export class CatalystIntelligenceRepository {
     })));
 
     const patterns = findings.patterns ?? [];
+    const hotspots = findings.hotspots ?? [];
     await this.#ensureMany(TABLES.patterns, patterns.map(pattern => ({
       PatternID: pattern.id, AnalysisRunRef: runRef('PATTERN'), PatternType: pattern.method,
       Title: pattern.title, Confidence: pattern.confidence,
       SignalComponentsJSON: JSON.stringify(pattern), Recommendation: pattern.recommendation,
       MethodVersion: pattern.version, Limitation: (pattern.limitations ?? []).join('|'), SyntheticData: true,
     })));
-    await this.#ensureMany(TABLES.evidence, patterns.flatMap((pattern, patternIndex) => (pattern.evidence ?? []).map((evidence, evidenceIndex) => ({
-      FindingEvidenceID: `EVID-${key}-${patternIndex + 1}-${evidenceIndex + 1}`,
+    const patternEvidence = patterns.flatMap((pattern, patternIndex) => (pattern.evidence ?? []).map((evidence, evidenceIndex) => ({
+      FindingEvidenceID: `EVID-${key}-PAT-${patternIndex + 1}-${evidenceIndex + 1}`,
       AnalysisRunRef: runRef('PATTERN'), FindingType: 'PATTERN', FindingBusinessID: pattern.id,
       SourceEntity: 'CaseMaster', SourceBusinessID: evidence.caseId, EvidenceLabel: 'SOURCE_CASE',
       EvidenceSummary: JSON.stringify(evidence), MethodVersion: pattern.version, SyntheticData: true,
-    }))));
+    })));
+    const hotspotEvidence = hotspots.flatMap((hotspot, hotspotIndex) => (hotspot.evidenceCaseIds ?? []).map((caseId, evidenceIndex) => ({
+      FindingEvidenceID: `EVID-${key}-HOT-${hotspotIndex + 1}-${evidenceIndex + 1}`,
+      AnalysisRunRef: runRef('HOTSPOT'), FindingType: 'HOTSPOT', FindingBusinessID: hotspot.id,
+      SourceEntity: 'CaseMaster', SourceBusinessID: caseId, EvidenceLabel: 'CONTRIBUTING_CASE',
+      EvidenceSummary: JSON.stringify({ caseId, unitId: hotspot.evidenceUnits?.[caseId] ?? null }),
+      MethodVersion: hotspot.version, SyntheticData: true,
+    })));
+    await this.#ensureMany(TABLES.evidence, [...patternEvidence, ...hotspotEvidence]);
 
-    await this.#ensureMany(TABLES.hotspots, (findings.hotspots ?? []).map(hotspot => ({
+    await this.#ensureMany(TABLES.hotspots, hotspots.map(hotspot => ({
       HotspotID: hotspot.id, AnalysisRunRef: runRef('HOTSPOT'),
       AreaID: String(Object.values(hotspot.evidenceUnits ?? {})[0] ?? 'UNKNOWN'),
       CentroidLatitude: hotspot.centroid.latitude, CentroidLongitude: hotspot.centroid.longitude,

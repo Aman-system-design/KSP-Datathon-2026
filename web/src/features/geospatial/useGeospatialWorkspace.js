@@ -218,6 +218,17 @@ export function useGeospatialWorkspace({
       const response = await api.get('/v1/geospatial/freshness');
       setFreshnessError(null);
       const updates = Array.isArray(response?.data?.layers) ? response.data.layers : [];
+      setLayers(current => current.map(layer => {
+        const update = updates.find(item => item.datasetId === layer.datasetId);
+        if (!update) return layer;
+        if (update.state === 'REFRESH_FAILED' && layer.featureCollection?.features?.length > 0) {
+          return { ...layer, state: 'STALE', freshnessState: update.state };
+        }
+        if (update.state === 'CURRENT' && layer.freshnessState === 'REFRESH_FAILED') {
+          return { ...layer, state: nextStateFor(layer.featureCollection), freshnessState: update.state };
+        }
+        return { ...layer, freshnessState: update.state };
+      }));
       for (const layer of layersRef.current) {
         const update = updates.find(item => item.datasetId === layer.datasetId);
         const effectiveRunGroupId = layer.pendingUpdate?.meta?.runGroupId ?? layer.meta?.runGroupId;

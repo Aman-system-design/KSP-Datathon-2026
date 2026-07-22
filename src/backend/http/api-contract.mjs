@@ -11,6 +11,7 @@ export const API_OPERATIONS = Object.freeze([
   Object.freeze({ method: 'GET', path: '/v1/report-sources', kind: 'resource', service: 'listReportSources' }),
   Object.freeze({ method: 'GET', path: '/v1/geospatial/datasets', kind: 'resource', service: 'listGeospatialDatasets', auditEventType: 'SENSITIVE_READ' }),
   Object.freeze({ method: 'POST', path: '/v1/geospatial/layers/execute', kind: 'resource', service: 'executeGeospatialLayer', auditEventType: 'SENSITIVE_READ' }),
+  Object.freeze({ method: 'GET', path: '/v1/geospatial/freshness', kind: 'resource', service: 'getGeospatialFreshness', auditEventType: 'SENSITIVE_READ' }),
   Object.freeze({ method: 'GET', path: '/v1/geospatial/views', kind: 'resource', service: 'listMapViews', auditEventType: 'SENSITIVE_READ' }),
   Object.freeze({ method: 'POST', path: '/v1/geospatial/views', kind: 'resource', service: 'createMapView', auditEventType: 'CONFIGURATION_CHANGED' }),
   Object.freeze({ method: 'GET', path: '/v1/geospatial/views/{mapViewId}', kind: 'resource', service: 'getMapView', auditEventType: 'SENSITIVE_READ' }),

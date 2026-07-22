@@ -175,6 +175,7 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
     CreatedAt: '2026-07-20T12:00:00Z', CompletedAt: null, SyntheticData: true,
   };
   await repository.createRefreshBatch(batch);
+  assert.equal((await repository.getRefreshStatus()).latestAttempt.status, 'STAGED');
   const storedRuns = fake.tables.get('INT_AnalysisRun');
   assert.equal(storedRuns.every(run => run.ObservationStart === '2026-06-01 00:00:00'), true);
   assert.equal(storedRuns.every(run => run.ObservationEnd === '2026-07-01 00:00:00'), true);
@@ -189,6 +190,12 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
   assert.equal(completed.RunGroup.runs.length, 7);
   assert.equal(completed.RunGroup.runs.every(run => run.PublishStatus === 'PUBLISHED'), true);
   assert.equal((await repository.getCurrentRunGroup()).RunGroupID, 'GROUP-1');
+  const publishedHotspot = (await repository.listHotspots()).data[0];
+  assert.deepEqual(publishedHotspot.evidenceCaseIds, buildDemoState().hotspots[0].evidenceCaseIds);
+  assert.deepEqual(publishedHotspot.evidenceUnits, buildDemoState().hotspots[0].evidenceUnits);
+  const freshness = await repository.getRefreshStatus();
+  assert.equal(freshness.currentRunGroup.RunGroupID, 'GROUP-1');
+  assert.equal(freshness.latestAttempt.status, 'COMPLETED');
   assert.deepEqual(await repository.publishRefreshBatch(batch.BatchKey, '2026-07-20T12:06:00Z'), completed);
 });
 

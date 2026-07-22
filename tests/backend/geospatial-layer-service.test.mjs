@@ -10,6 +10,17 @@ const hotspotRequest = Object.freeze({
   layer: { id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', tooltipFields: ['id', 'magnitude'] },
   runtime: { limit: 2, viewport: { bounds: [77, 12, 78, 14] } },
 });
+const currentRunGroup = Object.freeze({
+  RunGroupID: 'RUN-1', PublishedAt: '2026-07-20T13:55:00.000Z',
+  runs: [{
+    AnalysisType: 'HOTSPOT', EngineVersion: 'engine-1',
+    ObservationStart: '2026-06-01T00:00:00.000Z', ObservationEnd: '2026-06-30T23:59:59.000Z',
+  }],
+});
+const repository = Object.freeze({
+  async getCurrentRunGroup() { return structuredClone(currentRunGroup); },
+  async getRefreshStatus() { return { currentRunGroup: structuredClone(currentRunGroup), latestAttempt: null }; },
+});
 
 function envelope(items) {
   return {
@@ -29,6 +40,7 @@ function harness(items = [{
 }]) {
   const calls = [];
   const service = createGeospatialLayerService({
+    repository,
     readServices: { async listHotspots(input) { calls.push(input); return envelope(items); } },
     clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
   });
@@ -68,11 +80,15 @@ test('execution enforces action and emits governed GeoJSON metadata', async () =
   const response = await service.executeLayer({ access: allowed, body: hotspotRequest, requestId: 'REQ-GEO-1' });
   assert.equal(response.data.type, 'FeatureCollection');
   assert.deepEqual(response.data.features[0].geometry.coordinates, [77.5949, 12.9718]);
-  assert.deepEqual(response.data.features[0].properties, { id: 'HOT-1', magnitude: 6 });
-  for (const hidden of ['centroid', 'evidenceCaseIds', 'evidenceUnits', 'internal', 'futureField']) {
+  assert.deepEqual(response.data.features[0].properties, { id: 'HOT-1', magnitude: 6, evidenceCaseIds: ['CASE-1'] });
+  for (const hidden of ['centroid', 'evidenceUnits', 'internal', 'futureField']) {
     assert.equal(hidden in response.data.features[0].properties, false);
   }
   assert.equal(response.meta.runGroupId, 'RUN-1');
+  assert.equal(response.meta.publishedAt, '2026-07-20T13:55:00.000Z');
+  assert.equal(response.meta.observationStart, '2026-06-01T00:00:00.000Z');
+  assert.equal(response.meta.observationEnd, '2026-06-30T23:59:59.000Z');
+  assert.equal(response.meta.freshnessState, 'CURRENT');
   assert.equal(response.meta.requestId, 'REQ-GEO-1');
   assert.equal(response.meta.sourceRequestId, 'READ-1');
   assert.equal(response.meta.analysisRunId, 'RUN-1');
@@ -100,11 +116,25 @@ test('default execution emits the catalog display evidence projection without un
   });
   assert.deepEqual(response.data.features[0].properties, {
     id: 'HOT-1', confidence: 0.9, magnitude: 6,
-    method: 'HAVERSINE_DBSCAN', version: '1.0.0',
+    method: 'HAVERSINE_DBSCAN', version: '1.0.0', evidenceCaseIds: ['CASE-1'],
   });
-  for (const hidden of ['centroid', 'evidenceCaseIds', 'evidenceUnits', 'internal', 'futureField']) {
+  for (const hidden of ['centroid', 'evidenceUnits', 'internal', 'futureField']) {
     assert.equal(hidden in response.data.features[0].properties, false);
   }
+});
+
+test('freshness returns only authorized dataset run metadata without feature or private evidence payloads', async () => {
+  const { service } = harness();
+  const response = await service.getFreshness({ access: allowed, requestId: 'REQ-FRESH-1' });
+  assert.deepEqual(response.data.layers.map(item => item.datasetId), ['hotspots']);
+  assert.deepEqual(response.data.layers[0], {
+    datasetId: 'hotspots', version: 'engine-1', runGroupId: 'RUN-1',
+    publishedAt: '2026-07-20T13:55:00.000Z',
+    observationStart: '2026-06-01T00:00:00.000Z', observationEnd: '2026-06-30T23:59:59.000Z',
+    state: 'CURRENT',
+  });
+  assert.deepEqual((await service.getFreshness({ access: denied, requestId: 'REQ-FRESH-2' })).data.layers, []);
+  assert.doesNotMatch(JSON.stringify(response), /CASE-1|centroid|features|evidence/iu);
 });
 
 test('output limit applies after local viewport filtering', async () => {
@@ -126,6 +156,7 @@ test('execution follows opaque pagination until the requested output is filled',
     ['PAGE-2', { items: [{ id: 'INSIDE', centroid: { latitude: 12.9718, longitude: 77.5949 } }] }],
   ]);
   const service = createGeospatialLayerService({
+    repository,
     readServices: { async listHotspots({ query }) {
       calls.push(query);
       const response = { ...envelope([]), data: pages.get(query.nextToken) };
@@ -147,6 +178,7 @@ test('execution follows opaque pagination until the requested output is filled',
 test('execution rejects pages from different analytical snapshots', async () => {
   let page = 0;
   const service = createGeospatialLayerService({
+    repository,
     readServices: { async listHotspots() {
       page += 1;
       const response = envelope(page === 1
@@ -170,6 +202,7 @@ test('execution reports incomplete results when the 5000-row scan cap is reached
     id: `OUTSIDE-${index}`, centroid: { latitude: 20, longitude: 80 },
   }));
   const service = createGeospatialLayerService({
+    repository,
     readServices: { async listHotspots({ query }) {
       calls.push(query); return { ...envelope([]), data: { items: outside, nextToken: `PAGE-${calls.length + 1}` } };
     } },
@@ -187,6 +220,7 @@ test('execution reports incomplete results when the 5000-row scan cap is reached
 
 test('execution fails safely when a source pagination token loops', async () => {
   const service = createGeospatialLayerService({
+    repository,
     readServices: { async listHotspots() { return { ...envelope([]), data: { items: [], nextToken: 'LOOP' } }; } },
     clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
   });
@@ -203,6 +237,17 @@ test('invalid coordinates are omitted, counted, and never defaulted', async () =
   assert.deepEqual(response.data.features[0].geometry.coordinates, [77.5949, 12.9718]);
   assert.equal(response.meta.omittedFeatureCount, 1);
   assert.doesNotMatch(JSON.stringify(response.data), /\[0,0\]/u);
+});
+
+test('authorized evidence lineage is bounded per feature and reports truncation', async () => {
+  const evidenceCaseIds = Array.from({ length: 201 }, (_, index) => `CASE-${index + 1}`);
+  const row = {
+    id: 'HOT-EVIDENCE', centroid: { latitude: 12.9718, longitude: 77.5949 },
+    evidenceCaseIds, evidenceUnits: Object.fromEntries(evidenceCaseIds.map(id => [id, 101])),
+  };
+  const response = await harness([row]).service.executeLayer({ access: allowed, body: hotspotRequest });
+  assert.equal(response.data.features[0].properties.evidenceCaseIds.length, 200);
+  assert.ok(response.meta.limitations.includes('EVIDENCE_CASE_IDS_TRUNCATED'));
 });
 
 test('output remains bounded when a source ignores its requested limit', async () => {
@@ -257,6 +302,7 @@ test('source dispatch never resolves inherited services', async () => {
   let called = false;
   const readServices = Object.create({ async listHotspots() { called = true; return envelope([]); } });
   const service = createGeospatialLayerService({
+    repository,
     readServices, clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => 'REQ-GEO-1',
   });
   await assert.rejects(service.executeLayer({ access: allowed, body: hotspotRequest }));

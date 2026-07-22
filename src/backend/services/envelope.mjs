@@ -10,6 +10,8 @@ export function createEnvelope({ data, runGroup, access, requestId, generatedAt 
         to: firstRun.ObservationEnd,
       }),
       analysisRunId: runGroup.RunGroupID,
+      runGroupId: runGroup.RunGroupID,
+      publishedAt: runGroup.PublishedAt,
       methodVersion: firstRun.EngineVersion,
       dataQualityStatus: 'ACCEPTED',
       syntheticData: access.syntheticData === true,
