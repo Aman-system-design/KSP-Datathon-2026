@@ -39,6 +39,16 @@ test('identity resolution fails closed and ignores caller role fields', () => {
   assert.deepEqual(access.availablePersonas, []);
 });
 
+test('map-view policy grants ownership actions without broad management to operational roles', () => {
+  for (const role of ['REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']) {
+    assert.ok(policy.roles[role].includes('CREATE_MAP_VIEW'), role);
+    assert.ok(policy.roles[role].includes('EDIT_OWN_MAP_VIEW'), role);
+    assert.equal(policy.roles[role].includes('MANAGE_MAP_VIEWS'), false, role);
+  }
+  assert.ok(policy.roles.STATE_LEADERSHIP.includes('MANAGE_MAP_VIEWS'));
+  assert.ok(policy.roles.PLATFORM_ADMIN.includes('MANAGE_MAP_VIEWS'));
+});
+
 test('demo persona is allowlisted, synthetic, authenticated, and Development-only', () => {
   const presenter = {
     ...profile, DefaultRole: 'DEMO_PRESENTER', DemoPersonaAllowed: true, SyntheticData: true,

@@ -1,5 +1,5 @@
 import { selectCurrentRunGroup } from '../../refresh/run-groups.mjs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { buildAlertCompareAndSwap } from '../zcql-cas.mjs';
 import { fail } from '../../services/errors.mjs';
 import { readPagedRows } from './paged-table.mjs';
@@ -16,6 +16,7 @@ const TABLES = Object.freeze({
   profiles: 'CFG_UserAccess', units: 'SRC_Unit', alerts: 'WF_Alert',
   reports: 'CFG_ReportDefinition', dashboards: 'CFG_Dashboard', dashboardItems: 'CFG_DashboardItem',
   contentShares: 'CFG_ContentShare', userPreferences: 'CFG_UserPreference',
+  mapViews: 'CFG_MapView', mapViewVersions: 'CFG_MapViewVersion',
   assignments: 'WF_Assignment', commands: 'WF_Command',
   conclusions: 'WF_AnalystConclusion', outcomes: 'WF_Outcome', audits: 'WF_AuditEvent',
   alertNotes: 'WF_AlertNote', escalations: 'WF_Escalation',
@@ -29,7 +30,8 @@ const BUSINESS_ID = Object.freeze({
   INT_RepeatOffenderSignal: 'RepeatSignalID', WF_Alert: 'AlertID',
   CFG_ReportDefinition: 'ReportDefinitionID', CFG_Dashboard: 'DashboardID',
   CFG_DashboardItem: 'DashboardItemID', CFG_ContentShare: 'ContentShareID',
-  CFG_UserPreference: 'UserPreferenceID', WF_AlertNote: 'AlertNoteID', WF_Escalation: 'EscalationID',
+  CFG_UserPreference: 'UserPreferenceID', CFG_MapView: 'MapViewID',
+  CFG_MapViewVersion: 'MapViewVersionKey', WF_AlertNote: 'AlertNoteID', WF_Escalation: 'EscalationID',
   OPS_IntelligenceRunRequest: 'RunRequestID',
 });
 const SOURCE_TABLES = Object.freeze({
@@ -54,6 +56,7 @@ const DATETIME_COLUMNS = Object.freeze({
   WF_AuditEvent: ['OccurredAt'],
   CFG_ReportDefinition: ['CreatedAt', 'UpdatedAt'], CFG_Dashboard: ['CreatedAt', 'UpdatedAt'],
   CFG_ContentShare: ['CreatedAt'], CFG_UserPreference: ['UpdatedAt'],
+  CFG_MapView: ['CreatedAt', 'UpdatedAt'], CFG_MapViewVersion: ['PublishedAt', 'CreatedAt'],
   WF_AlertNote: ['CreatedAt'], WF_Escalation: ['EscalatedAt'],
   OPS_IntelligenceRunRequest: ['RequestedAt', 'StartedAt', 'CompletedAt', 'UpdatedAt'],
 });
@@ -67,6 +70,45 @@ const RUN_REQUEST_TRANSITIONS = Object.freeze({
 });
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
+const positiveVersion = (value, name) => {
+  if (!Number.isSafeInteger(value) || value < 1) throw new TypeError(`${name} must be a positive safe integer.`);
+  return value;
+};
+const expectedVersionNumber = value => {
+  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError('expectedVersion must be a non-negative safe integer.');
+  return value;
+};
+const safeId = (value, name, maxLength = 128) => {
+  if (typeof value !== 'string' || value.length > maxLength || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(value)) {
+    throw new TypeError(`${name} is invalid.`);
+  }
+  return value;
+};
+const decimalId = (value, name) => {
+  if (typeof value === 'bigint' && value >= 0n) return value.toString();
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return String(value);
+  if (typeof value === 'string' && /^(0|[1-9]\d*)$/u.test(value)) return value;
+  throw new TypeError(`${name} must be a canonical unsigned decimal ID.`);
+};
+const normalizeMapVersion = (version) => {
+  if (!version || typeof version !== 'object') throw new TypeError('Map view version is required.');
+  safeId(version.MapViewID, 'MapViewID', 64);
+  safeId(version.OrganizationID, 'OrganizationID', 64);
+  positiveVersion(version.Version, 'Version');
+  if (version.MapViewVersionKey !== `${version.MapViewID}:${version.Version}`) {
+    throw new TypeError('MapViewVersionKey must match the map view and version.');
+  }
+  safeId(version.MapViewVersionKey, 'MapViewVersionKey');
+  if (typeof version.DefinitionJSON !== 'string') throw new TypeError('DefinitionJSON must be text.');
+  let definition;
+  try { definition = JSON.parse(version.DefinitionJSON); } catch { throw new TypeError('DefinitionJSON must be valid JSON.'); }
+  if (!definition || typeof definition !== 'object' || Array.isArray(definition)) {
+    throw new TypeError('DefinitionJSON must contain a JSON object.');
+  }
+  const hash = createHash('sha256').update(version.DefinitionJSON).digest('hex');
+  if (version.DefinitionHash !== hash) throw new TypeError('DefinitionHash must match DefinitionJSON.');
+  return { ...version, CreatedByEmployeeID: decimalId(version.CreatedByEmployeeID, 'CreatedByEmployeeID') };
+};
 const catalystDateTime = value => {
   const match = String(value).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/u);
   if (!match) throw new TypeError('Catalyst DateTime value is invalid.');
@@ -79,6 +121,20 @@ const prepareCatalystRow = (tableName, row) => {
     else prepared[column] = catalystDateTime(prepared[column]);
   }
   return prepared;
+};
+const sameField = (name, stored, intended) => ['OwnerEmployeeID', 'CreatedByEmployeeID'].includes(name)
+  ? decimalId(stored, name) === decimalId(intended, name) : stored === intended;
+const samePreparedRow = (stored, intended) => stored && Object.entries(intended)
+  .every(([name, value]) => sameField(name, stored[name], value));
+const sameMapVersion = (stored, prepared) => stored && [
+  'MapViewVersionKey', 'MapViewID', 'OrganizationID', 'Version', 'DefinitionJSON',
+  'DefinitionHash', 'CreatedByEmployeeID', 'CreatedAt', 'SyntheticData',
+].every(name => sameField(name, stored[name], prepared[name]))
+  && (stored.PublishedAt ?? null) === (prepared.PublishedAt ?? null);
+const uniqueConflict = () => {
+  const error = new Error('Catalyst unique constraint conflict.');
+  error.code = 'UNIQUE_CONFLICT';
+  return error;
 };
 const decodePage = (token) => {
   if (!token) return 0;
@@ -395,6 +451,135 @@ export class CatalystIntelligenceRepository {
       .map(row => parseJson(row.IndicatorsJSON, {
         unitId: Number(row.UnitID), sourceLabel: row.SourceLabel, limitation: row.Limitation, synthetic: true,
       }));
+  }
+
+  #mapView(row) {
+    return row ? mapCatalystRow(row) : undefined;
+  }
+
+  async listMapViews({ organizationId, visibility, ownerEmployeeId, limit, nextToken } = {}) {
+    if (!organizationId) throw new TypeError('organizationId is required.');
+    const owner = ownerEmployeeId === undefined ? undefined : decimalId(ownerEmployeeId, 'ownerEmployeeId');
+    const rows = (await this.#read(TABLES.mapViews))
+      .filter(row => row.OrganizationID === organizationId
+        && (!visibility || row.Visibility === visibility)
+        && (owner === undefined || decimalId(row.OwnerEmployeeID, 'OwnerEmployeeID') === owner))
+      .sort((left, right) => left.MapViewID.localeCompare(right.MapViewID))
+      .map(row => this.#mapView(row));
+    return page(rows, { limit, nextToken });
+  }
+
+  async getMapView(mapViewId, organizationId) {
+    if (!organizationId) throw new TypeError('organizationId is required.');
+    return this.#mapView((await this.#read(TABLES.mapViews))
+      .find(row => row.MapViewID === mapViewId && row.OrganizationID === organizationId));
+  }
+
+  async getMapViewVersion(mapViewId, version, organizationId) {
+    if (!organizationId) throw new TypeError('organizationId is required.');
+    positiveVersion(version, 'version');
+    const row = (await this.#read(TABLES.mapViewVersions)).find(item => item.MapViewID === mapViewId
+      && item.OrganizationID === organizationId && item.Version === version);
+    if (!row) return undefined;
+    const { MapViewRef, ...mapped } = mapCatalystRow(row);
+    return mapped;
+  }
+
+  async createMapView({ mapView, version }) {
+    if (!mapView || typeof mapView !== 'object') throw new TypeError('Map view is required.');
+    safeId(mapView.MapViewID, 'MapViewID', 64);
+    safeId(mapView.OrganizationID, 'OrganizationID', 64);
+    positiveVersion(mapView.CurrentVersion, 'CurrentVersion');
+    const intendedMap = { ...mapView, OwnerEmployeeID: decimalId(mapView.OwnerEmployeeID, 'OwnerEmployeeID') };
+    const intendedVersion = normalizeMapVersion(version);
+    if (mapView.CurrentVersion !== 1 || version.Version !== 1
+      || mapView.MapViewID !== intendedVersion.MapViewID
+      || mapView.OrganizationID !== intendedVersion.OrganizationID
+      || mapView.CurrentVersion !== intendedVersion.Version) {
+      throw new TypeError('Map view and initial version identity must match.');
+    }
+    let inserted;
+    try {
+      inserted = await this.#insert(TABLES.mapViews, intendedMap);
+    } catch (error) {
+      this.#invalidate(TABLES.mapViews);
+      const existing = (await this.#read(TABLES.mapViews)).find(row => row.MapViewID === intendedMap.MapViewID
+        && row.OrganizationID === intendedMap.OrganizationID);
+      if (!existing) throw error;
+      if (!samePreparedRow(existing, prepareCatalystRow(TABLES.mapViews, intendedMap))) throw uniqueConflict();
+      inserted = existing;
+    }
+    const rowId = String(inserted.ROWID);
+    if (!/^[1-9]\d*$/u.test(rowId)) throw new TypeError('Map view must have a resolved positive ROWID.');
+    const versionRow = { ...intendedVersion, MapViewRef: rowId };
+    try {
+      await this.#insert(TABLES.mapViewVersions, versionRow);
+    } catch (error) {
+      this.#invalidate(TABLES.mapViewVersions);
+      const existing = (await this.#read(TABLES.mapViewVersions))
+        .find(row => row.MapViewVersionKey === intendedVersion.MapViewVersionKey
+          && row.MapViewID === intendedVersion.MapViewID
+          && row.OrganizationID === intendedVersion.OrganizationID);
+      if (!existing) throw error;
+      if (!samePreparedRow(existing, prepareCatalystRow(TABLES.mapViewVersions, versionRow))) throw uniqueConflict();
+    }
+    return this.getMapView(intendedMap.MapViewID, intendedMap.OrganizationID);
+  }
+
+  async updateMapView({ mapViewId, organizationId, expectedVersion, nextVersion }) {
+    safeId(mapViewId, 'mapViewId', 64);
+    safeId(organizationId, 'organizationId', 64);
+    expectedVersionNumber(expectedVersion);
+    const row = (await this.#read(TABLES.mapViews)).find(item => item.MapViewID === mapViewId
+      && item.OrganizationID === organizationId);
+    if (!row) return undefined;
+    if (row.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
+    const intendedVersion = normalizeMapVersion(nextVersion);
+    if (intendedVersion.MapViewID !== mapViewId
+      || intendedVersion.OrganizationID !== organizationId
+      || intendedVersion.Version !== expectedVersion + 1) {
+      throw new TypeError('nextVersion must be the next scoped immutable version.');
+    }
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') throw new TypeError('Catalyst ZCQL is required.');
+    const rowId = String(row.ROWID);
+    if (!/^[1-9]\d*$/u.test(rowId)) throw new TypeError('Map view must have a resolved positive ROWID.');
+    try {
+      await this.#insert(TABLES.mapViewVersions, { ...intendedVersion, MapViewRef: rowId });
+    } catch (error) {
+      if (error.code !== 'UNIQUE_CONFLICT') throw error;
+      this.#invalidate(TABLES.mapViews, TABLES.mapViewVersions);
+      const [stored, current] = await Promise.all([
+        this.getMapViewVersion(mapViewId, intendedVersion.Version, organizationId),
+        this.getMapView(mapViewId, organizationId),
+      ]);
+      const prepared = prepareCatalystRow(TABLES.mapViewVersions, intendedVersion);
+      if (!sameMapVersion(stored, prepared) || current?.CurrentVersion !== expectedVersion) {
+        fail('VERSION_CONFLICT', 'Map view version changed.');
+      }
+    }
+    const updatedAt = catalystDateTime(intendedVersion.CreatedAt);
+    const query = `UPDATE CFG_MapView SET CurrentVersion = ${expectedVersion + 1}, UpdatedAt = '${updatedAt}' WHERE ROWID = ${rowId} AND CurrentVersion = ${expectedVersion}`;
+    let result;
+    try { result = await this.#zcql.executeZCQLQuery(query); }
+    catch (error) {
+      this.#invalidate(TABLES.mapViews, TABLES.mapViewVersions);
+      const [current, stored] = await Promise.all([
+        this.getMapView(mapViewId, organizationId),
+        this.getMapViewVersion(mapViewId, intendedVersion.Version, organizationId),
+      ]);
+      const sameVersion = sameMapVersion(stored, prepareCatalystRow(TABLES.mapViewVersions, intendedVersion));
+      if (sameVersion && current?.CurrentVersion === expectedVersion + 1 && current?.UpdatedAt === updatedAt) return current;
+      if (!sameVersion || current?.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
+      throw sanitizeCatalystSdkError(error, { operation: 'MAP_VIEW_COMPARE_AND_SWAP' });
+    }
+    this.#invalidate(TABLES.mapViews);
+    const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+    if (affected !== undefined && Number(affected) === 0) fail('VERSION_CONFLICT', 'Map view version changed.');
+    const updated = await this.getMapView(mapViewId, organizationId);
+    if (updated?.CurrentVersion !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt) {
+      fail('VERSION_CONFLICT', 'Map view version changed.');
+    }
+    return updated;
   }
 
   #mapReport(row) {

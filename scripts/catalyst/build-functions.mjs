@@ -106,6 +106,13 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
           if (!vendorPath.startsWith('.')) vendorPath = `./${vendorPath}`;
           transformed = transformed.replaceAll("'@ksp/intelligence-core'", `'${vendorPath}'`);
         }
+        if (target === 'api' && /['"]@ksp\/geospatial-core['"]/u.test(transformed)) {
+          let vendorPath = path.posix.relative(path.posix.dirname(sourcePath), 'vendor/geospatial-core/index.mjs');
+          if (!vendorPath.startsWith('.')) vendorPath = `./${vendorPath}`;
+          transformed = transformed
+            .replaceAll("'@ksp/geospatial-core'", `'${vendorPath}'`)
+            .replaceAll('"@ksp/geospatial-core"', `"${vendorPath}"`);
+        }
         return transformed;
       },
     });
@@ -116,6 +123,25 @@ export function buildFunctionBundle({ target, repositoryRoot, functionRoot }) {
     sourcePath: 'schema/catalyst/pdf-semantic-contract.json',
     destinationPath: 'schema/catalyst/pdf-semantic-contract.json',
   });
+
+  if (target === 'api') {
+    const vendorFiles = collectReachable(repositoryRoot, ['packages/geospatial-core/src/index.mjs']);
+    for (const sourcePath of vendorFiles) {
+      materializeFile({
+        repositoryRoot, appRoot, sourcePath,
+        destinationPath: sourcePath === 'packages/geospatial-core/src/index.mjs'
+          ? 'vendor/geospatial-core/index.mjs'
+          : sourcePath.replace('packages/geospatial-core/', 'vendor/geospatial-core/'),
+        transform: source => sourcePath === 'packages/geospatial-core/src/index.mjs'
+          ? source.replaceAll("'./", "'./src/").replaceAll('"./', '"./src/')
+          : source,
+      });
+    }
+    materializeFile({
+      repositoryRoot, appRoot, sourcePath: 'packages/geospatial-core/package.json',
+      destinationPath: 'vendor/geospatial-core/package.json',
+    });
+  }
 
   if (target === 'refresh') {
     materializeFile({

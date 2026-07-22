@@ -39,7 +39,7 @@ export class MemoryIntelligenceRepository {
 
   constructor(state, { failureInjector = () => {} } = {}) {
     this.#state = clone(state);
-    for (const collection of ['reports', 'dashboards', 'dashboardItems', 'contentShares', 'userPreferences']) {
+    for (const collection of ['reports', 'dashboards', 'dashboardItems', 'contentShares', 'userPreferences', 'mapViews', 'mapViewVersions']) {
       this.#state[collection] ??= [];
     }
     this.#state.runRequests ??= [];
@@ -88,6 +88,38 @@ export class MemoryIntelligenceRepository {
   async getAreaRisk() { return clone(this.#state.areaRisks[0]); }
   async getNetwork(id) { return clone(this.#state.networks.find(({ node }) => node.id === id)); }
   async getDistrictContext(unitId) { return clone(this.#state.districtContexts.filter(row => !unitId || row.unitId === unitId)); }
+  async listMapViews({ organizationId, visibility, ownerEmployeeId, limit, nextToken } = {}) {
+    return this.#page(this.#state.mapViews.filter(row => row.OrganizationID === organizationId
+      && (!visibility || row.Visibility === visibility)
+      && (ownerEmployeeId === undefined || String(row.OwnerEmployeeID) === String(ownerEmployeeId))), { limit, nextToken });
+  }
+  async getMapView(id, organizationId) {
+    return clone(this.#state.mapViews.find(row => row.MapViewID === id && row.OrganizationID === organizationId));
+  }
+  async getMapViewVersion(id, version, organizationId) {
+    return clone(this.#state.mapViewVersions.find(row => row.MapViewID === id
+      && row.Version === version && row.OrganizationID === organizationId));
+  }
+  async createMapView({ mapView, version }) {
+    if (this.#state.mapViews.some(row => row.MapViewID === mapView.MapViewID)) throw conflict('map view unique conflict');
+    this.#state.mapViews.push(clone(mapView));
+    this.#state.mapViewVersions.push(clone(version));
+    return clone(mapView);
+  }
+  async updateMapView({ mapViewId, organizationId, expectedVersion, nextVersion }) {
+    const view = this.#state.mapViews.find(row => row.MapViewID === mapViewId && row.OrganizationID === organizationId);
+    if (!view) return undefined;
+    if (view.CurrentVersion !== expectedVersion) {
+      const error = new Error('map view version changed'); error.code = 'VERSION_CONFLICT'; throw error;
+    }
+    if (this.#state.mapViewVersions.some(row => row.MapViewVersionKey === nextVersion.MapViewVersionKey)) {
+      throw conflict('map view version unique conflict');
+    }
+    this.#state.mapViewVersions.push(clone(nextVersion));
+    view.CurrentVersion = nextVersion.Version;
+    view.UpdatedAt = nextVersion.CreatedAt;
+    return clone(view);
+  }
   async listReports() { return clone(this.#state.reports); }
   async getReport(id) { return clone(this.#state.reports.find(row => row.id === id)); }
   async createReport(report) {

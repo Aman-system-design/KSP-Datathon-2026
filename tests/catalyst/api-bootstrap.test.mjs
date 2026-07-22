@@ -10,6 +10,7 @@ import { MemoryIntelligenceRepository } from '../../src/backend/repository/memor
 const policy = JSON.parse(readFileSync(new URL('../../config/access-policy.json', import.meta.url), 'utf8'));
 const config = Object.freeze({
   environment: 'Development', projectId: '43492000000013049', permissionVersion: '1.0.0',
+  organizationId: 'ORG-KSP',
   auditKey: 'test-only-api-bootstrap-key-1234567890', auditKeyVersion: 'v1',
   intelligenceJobPool: 'KSPIntelligencePool',
 });
@@ -41,19 +42,22 @@ function harness({
 test('runtime config is Development-only, complete and never returns unrelated environment data', () => {
   const loaded = loadRuntimeConfig({
     KSP_ENVIRONMENT: 'Development', KSP_PROJECT_ID: '43492000000013049',
+    KSP_ORGANIZATION_ID: 'ORG-KSP',
     KSP_PERMISSION_VERSION: '1.0.0', KSP_AUDIT_KEY: 'a'.repeat(32), KSP_AUDIT_KEY_VERSION: 'v1',
     KSP_INTELLIGENCE_JOB_POOL: 'KSPIntelligencePool',
     UNRELATED_SECRET: 'must-not-be-copied',
   });
   assert.equal(loaded.environment, 'Development');
   assert.equal(loaded.projectId, '43492000000013049');
+  assert.equal(loaded.organizationId, 'ORG-KSP');
   assert.equal(loaded.intelligenceJobPool, 'KSPIntelligencePool');
   assert.equal(JSON.stringify(loaded).includes('must-not-be-copied'), false);
   for (const mutation of [
-    { KSP_ENVIRONMENT: 'Production' }, { KSP_PROJECT_ID: 'wrong' },
+    { KSP_ENVIRONMENT: 'Production' }, { KSP_PROJECT_ID: 'wrong' }, { KSP_ORGANIZATION_ID: '' },
     { KSP_AUDIT_KEY: '' }, { KSP_PERMISSION_VERSION: '0.9.0' }, { KSP_INTELLIGENCE_JOB_POOL: 'bad pool' },
   ]) assert.throws(() => loadRuntimeConfig({ ...{
     KSP_ENVIRONMENT: 'Development', KSP_PROJECT_ID: '43492000000013049',
+    KSP_ORGANIZATION_ID: 'ORG-KSP',
     KSP_PERMISSION_VERSION: '1.0.0', KSP_AUDIT_KEY: 'a'.repeat(32), KSP_AUDIT_KEY_VERSION: 'v1',
     KSP_INTELLIGENCE_JOB_POOL: 'KSPIntelligencePool',
   }, ...mutation }), /config|Development|project|audit|permission/i);
@@ -103,6 +107,26 @@ test('API composition serves authorized geospatial catalog and layer execution',
   assert.match(layer.body.meta.requestId, /^REQ-\d+$/u);
   assert.ok((await repository.listAuditEvents()).every(row => row.EventType === 'SENSITIVE_READ'));
   assert.equal(logs.at(-1).requestId, layer.body.meta.requestId);
+});
+
+test('API composition persists and reads an audited organization-scoped map view', async () => {
+  const { application, repository } = harness();
+  const body = {
+    name: 'Verified hotspots', visibility: 'PRIVATE',
+    definition: {
+      id: 'MAP-1', name: 'Verified hotspots', version: 1, visibility: 'PRIVATE',
+      layers: [{ id: 'hotspots-1', datasetId: 'hotspots', renderer: 'POINT' }],
+    },
+  };
+  const created = await application({ method: 'POST', url: '/v1/geospatial/views', headers: {}, body });
+  assert.equal(created.status, 200);
+  assert.equal(created.body.data.organizationId, 'ORG-KSP');
+  const loaded = await application({ method: 'GET', url: '/v1/geospatial/views/MAP-1', headers: {}, body: null });
+  assert.equal(loaded.status, 200);
+  assert.equal(loaded.body.data.ownerEmployeeId, 9001);
+  const events = await repository.listAuditEvents();
+  assert.equal(events.at(-2).EventType, 'CONFIGURATION_CHANGED');
+  assert.equal(events.at(-1).EventType, 'SENSITIVE_READ');
 });
 
 test('API composition fails closed for missing identity, undeclared route and malformed URL', async () => {

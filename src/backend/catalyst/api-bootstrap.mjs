@@ -11,6 +11,7 @@ import { createReadServices } from '../services/read-services.mjs';
 import { createWorkspaceServices } from '../reporting/workspace-services.mjs';
 import { createCommandService } from '../workflow/command-service.mjs';
 import { createGeospatialLayerService } from '../geospatial/layer-service.mjs';
+import { createMapViewService } from '../geospatial/map-view-service.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
 
@@ -52,7 +53,8 @@ export function createApiApplication({
   logger = console,
 }) {
   if (config?.environment !== 'Development' || config.projectId !== EXPECTED_PROJECT
-    || config.permissionVersion !== policy?.version || !config.auditKey || !config.auditKeyVersion
+    || config.permissionVersion !== policy?.version || config.organizationId !== 'ORG-KSP'
+    || !config.auditKey || !config.auditKeyVersion
     || !config.intelligenceJobPool) {
     throw new Error('Catalyst API runtime config is invalid.');
   }
@@ -87,6 +89,7 @@ export function createApiApplication({
       const geospatialServices = createGeospatialLayerService({
         readServices: { ...readServices, ...workspaceServices }, clock: () => new Date(now()),
       });
+      const mapViewServices = createMapViewService({ repository, clock: now });
       const runService = createIntelligenceRunService({
         repository, scheduler: schedulerFactory(profileApplication, config.intelligenceJobPool),
         clock: now, idFactory,
@@ -95,6 +98,7 @@ export function createApiApplication({
         ...workspaceServices, ...createIntelligenceRunResources({ runService }),
         listGeospatialDatasets: geospatialServices.listDatasets,
         executeGeospatialLayer: geospatialServices.executeLayer,
+        ...mapViewServices,
       });
       const commandService = createCommandService({
         repository, clock: now, idFactory,
@@ -111,6 +115,7 @@ export function createApiApplication({
         });
         return Object.freeze({
           ...base,
+          organizationId: config.organizationId,
           authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }),
           escalationUnitIds: buildEscalationUnitSet({ scopeUnitId: base.scopeUnitId, units }),
           assignments,

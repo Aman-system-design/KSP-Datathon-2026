@@ -23,7 +23,7 @@ function harness({ environment = 'Development', readServicesOverride, resourceSe
   const auditService = auditServiceOverride ?? createAccessAuditService({ repository, clock, idFactory: prefix => `${prefix}-${++id}`, auditKeys: { v1: 'api-test-key' }, activeAuditKeyVersion: 'v1' });
   const accessResolver = async ({ currentUser, profile, requestedPersona, units, assignments }) => {
     const base = resolveAccess({ currentUser, profile, requestedPersona, environment, policy });
-    return Object.freeze({ ...base, authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }), assignments });
+    return Object.freeze({ ...base, organizationId: 'ORG-KSP', authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }), assignments });
   };
   const dispatch = createDispatcher({
     readServices, resourceServices: resourceServicesOverride ?? {}, commandService,
@@ -40,14 +40,16 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the thirty-seven platform operations', () => {
-  assert.equal(API_OPERATIONS.length, 37);
+test('the public contract contains exactly the forty-one platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 41);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
     'GET /v1/networks/{nodeId}', 'GET /v1/district-context',
     'GET /v1/workspace', 'GET /v1/report-sources',
     'GET /v1/geospatial/datasets', 'POST /v1/geospatial/layers/execute',
+    'GET /v1/geospatial/views', 'POST /v1/geospatial/views',
+    'GET /v1/geospatial/views/{mapViewId}', 'PATCH /v1/geospatial/views/{mapViewId}',
     'GET /v1/intelligence-runs', 'POST /v1/intelligence-runs',
     'GET /v1/reports', 'POST /v1/reports', 'GET /v1/reports/{reportId}',
     'PATCH /v1/reports/{reportId}', 'DELETE /v1/reports/{reportId}', 'POST /v1/reports/{reportId}/execute',
@@ -76,6 +78,27 @@ test('geospatial execution is audited as a sensitive read', async () => {
   assert.equal(response.status, 200);
   assert.equal(audits.at(-1).eventType, 'SENSITIVE_READ');
   assert.equal(response.body.meta.requestId, audits.at(-1).requestId);
+});
+
+test('map-view reads and writes use correlated resource audit events', async () => {
+  const audits = [];
+  const seen = [];
+  const dispatch = harness({
+    auditServiceOverride: { async record(event) { audits.push(event); } },
+    resourceServicesOverride: {
+      async listMapViews(input) { seen.push(input); return { data: { items: [] }, meta: { requestId: input.requestId } }; },
+      async createMapView(input) { seen.push(input); return { data: { id: 'MAP-1' }, meta: { requestId: input.requestId } }; },
+    },
+  });
+  assert.equal((await dispatch({ request: get('/v1/geospatial/views'), currentUser: user('CAT-DISTRICT') })).status, 200);
+  assert.equal(audits.at(-1).eventType, 'SENSITIVE_READ');
+  const created = await dispatch({ request: {
+    method: 'POST', path: '/v1/geospatial/views', query: {}, headers: {}, body: {}, requestId: 'REQ-API',
+  }, currentUser: user('CAT-DISTRICT') });
+  assert.equal(created.status, 200);
+  assert.equal(audits.at(-1).eventType, 'CONFIGURATION_CHANGED');
+  assert.equal(audits.at(-1).requestId, created.body.meta.requestId);
+  assert.equal(seen.at(-1).access.organizationId, 'ORG-KSP');
 });
 
 test('all eight reads dispatch through authenticated, scoped services', async () => {

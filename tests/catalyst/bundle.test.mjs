@@ -143,6 +143,8 @@ test('bundle inventory excludes test/evaluation material and includes approved r
   const allPaths = [...apiPaths, ...refreshPaths].join('\n');
 
   assert.match(apiPaths.join('\n'), /src\/backend\/http\/dispatch\.mjs/);
+  assert.match(apiPaths.join('\n'), /vendor\/geospatial-core\/index\.mjs/);
+  assert.match(apiPaths.join('\n'), /vendor\/geospatial-core\/src\/contracts\.mjs/);
   assert.match(refreshPaths.join('\n'), /src\/backend\/refresh\/refresh-service\.mjs/);
   assert.match(refreshPaths.join('\n'), /vendor\/intelligence-core\/index\.mjs/);
   assert.doesNotMatch(refreshPaths.join('\n'), /vendor\/intelligence-core\/src\/evaluate\.mjs/);
