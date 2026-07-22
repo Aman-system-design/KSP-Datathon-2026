@@ -11,6 +11,7 @@ const dataset = {
     latitude: { type: 'number', uses: ['geometry'] },
     caseCount: { type: 'number', uses: ['weight', 'display'] },
     severity: { type: 'number', uses: ['color', 'display', 'filter'] },
+    category: { type: 'string', uses: ['filter'] },
   },
   geometry: { longitudeField: 'longitude', latitudeField: 'latitude' },
   sensitivity: 'RESTRICTED', requiredAction: 'READ_HOTSPOT',
@@ -72,6 +73,10 @@ test('rejects non-finite or invalid coordinates and reversed time windows', () =
     dataset, layer,
     runtime: { timeWindow: { from: '2026-07-22T00:00:00Z', to: '2026-07-01T00:00:00Z' } },
   }), /timeWindow/);
+  assert.throws(() => compileLayerExecution({
+    dataset, layer,
+    runtime: { timeWindow: { from: '2026-02-30T00:00:00Z', to: '2026-03-02T00:00:00Z' } },
+  }), /timeWindow\.from/);
 });
 
 test('rejects client attempts to inject authorization scope', () => {
@@ -94,7 +99,7 @@ test('bounds filter depth, arrays, and strings', () => {
   }), /array/);
   assert.throws(() => compileLayerExecution({
     dataset,
-    layer: { ...layer, filter: { severity: 'x'.repeat(257) } },
+    layer: { ...layer, filter: { category: 'x'.repeat(257) } },
     runtime: {},
   }), /string/);
   assert.throws(() => compileLayerExecution({

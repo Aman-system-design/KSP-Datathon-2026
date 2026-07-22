@@ -76,6 +76,20 @@ test('requires dataset mappings to reference declared fields with an allowed use
     ...dataset,
     geometry: { ...dataset.geometry, longitudeField: 'caseCount' },
   }), /geometry/);
+  assert.throws(() => normalizeDatasetDefinition({
+    ...dataset,
+    fields: { ...dataset.fields, longitude: { type: 'string', uses: ['geometry'] } },
+  }), /longitudeField.*number/);
+  assert.throws(() => normalizeDatasetDefinition({
+    ...dataset,
+    geometryType: 'H3',
+    geometry: { h3Field: 'caseCount' },
+  }), /h3Field.*string/);
+  assert.throws(() => normalizeDatasetDefinition({
+    ...dataset,
+    geometryType: 'LINE',
+    geometry: { geometryField: 'caseCount' },
+  }), /geometryField.*string/);
 });
 
 test('validates layer fields against its dataset and renderer geometry', () => {
@@ -137,4 +151,37 @@ test('rejects unsafe filters and unknown nested view keys', () => {
     id: 'view-1', name: 'Bad', version: 1, visibility: 'PRIVATE',
     layers: [{ id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', limit: MAX_FEATURES + 1 }],
   }, catalog), /limit/);
+});
+
+test('rejects maliciously deep filters with a controlled validation error', () => {
+  let filter = { severity: 2 };
+  for (let depth = 0; depth < 20_000; depth += 1) filter = { $not: filter };
+
+  assert.throws(
+    () => normalizeLayerDefinition({ id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', filter }, catalog),
+    error => !(error instanceof RangeError) && /depth/.test(error.message),
+  );
+});
+
+test('type-checks filter values and operator compatibility against field schemas', () => {
+  assert.throws(() => normalizeLayerDefinition({
+    id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', filter: { severity: '2' },
+  }, catalog), /severity.*number/);
+  assert.throws(() => normalizeLayerDefinition({
+    id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', filter: { severity: { $in: [1, '2'] } },
+  }, catalog), /severity.*number/);
+
+  const categoricalDataset = {
+    ...dataset,
+    fields: { ...dataset.fields, category: { type: 'string', uses: ['filter'] } },
+  };
+  assert.throws(() => normalizeLayerDefinition({
+    id: 'layer-1', datasetId: 'hotspots', renderer: 'POINT', filter: { category: { $gt: 'THEFT' } },
+  }, new Map([['hotspots', categoricalDataset]])), /\$gt.*string/);
+});
+
+test('requires a catalog key to match the normalized dataset ID', () => {
+  assert.throws(() => normalizeLayerDefinition({
+    id: 'layer-1', datasetId: 'alias', renderer: 'POINT',
+  }, new Map([['alias', dataset]])), /catalog key.*hotspots/);
 });

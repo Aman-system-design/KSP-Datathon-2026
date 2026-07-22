@@ -102,10 +102,11 @@ function normalizeFieldDefinition(value, label) {
   return { type, uses };
 }
 
-function mappedField(fields, fieldName, use, label, alternateUse) {
+function mappedField(fields, fieldName, use, label, alternateUse, expectedType) {
   id(fieldName, label);
   const definition = fields[fieldName];
   if (!definition) throw new Error(`${label} references undeclared field ${fieldName}`);
+  if (expectedType && definition.type !== expectedType) throw new Error(`${label} field ${fieldName} must be ${expectedType}`);
   if (!definition.uses.includes(use) && !(alternateUse && definition.uses.includes(alternateUse))) {
     throw new Error(`${label} field ${fieldName} does not allow ${use}`);
   }
@@ -129,7 +130,14 @@ function normalizeGeometry(value, geometryType, fields) {
   for (const key of keys) {
     if (!(key in value)) throw new Error(`dataset.geometry.${key} is required`);
   }
-  return Object.fromEntries(keys.map(key => [key, mappedField(fields, value[key], geometryType === 'ADMIN_BOUNDARY' ? 'join' : 'geometry', `dataset.geometry.${key}`)]));
+  return Object.fromEntries(keys.map(key => [key, mappedField(
+    fields,
+    value[key],
+    geometryType === 'ADMIN_BOUNDARY' ? 'join' : 'geometry',
+    `dataset.geometry.${key}`,
+    undefined,
+    geometryType === 'POINT' ? 'number' : 'string',
+  )]));
 }
 
 export function normalizeDatasetDefinition(value) {
@@ -172,36 +180,82 @@ function normalizeMappedArray(value, fields, use, label, alternateUse) {
   return [...new Set(value.map((field, index) => mappedField(fields, field, use, `${label}[${index}]`, alternateUse)))].sort();
 }
 
-function rejectUnsafeKeys(value, label, seen = new Set()) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return;
-  seen.add(value);
-  for (const key of Object.keys(value)) {
-    if (AUTHORITY_KEYS.has(key) || POLLUTION_KEYS.has(key)) throw new Error(`${label}.${key} is prohibited`);
-    rejectUnsafeKeys(value[key], label, seen);
+function rejectUnsafeKeys(value, label) {
+  const stack = [{ value, depth: 0 }];
+  const seen = new Set();
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current.value || typeof current.value !== 'object' || seen.has(current.value)) continue;
+    if (current.depth > MAX_FILTER_DEPTH + 2) throw new Error(`${label} exceeds maximum filter depth`);
+    seen.add(current.value);
+    const keys = Object.keys(current.value);
+    if (keys.length > MAX_FILTER_ITEMS) throw new Error(`${label} ${Array.isArray(current.value) ? 'array' : 'object'} has too many values`);
+    for (const key of keys) {
+      if (AUTHORITY_KEYS.has(key) || POLLUTION_KEYS.has(key)) throw new Error(`${label}.${key} is prohibited`);
+      stack.push({ value: current.value[key], depth: current.depth + 1 });
+    }
   }
 }
 
-function normalizeScalar(value, label) {
-  if (value === null || typeof value === 'boolean') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.length <= MAX_FILTER_STRING) return value;
-  if (typeof value === 'string') throw new Error(`${label} string exceeds ${MAX_FILTER_STRING} characters`);
-  throw new Error(`${label} must be a scalar value`);
+function calendarPartsAreValid(year, month, day, hour = 0, minute = 0, second = 0) {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, second, 0);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    && date.getUTCHours() === hour && date.getUTCMinutes() === minute && date.getUTCSeconds() === second;
 }
 
-function normalizeOperatorValue(operator, value, label) {
+function normalizeDate(value, label) {
+  const match = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match || !calendarPartsAreValid(...match.slice(1).map(Number))) throw new Error(`${label} must be a valid ISO date`);
+  return value;
+}
+
+function normalizeIsoTimestamp(value, label) {
+  const match = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match) throw new Error(`${label} must be a valid ISO timestamp`);
+  const parts = match.slice(1, 7).map(Number);
+  const offset = match[7];
+  if (!calendarPartsAreValid(...parts) || (offset !== 'Z' && (Number(offset.slice(1, 3)) > 23 || Number(offset.slice(4, 6)) > 59))) {
+    throw new Error(`${label} must be a valid ISO timestamp`);
+  }
+  const milliseconds = Date.parse(value);
+  if (!Number.isFinite(milliseconds)) throw new Error(`${label} must be a valid ISO timestamp`);
+  return new Date(milliseconds).toISOString();
+}
+
+function normalizeTypedScalar(value, definition, label) {
+  if (definition.type === 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${label} must be a number`);
+    return value;
+  }
+  if (definition.type === 'boolean') {
+    if (typeof value !== 'boolean') throw new Error(`${label} must be a boolean`);
+    return value;
+  }
+  if (definition.type === 'date') return normalizeDate(value, label);
+  if (definition.type === 'datetime') return normalizeIsoTimestamp(value, label);
+  if (typeof value !== 'string') throw new Error(`${label} must be a string`);
+  if (value.length > MAX_FILTER_STRING) throw new Error(`${label} string exceeds ${MAX_FILTER_STRING} characters`);
+  return value;
+}
+
+function normalizeOperatorValue(operator, value, definition, label) {
+  if (['$gt', '$gte', '$lt', '$lte'].includes(operator) && !['number', 'date', 'datetime'].includes(definition.type)) {
+    throw new Error(`${label} is incompatible with ${definition.type} fields`);
+  }
   if (operator === '$in' || operator === '$nin') {
     if (!Array.isArray(value) || value.length === 0 || value.length > MAX_FILTER_ITEMS) throw new Error(`${label} array must contain 1-${MAX_FILTER_ITEMS} values`);
-    return value.map((item, index) => normalizeScalar(item, `${label}[${index}]`));
+    return value.map((item, index) => normalizeTypedScalar(item, definition, `${label}[${index}]`));
   }
-  return normalizeScalar(value, label);
+  return normalizeTypedScalar(value, definition, label);
 }
 
-function normalizeFieldPredicate(value, label) {
-  if (!isPlainObject(value)) return normalizeScalar(value, label);
+function normalizeFieldPredicate(value, definition, label) {
+  if (!isPlainObject(value)) return normalizeTypedScalar(value, definition, label);
   const entries = Object.keys(value).sort().map(operator => {
     if (!FILTER_OPERATORS.has(operator)) throw new Error(`${label}.${operator} is an unsupported filter operator`);
-    return [operator, normalizeOperatorValue(operator, value[operator], `${label}.${operator}`)];
+    return [operator, normalizeOperatorValue(operator, value[operator], definition, `${label}.${operator}`)];
   });
   if (entries.length === 0) throw new Error(`${label} must not be empty`);
   return Object.fromEntries(entries);
@@ -223,7 +277,7 @@ export function normalizeFilter(value, fields, label = 'filter', depth = 0) {
     if (key === '$not') return [key, normalizeFilter(value[key], fields, `${label}.$not`, depth + 1)];
     if (key.startsWith('$')) throw new Error(`${label}.${key} is an unsupported filter operator`);
     mappedField(fields, key, 'filter', `${label}.${key}`);
-    return [key, normalizeFieldPredicate(value[key], `${label}.${key}`)];
+    return [key, normalizeFieldPredicate(value[key], fields[key], `${label}.${key}`)];
   });
   return deepFreeze(Object.fromEntries(entries));
 }
@@ -243,7 +297,9 @@ function resolveDataset(catalog, datasetId) {
   if (!(catalog instanceof Map)) throw new TypeError('dataset catalog must be a Map');
   const dataset = catalog.get(datasetId);
   if (!dataset) throw new Error(`layer.datasetId references unknown dataset ${datasetId}`);
-  return normalizeDatasetDefinition(dataset);
+  const normalized = normalizeDatasetDefinition(dataset);
+  if (normalized.id !== datasetId) throw new Error(`dataset catalog key ${datasetId} does not match dataset ID ${normalized.id}`);
+  return normalized;
 }
 
 export function normalizeLayerDefinition(value, catalog) {
@@ -306,14 +362,8 @@ export function normalizeTimeWindow(value) {
   if (value === undefined || value === null) return null;
   plain(value, 'timeWindow');
   rejectUnknown(value, new Set(['from', 'to']), 'timeWindow');
-  const normalizeIso = (input, label) => {
-    if (typeof input !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(input)) throw new Error(`${label} must be an ISO timestamp`);
-    const milliseconds = Date.parse(input);
-    if (!Number.isFinite(milliseconds)) throw new Error(`${label} must be an ISO timestamp`);
-    return new Date(milliseconds).toISOString();
-  };
-  const from = normalizeIso(value.from, 'timeWindow.from');
-  const to = normalizeIso(value.to, 'timeWindow.to');
+  const from = normalizeIsoTimestamp(value.from, 'timeWindow.from');
+  const to = normalizeIsoTimestamp(value.to, 'timeWindow.to');
   if (Date.parse(from) > Date.parse(to)) throw new Error('timeWindow.from must not be after timeWindow.to');
   return deepFreeze({ from, to });
 }
