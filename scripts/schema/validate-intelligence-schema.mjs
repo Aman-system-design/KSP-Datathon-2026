@@ -124,6 +124,14 @@ export function validateIntelligenceSchema(schema) {
       errors.push(`CFG_MapView.${name} must be indexed`);
     }
   }
+  const currentVersion = mapViewColumns.find(({ name }) => name === 'CurrentVersion');
+  if (currentVersion && (currentVersion.type !== 'int' || currentVersion.minimum !== 1 || currentVersion.mandatory !== true)) {
+    errors.push('CFG_MapView.CurrentVersion must be an int with minimum 1');
+  }
+  const mapViewId = mapViewColumns.find(({ name }) => name === 'MapViewID');
+  if (mapViewId && (mapViewId.unique !== true || mapViewId.indexed !== true)) {
+    errors.push('CFG_MapView.MapViewID must be unique and indexed');
+  }
   const mapVersionColumns = requireColumns('CFG_MapViewVersion', [
     'MapViewVersionKey', 'MapViewRef', 'MapViewID', 'OrganizationID', 'Version',
     'DefinitionJSON', 'DefinitionHash', 'PublishedAt', 'CreatedByEmployeeID',
@@ -134,8 +142,29 @@ export function validateIntelligenceSchema(schema) {
     errors.push('CFG_MapViewVersion.MapViewRef must be a mandatory CFG_MapView lookup');
   }
   const definitionHash = mapVersionColumns.find(({ name }) => name === 'DefinitionHash');
-  if (definitionHash && (definitionHash.type !== 'varchar' || definitionHash.maxLength !== 64)) {
+  if (definitionHash && (definitionHash.type !== 'varchar' || definitionHash.maxLength !== 64 || definitionHash.mandatory !== true)) {
     errors.push('CFG_MapViewVersion.DefinitionHash must be a 64-character varchar');
+  }
+  const versionNumber = mapVersionColumns.find(({ name }) => name === 'Version');
+  if (versionNumber && (versionNumber.type !== 'int' || versionNumber.minimum !== 1 || versionNumber.mandatory !== true)) {
+    errors.push('CFG_MapViewVersion.Version must be an int with minimum 1');
+  }
+  const definitionJson = mapVersionColumns.find(({ name }) => name === 'DefinitionJSON');
+  if (definitionJson && (definitionJson.type !== 'text' || definitionJson.mandatory !== true)) {
+    errors.push('CFG_MapViewVersion.DefinitionJSON must be large text');
+  }
+  const publishedAt = mapVersionColumns.find(({ name }) => name === 'PublishedAt');
+  if (publishedAt && (publishedAt.type !== 'datetime' || publishedAt.mandatory !== false)) {
+    errors.push('CFG_MapViewVersion.PublishedAt must be an optional datetime');
+  }
+  for (const name of ['MapViewID', 'OrganizationID']) {
+    if (mapVersionColumns.find(column => column.name === name)?.indexed !== true) {
+      errors.push(`CFG_MapViewVersion.${name} must be indexed`);
+    }
+  }
+  const mapVersionKey = mapVersionColumns.find(({ name }) => name === 'MapViewVersionKey');
+  if (mapVersionKey && (mapVersionKey.unique !== true || mapVersionKey.indexed !== true)) {
+    errors.push('CFG_MapViewVersion.MapViewVersionKey must be unique and indexed');
   }
 
   requireColumns('WF_Command', [

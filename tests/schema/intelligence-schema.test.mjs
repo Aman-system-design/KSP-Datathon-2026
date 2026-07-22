@@ -43,17 +43,32 @@ test('map views have scoped identity and immutable version storage', () => {
     'DefinitionJSON', 'DefinitionHash', 'PublishedAt', 'CreatedByEmployeeID', 'CreatedAt',
   ]);
   assert.equal(mapView.columns.find(({ name }) => name === 'MapViewID').unique, true);
+  assert.equal(mapView.columns.find(({ name }) => name === 'MapViewID').indexed, true);
   assert.equal(mapView.columns.find(({ name }) => name === 'OrganizationID').indexed, true);
   assert.equal(mapView.columns.find(({ name }) => name === 'OwnerEmployeeID').indexed, true);
   assert.equal(mapView.columns.find(({ name }) => name === 'Visibility').indexed, true);
   assert.equal(version.columns.find(({ name }) => name === 'MapViewVersionKey').unique, true);
+  assert.equal(version.columns.find(({ name }) => name === 'MapViewVersionKey').indexed, true);
   assert.deepEqual(
     version.columns.find(({ name }) => name === 'MapViewRef'),
     { name: 'MapViewRef', origin: 'SYSTEM', type: 'foreign_key', parentTable: 'CFG_MapView', mandatory: true, onDelete: 'NULL' },
   );
   assert.equal(version.columns.find(({ name }) => name === 'DefinitionJSON').type, 'text');
   assert.equal(version.columns.find(({ name }) => name === 'DefinitionHash').maxLength, 64);
-  assert.equal(version.columns.find(({ name }) => name === 'PublishedAt').mandatory, false);
+  assert.deepEqual(
+    { type: mapView.columns.find(({ name }) => name === 'CurrentVersion').type, minimum: mapView.columns.find(({ name }) => name === 'CurrentVersion').minimum },
+    { type: 'int', minimum: 1 },
+  );
+  assert.deepEqual(
+    { type: version.columns.find(({ name }) => name === 'Version').type, minimum: version.columns.find(({ name }) => name === 'Version').minimum },
+    { type: 'int', minimum: 1 },
+  );
+  assert.deepEqual(
+    { type: version.columns.find(({ name }) => name === 'PublishedAt').type, mandatory: version.columns.find(({ name }) => name === 'PublishedAt').mandatory },
+    { type: 'datetime', mandatory: false },
+  );
+  assert.equal(version.columns.find(({ name }) => name === 'OrganizationID').indexed, true);
+  assert.equal(version.columns.find(({ name }) => name === 'MapViewID').indexed, true);
 });
 
 test('run requests preserve durable job identity, status and safe failure details', () => {
@@ -162,4 +177,12 @@ test('validator rejects unsafe mutations', () => {
     indexed: true, pii: true,
   });
   assert.match(validateIntelligenceSchema(personRisk).join('\n'), /must not contain person-level/);
+
+  const invalidMapVersion = structuredClone(schema);
+  invalidMapVersion.tables.find(({ name }) => name === 'CFG_MapView').columns
+    .find(({ name }) => name === 'CurrentVersion').minimum = 0;
+  invalidMapVersion.tables.find(({ name }) => name === 'CFG_MapViewVersion').columns
+    .find(({ name }) => name === 'Version').type = 'varchar';
+  assert.match(validateIntelligenceSchema(invalidMapVersion).join('\n'), /CurrentVersion must be an int with minimum 1/);
+  assert.match(validateIntelligenceSchema(invalidMapVersion).join('\n'), /CFG_MapViewVersion.Version must be an int with minimum 1/);
 });

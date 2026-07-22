@@ -31,7 +31,7 @@ test('runbook is deterministic and generated from all 31 manifest tables', () =>
 
 test('runbook exposes Catalyst constraints and PII choices', () => {
   const output = generateIntelligenceRunbook(schema);
-  for (const heading of ['Mandatory', 'Unique', 'Search index', 'PII/ePHI']) {
+  for (const heading of ['Minimum', 'Mandatory', 'Unique', 'Search index', 'PII/ePHI']) {
     assert.ok(output.includes(heading));
   }
   assert.match(output, /Never select Cascade/i);

@@ -70,6 +70,30 @@ const RUN_REQUEST_TRANSITIONS = Object.freeze({
 });
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
+const positiveVersion = (value, name) => {
+  if (!Number.isSafeInteger(value) || value < 1) throw new TypeError(`${name} must be a positive safe integer.`);
+  return value;
+};
+const safeId = (value, name, maxLength = 128) => {
+  if (typeof value !== 'string' || value.length > maxLength || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(value)) {
+    throw new TypeError(`${name} is invalid.`);
+  }
+  return value;
+};
+const validateMapVersion = (version) => {
+  if (!version || typeof version !== 'object') throw new TypeError('Map view version is required.');
+  safeId(version.MapViewID, 'MapViewID', 64);
+  safeId(version.OrganizationID, 'OrganizationID', 64);
+  positiveVersion(version.Version, 'Version');
+  if (version.MapViewVersionKey !== `${version.MapViewID}:${version.Version}`) {
+    throw new TypeError('MapViewVersionKey must match the map view and version.');
+  }
+  safeId(version.MapViewVersionKey, 'MapViewVersionKey');
+  if (typeof version.DefinitionJSON !== 'string') throw new TypeError('DefinitionJSON must be text.');
+  if (typeof version.DefinitionHash !== 'string' || !/^[a-f\d]{64}$/iu.test(version.DefinitionHash)) {
+    throw new TypeError('DefinitionHash must be a SHA-256 hex digest.');
+  }
+};
 const catalystDateTime = value => {
   const match = String(value).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/u);
   if (!match) throw new TypeError('Catalyst DateTime value is invalid.');
@@ -423,21 +447,31 @@ export class CatalystIntelligenceRepository {
 
   async getMapViewVersion(mapViewId, version, organizationId) {
     if (!organizationId) throw new TypeError('organizationId is required.');
+    positiveVersion(version, 'version');
     const row = (await this.#read(TABLES.mapViewVersions)).find(item => item.MapViewID === mapViewId
-      && item.OrganizationID === organizationId && Number(item.Version) === Number(version));
+      && item.OrganizationID === organizationId && item.Version === version);
     if (!row) return undefined;
     const { MapViewRef, ...mapped } = mapCatalystRow(row);
     return mapped;
   }
 
   async createMapView({ mapView, version }) {
-    if (!mapView || !version || mapView.MapViewID !== version.MapViewID
+    if (!mapView || typeof mapView !== 'object') throw new TypeError('Map view is required.');
+    safeId(mapView.MapViewID, 'MapViewID', 64);
+    safeId(mapView.OrganizationID, 'OrganizationID', 64);
+    positiveVersion(mapView.CurrentVersion, 'CurrentVersion');
+    validateMapVersion(version);
+    if (mapView.CurrentVersion !== 1 || version.Version !== 1
+      || mapView.MapViewID !== version.MapViewID
       || mapView.OrganizationID !== version.OrganizationID
-      || Number(mapView.CurrentVersion) !== Number(version.Version)) {
+      || mapView.CurrentVersion !== version.Version) {
       throw new TypeError('Map view and initial version identity must match.');
     }
     const inserted = await this.#insert(TABLES.mapViews, mapView);
     try {
+      if (!/^[1-9]\d*$/u.test(String(inserted.ROWID))) {
+        throw new TypeError('Map view must have a resolved positive ROWID.');
+      }
       await this.#insert(TABLES.mapViewVersions, { ...version, MapViewRef: String(inserted.ROWID) });
     } catch (error) {
       if (inserted.ROWID !== undefined) await this.#delete(TABLES.mapViews, inserted.ROWID);
@@ -447,16 +481,17 @@ export class CatalystIntelligenceRepository {
   }
 
   async updateMapView({ mapViewId, organizationId, expectedVersion, nextVersion }) {
-    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
-      throw new TypeError('expectedVersion must be a non-negative integer.');
-    }
+    safeId(mapViewId, 'mapViewId', 64);
+    safeId(organizationId, 'organizationId', 64);
+    positiveVersion(expectedVersion, 'expectedVersion');
     const row = (await this.#read(TABLES.mapViews)).find(item => item.MapViewID === mapViewId
       && item.OrganizationID === organizationId);
     if (!row) return undefined;
-    if (Number(row.CurrentVersion) !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
-    if (!nextVersion || nextVersion.MapViewID !== mapViewId
+    if (row.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
+    validateMapVersion(nextVersion);
+    if (nextVersion.MapViewID !== mapViewId
       || nextVersion.OrganizationID !== organizationId
-      || Number(nextVersion.Version) !== expectedVersion + 1) {
+      || nextVersion.Version !== expectedVersion + 1) {
       throw new TypeError('nextVersion must be the next scoped immutable version.');
     }
     if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
@@ -464,7 +499,25 @@ export class CatalystIntelligenceRepository {
     }
     const rowId = String(row.ROWID);
     if (!/^[1-9]\d*$/u.test(rowId)) throw new TypeError('Map view must have a resolved positive ROWID.');
-    await this.#insert(TABLES.mapViewVersions, { ...nextVersion, MapViewRef: String(row.ROWID) });
+    try {
+      await this.#insert(TABLES.mapViewVersions, { ...nextVersion, MapViewRef: rowId });
+    } catch (error) {
+      if (error.code !== 'UNIQUE_CONFLICT') throw error;
+      this.#invalidate(TABLES.mapViews, TABLES.mapViewVersions);
+      const [stored, current] = await Promise.all([
+        this.getMapViewVersion(mapViewId, nextVersion.Version, organizationId),
+        this.getMapView(mapViewId, organizationId),
+      ]);
+      const prepared = prepareCatalystRow(TABLES.mapViewVersions, nextVersion);
+      const sameVersion = stored && [
+        'MapViewVersionKey', 'MapViewID', 'OrganizationID', 'Version', 'DefinitionJSON',
+        'DefinitionHash', 'CreatedByEmployeeID', 'CreatedAt', 'SyntheticData',
+      ].every(name => stored[name] === prepared[name])
+        && (stored.PublishedAt ?? null) === (prepared.PublishedAt ?? null);
+      if (!sameVersion || current?.CurrentVersion !== expectedVersion) {
+        fail('VERSION_CONFLICT', 'Map view version changed.');
+      }
+    }
     const updatedAt = catalystDateTime(nextVersion.CreatedAt);
     const query = `UPDATE CFG_MapView SET CurrentVersion = ${expectedVersion + 1}, UpdatedAt = '${updatedAt}' WHERE ROWID = ${rowId} AND CurrentVersion = ${expectedVersion}`;
     let response;
@@ -477,7 +530,7 @@ export class CatalystIntelligenceRepository {
     const affected = (Array.isArray(response) ? response[0] : response)?.affected_rows;
     if (affected !== undefined && Number(affected) === 0) fail('VERSION_CONFLICT', 'Map view version changed.');
     const updated = await this.getMapView(mapViewId, organizationId);
-    if (Number(updated?.CurrentVersion) !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt) {
+    if (updated?.CurrentVersion !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt) {
       fail('VERSION_CONFLICT', 'Map view version changed.');
     }
     return updated;

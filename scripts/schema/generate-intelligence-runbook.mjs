@@ -45,10 +45,10 @@ export function generateIntelligenceRunbook(schema) {
       `- Load order: ${table.loadOrder}`,
       `- Application business ID: \`${table.businessId}\``,
       '',
-      '| Order | Column | Origin | Catalyst type | Max length | Mandatory | Unique | Search index | PII/ePHI | Default |',
-      '|---:|---|---|---|---:|---|---|---|---|---|',
+      '| Order | Column | Origin | Catalyst type | Max length | Minimum | Mandatory | Unique | Search index | PII/ePHI | Default |',
+      '|---:|---|---|---|---:|---:|---|---|---|---|---|',
       ...native.map((column, index) => (
-        `| ${index + 1} | \`${column.name}\` | ${column.origin} | ${catalystTypes[column.type]} | ${show(column.maxLength)} | ${show(column.mandatory)} | ${show(column.unique ?? false)} | ${show(column.indexed ?? false)} | ${show(column.pii)} | ${show(column.default)} |`
+        `| ${index + 1} | \`${column.name}\` | ${column.origin} | ${catalystTypes[column.type]} | ${show(column.maxLength)} | ${show(column.minimum)} | ${show(column.mandatory)} | ${show(column.unique ?? false)} | ${show(column.indexed ?? false)} | ${show(column.pii)} | ${show(column.default)} |`
       )),
       '',
     );

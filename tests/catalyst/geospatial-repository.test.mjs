@@ -18,6 +18,10 @@ function fakeApplication() {
       tables.set(name, [...rows, stored]);
       return structuredClone(stored);
     },
+    async deleteRow(rowId) {
+      tables.set(name, (tables.get(name) ?? []).filter(row => row.ROWID !== String(rowId)));
+      return true;
+    },
   });
   const zcql = () => ({
     async executeZCQLQuery(query) {
@@ -107,7 +111,7 @@ test('reports stale updates and never advances the pointer when CAS loses', asyn
   await repository.createMapView({ mapView: mapView(), version: version() });
   await assert.rejects(repository.updateMapView({
     mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 0, nextVersion: version(2),
-  }), { code: 'VERSION_CONFLICT' });
+  }), TypeError);
   assert.equal(fake.tables.get('CFG_MapViewVersion').length, 1);
 
   fake.tables.get('CFG_MapView')[0].CurrentVersion = 2;
@@ -119,11 +123,75 @@ test('reports stale updates and never advances the pointer when CAS loses', asyn
   assert.equal(fake.tables.get('CFG_MapViewVersion').length, 2);
 });
 
-test('rejects unsafe expected versions before constructing a CAS query', async () => {
+test('rejects invalid expected versions before constructing a CAS query', async () => {
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication().application });
   await repository.createMapView({ mapView: mapView(), version: version() });
-  await assert.rejects(repository.updateMapView({
-    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: Number.MAX_SAFE_INTEGER + 1,
-    nextVersion: version(2),
+  for (const invalid of [-1, 0, 1.5, '1', Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(repository.updateMapView({
+      mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: invalid,
+      nextVersion: version(2),
+    }), TypeError);
+  }
+});
+
+test('requires exact positive safe integers for initial and next versions', async () => {
+  for (const invalid of [-1, 0, 1.5, '1', Number.MAX_SAFE_INTEGER + 1]) {
+    const fake = fakeApplication();
+    const repository = new CatalystIntelligenceRepository({ application: fake.application });
+    await assert.rejects(repository.createMapView({
+      mapView: mapView({ CurrentVersion: invalid }), version: version(1, { Version: invalid }),
+    }), TypeError);
+    assert.equal(fake.tables.get('CFG_MapView')?.length ?? 0, 0);
+  }
+  await assert.rejects(new CatalystIntelligenceRepository({ application: fakeApplication().application }).createMapView({
+    mapView: mapView({ CurrentVersion: 2 }), version: version(2),
   }), TypeError);
+
+  const repository = new CatalystIntelligenceRepository({ application: fakeApplication().application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  for (const invalid of [-1, 0, 1.5, '2', Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(repository.updateMapView({
+      mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+      nextVersion: version(2, { Version: invalid }),
+    }), TypeError);
+  }
+});
+
+test('reconciles a concurrent duplicate version key as VERSION_CONFLICT without overwriting it', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  await repository.getMapView('MAP-1', 'ORG-KSP');
+  const current = fake.tables.get('CFG_MapView')[0];
+  current.CurrentVersion = 2;
+  current.UpdatedAt = '2026-07-22 10:30:00';
+  fake.tables.get('CFG_MapViewVersion').push({
+    ...version(2, { DefinitionHash: 'c'.repeat(64), CreatedAt: '2026-07-22 10:30:00' }),
+    MapViewRef: current.ROWID, ROWID: '2002', CREATORID: 'other-writer',
+  });
+
+  await assert.rejects(repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+    nextVersion: version(2, { DefinitionHash: 'd'.repeat(64), CreatedAt: '2026-07-22T11:00:00Z' }),
+  }), { code: 'VERSION_CONFLICT' });
+  assert.equal(fake.tables.get('CFG_MapViewVersion').length, 2);
+  assert.equal(fake.tables.get('CFG_MapViewVersion')[1].DefinitionHash, 'c'.repeat(64));
+});
+
+test('retries CAS for an identical orphan version without inserting or mutating it', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  const current = fake.tables.get('CFG_MapView')[0];
+  const next = version(2, { DefinitionHash: 'e'.repeat(64), CreatedAt: '2026-07-22T11:00:00Z' });
+  fake.tables.get('CFG_MapViewVersion').push({
+    ...next, CreatedAt: '2026-07-22 11:00:00', MapViewRef: current.ROWID, ROWID: '2002', CREATORID: 'retry',
+  });
+
+  const updated = await repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1, nextVersion: next,
+  });
+  assert.equal(updated.CurrentVersion, 2);
+  assert.equal(fake.tables.get('CFG_MapViewVersion').length, 2);
+  assert.equal(fake.tables.get('CFG_MapViewVersion')[1].DefinitionHash, 'e'.repeat(64));
 });
