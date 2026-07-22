@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+import { parse } from 'yaml';
+
+import { verifyGeospatial } from '../../scripts/ci/verify-geospatial.mjs';
+
+const repositoryUrl = new URL('../../', import.meta.url);
+
+async function readJson(relativePath) {
+  return JSON.parse(await readFile(new URL(relativePath, repositoryUrl), 'utf8'));
+}
+
+async function readCircleConfig() {
+  return parse(await readFile(new URL('.circleci/config.yml', repositoryUrl), 'utf8'));
+}
+
+function namedStep(steps, name) {
+  return steps.find(step => typeof step === 'object' && Object.hasOwn(step, name))?.[name];
+}
+
+test('CircleCI performs one deterministic verification job on a pinned compatible Node image', async () => {
+  const [config, repository] = await Promise.all([readCircleConfig(), readJson('package.json')]);
+  const job = config.jobs?.verify;
+  assert.ok(job, 'verify job must exist');
+  assert.deepEqual(config.workflows?.['pull-request-verification']?.jobs, ['verify']);
+  assert.ok(job.steps?.includes('checkout'), 'verify job must checkout the repository');
+
+  const image = job.docker?.[0]?.image;
+  const match = /^cimg\/node:(\d+)\.(\d+)\.(\d+)$/.exec(image ?? '');
+  assert.ok(match, 'Node image must use a pinned full semantic version');
+  const engineFloor = Number(/^>=(\d+)$/.exec(repository.engines?.node ?? '')?.[1]);
+  assert.ok(Number(match[1]) >= engineFloor, `${image} must satisfy ${repository.engines.node}`);
+  assert.equal(repository.scripts?.['geospatial:verify'], 'node scripts/ci/verify-geospatial.mjs');
+
+  assert.equal(namedStep(job.steps, 'run'), 'npm ci');
+  const runCommands = job.steps.filter(step => typeof step === 'object' && step.run).map(step => step.run);
+  assert.deepEqual(runCommands, ['npm ci', 'npm run verify', 'npm run geospatial:verify']);
+});
+
+test('CircleCI caches only the npm download cache under the lockfile checksum', async () => {
+  const config = await readCircleConfig();
+  const steps = config.jobs.verify.steps;
+  const restore = namedStep(steps, 'restore_cache');
+  const save = namedStep(steps, 'save_cache');
+  const expectedKey = 'npm-v1-node24-{{ checksum "package-lock.json" }}';
+  assert.deepEqual(restore.keys, [expectedKey]);
+  assert.equal(save.key, expectedKey);
+  assert.deepEqual(save.paths, ['~/.npm']);
+});
+
+test('CircleCI verification cannot deploy or receive production credentials', async () => {
+  const config = await readCircleConfig();
+  const serialized = JSON.stringify(config);
+  assert.equal(/deploy|release|publish|zcatalyst|catalyst\s+deploy/iu.test(serialized), false);
+  assert.equal(/context|environment/iu.test(serialized), false);
+  assert.equal(/(?:token|secret|password|credential|private.?key)/iu.test(serialized), false);
+});
+
+test('geospatial verification validates the canonical repository architecture', async () => {
+  const result = await verifyGeospatial(new URL('../../', import.meta.url));
+  assert.equal(result.schemaTableCount, 32);
+  assert.equal(result.requiredFilesChecked > 10, true);
+  assert.equal(result.bundleBudgetWired, true);
+  assert.equal(result.generatedFunctionPathsChecked, 0);
+});
