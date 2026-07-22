@@ -43,6 +43,20 @@ test('returns no backend token until the Catalyst Web SDK session is available',
   await expect(auth.accessToken()).resolves.toBeNull();
 });
 
+test('renders Catalyst embedded authentication into the native login host', () => {
+  const signIn = vi.fn();
+  const auth = createCatalystAuth({ catalyst: { auth: { signIn } } });
+
+  auth.embeddedSignIn('loginDivElementId');
+
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+});
+
+test('fails safely when Catalyst embedded authentication is unavailable', () => {
+  const auth = createCatalystAuth({ catalyst: {} });
+  expect(() => auth.embeddedSignIn()).toThrow('Catalyst authentication is unavailable.');
+});
+
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
   const assign = vi.fn();
   const authOrigin = 'https://kspdatathon2026-60077844198.development.catalystserverless.in';

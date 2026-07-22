@@ -18,6 +18,11 @@ export function createCatalystAuth({
 
   return Object.freeze({
     loginUrl,
+    embeddedSignIn(elementId = 'loginDivElementId') {
+      const signIn = sdk()?.auth?.signIn;
+      if (typeof signIn !== 'function') throw new Error('Catalyst authentication is unavailable.');
+      return signIn(elementId, { service_url: '/' });
+    },
     async currentUser() {
       const result = await sdk()?.auth?.isUserAuthenticated?.();
       return result?.content ?? null;
