@@ -6,6 +6,13 @@ import { isCompletePublishedGroup } from '../../src/backend/refresh/run-groups.m
 const MODES = new Set(['DRY_RUN', 'APPLY', 'VERIFY', 'ROLLBACK']);
 const SHA256 = /^[a-f0-9]{64}$/u;
 const clone = value => structuredClone(value);
+const RUN_DATETIME_FIELDS = new Set(['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt']);
+const TRUSTED_RUN_FIELDS = Object.freeze([
+  'AnalysisRunID', 'BatchKey', 'Operation', 'RequestHash', 'AttemptSequence',
+  'RunGroupID', 'AnalysisType', 'RunTypeKey', 'Status', 'PublishStatus',
+  'PublicationGeneration', 'ObservationStart', 'ObservationEnd', 'EngineVersion',
+  'MethodVersion', 'InputManifestHash', 'CompletedAt', 'PublishedAt', 'SyntheticData',
+]);
 
 function invariant(condition, message) {
   if (!condition) throw new Error(`Publication pointer migration failed: ${message}`);
@@ -37,6 +44,24 @@ function parsePointerRuns(pointer) {
   } catch { return []; }
 }
 
+function canonicalDateTime(value) {
+  if (value === null || value === undefined) return value;
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.0+)?(?:Z)?$/u);
+  return match ? `${match[1]}T${match[2]}` : String(value);
+}
+
+function sameTrustedRun(pointerRun, storedRun) {
+  const references = [pointerRun.ROWID, pointerRun.AnalysisRunRef]
+    .filter(value => value !== null && value !== undefined);
+  if (references.length === 0 || !references.every(value => String(value) === String(storedRun.ROWID))) return false;
+  return TRUSTED_RUN_FIELDS.every((field) => {
+    if (!Object.hasOwn(pointerRun, field) || !Object.hasOwn(storedRun, field)) return false;
+    const left = RUN_DATETIME_FIELDS.has(field) ? canonicalDateTime(pointerRun[field]) : pointerRun[field];
+    const right = RUN_DATETIME_FIELDS.has(field) ? canonicalDateTime(storedRun[field]) : storedRun[field];
+    return left === right;
+  });
+}
+
 function verifyPointer({ manifest, inventory, groups, tables }) {
   const pointer = inventory.publicationState;
   const pointerRuns = parsePointerRuns(pointer);
@@ -61,7 +86,7 @@ function verifyPointer({ manifest, inventory, groups, tables }) {
         && Number(run.PublicationGeneration) === generation
         && Number(stored.AttemptSequence) === latestSequence
         && Number(run.AttemptSequence) === latestSequence
-        && stored.RequestHash === run.RequestHash;
+        && sameTrustedRun(run, stored);
     });
   const requestHashes = new Set(pointerRuns.map(run => run.RequestHash));
   const requestIdentityReady = requestHashes.size === 1
@@ -70,11 +95,20 @@ function verifyPointer({ manifest, inventory, groups, tables }) {
     && safePositive(latestSequence) && safePositive(lastReserved) && latestSequence <= lastReserved
     && pointer?.LatestAttemptStatus === 'COMPLETED'
     && pointer?.LatestAttemptRunGroupID === pointer?.CurrentRunGroupID;
+  const publicationTimeReady = pointerRuns.length === 7
+    && canonicalDateTime(pointer?.PublishedAt) !== null
+    && canonicalDateTime(pointer?.PublishedAt) !== undefined
+    && pointerRuns.every(run => canonicalDateTime(run.PublishedAt) === canonicalDateTime(pointer.PublishedAt))
+    && pointerRuns.every(run => canonicalDateTime(storedById.get(run.AnalysisRunID)?.PublishedAt)
+      === canonicalDateTime(pointer.PublishedAt));
   const pointerReady = tables.has(manifest.newTable)
     && pointer?.PublicationStateID === 'CURRENT'
     && groups.some(group => group.runGroupId === pointer?.CurrentRunGroupID)
-    && rowsMatch && requestIdentityReady && sequenceReady;
-  return { pointerReady, pointerRunCount: pointerRuns.length, rowsMatch, requestIdentityReady, sequenceReady };
+    && rowsMatch && requestIdentityReady && sequenceReady && publicationTimeReady;
+  return {
+    pointerReady, pointerRunCount: pointerRuns.length, rowsMatch,
+    requestIdentityReady, sequenceReady, publicationTimeReady,
+  };
 }
 
 export function planPublicationPointerMigration({ manifest, inventory, mode, confirmed = false }) {

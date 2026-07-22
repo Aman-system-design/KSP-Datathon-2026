@@ -25,6 +25,7 @@ function legacyInventory({ proven = false, partial = false, migrated = false } =
     }));
   const analysisRuns = runGroup.runs.map((run, index) => ({
     ...run, ROWID: String(1000 + index), BatchKey: 'LEGACY-BATCH-1', Operation: 'BOOTSTRAP_SYNTHETIC',
+    MethodVersion: run.EngineVersion, CompletedAt: run.PublishedAt,
     ...(migrated ? {
       RequestHash: proven ? 'b'.repeat(64) : 'LEGACY_IDENTITY_UNKNOWN',
       PublicationGeneration: 1, AttemptSequence: 1,
@@ -38,6 +39,7 @@ function legacyInventory({ proven = false, partial = false, migrated = false } =
       CurrentRunGroupID: runGroup.RunGroupID, CurrentRunsJSON: JSON.stringify(analysisRuns),
       PointerVersion: 1, LastReservedAttemptSequence: 1, LatestAttemptSequence: 1,
       LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: runGroup.RunGroupID,
+      PublishedAt: runGroup.PublishedAt,
     } : null,
   };
 }
@@ -138,4 +140,50 @@ test('verify rejects malformed or incoherent publication pointers', () => {
     assert.equal(result.validation.enforcementReady, false);
     assert.notEqual(result.state.status, 'VERIFIED');
   }
+});
+
+test('verify rejects every runtime-trusted pointer run mismatch', () => {
+  const mutations = [
+    run => { run.ROWID = '9999'; },
+    run => { run.AnalysisRunRef = '9999'; delete run.ROWID; },
+    run => { run.EngineVersion = 'CORRUPT'; },
+    run => { run.MethodVersion = 'CORRUPT'; },
+    run => { run.ObservationStart = '2026-01-01T00:00:00Z'; },
+    run => { run.ObservationEnd = '2026-12-31T00:00:00Z'; },
+    run => { run.PublishedAt = '2026-07-02T01:00:00Z'; },
+    run => { run.Status = 'FAILED_RETRYABLE'; },
+    run => { run.PublishStatus = 'STAGED'; },
+    run => { run.SyntheticData = false; },
+    run => { run.RunTypeKey = 'WRONG:TYPE'; },
+    run => { run.InputManifestHash = 'f'.repeat(64); },
+  ];
+  for (const mutate of mutations) {
+    const inventory = legacyInventory({ migrated: true, proven: true });
+    const pointerRuns = JSON.parse(inventory.publicationState.CurrentRunsJSON);
+    mutate(pointerRuns[0]);
+    inventory.publicationState.CurrentRunsJSON = JSON.stringify(pointerRuns);
+    const result = planPublicationPointerMigration({ manifest: migration, inventory, mode: 'VERIFY' });
+    assert.equal(result.validation.enforcementReady, false);
+    assert.notEqual(result.state.status, 'VERIFIED');
+  }
+
+  for (const publishedAt of ['2026-07-02T01:00:00Z', null]) {
+    const inventory = legacyInventory({ migrated: true, proven: true });
+    inventory.publicationState.PublishedAt = publishedAt;
+    const result = planPublicationPointerMigration({ manifest: migration, inventory, mode: 'VERIFY' });
+    assert.equal(result.validation.enforcementReady, false);
+  }
+});
+
+test('verify normalizes only documented Catalyst DateTime storage formatting', () => {
+  const inventory = legacyInventory({ migrated: true, proven: true });
+  const pointerRuns = JSON.parse(inventory.publicationState.CurrentRunsJSON);
+  for (const run of pointerRuns) for (const field of ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt']) {
+    run[field] = run[field].replace('T', ' ').replace(/Z$/u, '');
+  }
+  inventory.publicationState.CurrentRunsJSON = JSON.stringify(pointerRuns);
+  inventory.publicationState.PublishedAt = inventory.publicationState.PublishedAt.replace('T', ' ').replace(/Z$/u, '');
+  const result = planPublicationPointerMigration({ manifest: migration, inventory, mode: 'VERIFY' });
+  assert.equal(result.validation.enforcementReady, true);
+  assert.equal(result.state.status, 'VERIFIED');
 });
