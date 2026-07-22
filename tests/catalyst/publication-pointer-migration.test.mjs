@@ -37,6 +37,7 @@ function legacyInventory({ proven = false, partial = false, migrated = false } =
       PublicationStateID: 'CURRENT', PublicationGeneration: 1,
       CurrentRunGroupID: runGroup.RunGroupID, CurrentRunsJSON: JSON.stringify(analysisRuns),
       PointerVersion: 1, LastReservedAttemptSequence: 1, LatestAttemptSequence: 1,
+      LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: runGroup.RunGroupID,
     } : null,
   };
 }
@@ -57,7 +58,7 @@ test('apply is idempotent and backfills only a coherent complete seven-run group
   assert.equal(first.actions.filter(action => action.kind === 'ADD_NULLABLE_COLUMN').length, 3);
   assert.equal(first.actions.filter(action => action.kind === 'BACKFILL_RUN').length, 7);
   assert.ok(first.actions.some(action => action.kind === 'UPSERT_PUBLICATION_POINTER'));
-  assert.equal(first.state.runtimeSelector, 'LEGACY_COMPLETE_GROUP');
+  assert.equal(first.state.activation, 'PENDING_VERIFICATION');
   const pointer = first.actions.find(action => action.kind === 'UPSERT_PUBLICATION_POINTER').values;
   assert.equal(pointer.SyntheticData, true);
   assert.ok(JSON.parse(pointer.CurrentRunsJSON).every(run => run.AttemptSequence === 1));
@@ -84,21 +85,57 @@ test('legacy identity is backfilled only when proven and otherwise receives an e
   assert.equal(unknown.state.unknownLegacyIdentityCount, 7);
 });
 
-test('verify requires all target fields and rollback changes only selector state without deleting intelligence', () => {
+test('verify requires all target fields and rollback redeploys the previous bundle without deleting intelligence', () => {
   const verified = planPublicationPointerMigration({
     manifest: migration, inventory: legacyInventory({ migrated: true }), mode: 'VERIFY',
   });
   assert.equal(verified.validation.enforcementReady, true);
   assert.equal(verified.state.status, 'VERIFIED');
-  assert.equal(verified.state.runtimeSelector, 'PUBLICATION_POINTER');
+  assert.equal(verified.state.deploymentBundle, 'PUBLICATION_POINTER');
   assert.equal(verified.validation.nullBackfillCount, 0);
 
   const rollback = planPublicationPointerMigration({
     manifest: migration, inventory: legacyInventory({ migrated: true }), mode: 'ROLLBACK',
   });
   assert.deepEqual(rollback.actions, [
-    { kind: 'SET_RUNTIME_SELECTOR', value: 'LEGACY_COMPLETE_GROUP' },
-    { kind: 'IGNORE_TABLE', table: 'INT_PublicationState' },
+    { kind: 'REDEPLOY_PREVIOUS_VERIFIED_BUNDLE', retainTables: true, retainRows: true },
   ]);
   assert.equal(rollback.actions.some(action => /DELETE|DROP/u.test(action.kind)), false);
+});
+
+test('verify rejects malformed or incoherent publication pointers', () => {
+  const mutations = [
+    inventory => { inventory.publicationState.CurrentRunsJSON = '[]'; },
+    inventory => { inventory.publicationState.PublicationGeneration = 99; },
+    inventory => {
+      const runs = JSON.parse(inventory.publicationState.CurrentRunsJSON);
+      runs[1] = { ...runs[0] };
+      inventory.publicationState.CurrentRunsJSON = JSON.stringify(runs);
+    },
+    inventory => {
+      const runs = JSON.parse(inventory.publicationState.CurrentRunsJSON);
+      runs.pop(); inventory.publicationState.CurrentRunsJSON = JSON.stringify(runs);
+    },
+    inventory => {
+      const runs = JSON.parse(inventory.publicationState.CurrentRunsJSON);
+      runs[0].RunGroupID = 'WRONG'; inventory.publicationState.CurrentRunsJSON = JSON.stringify(runs);
+    },
+    inventory => {
+      const runs = JSON.parse(inventory.publicationState.CurrentRunsJSON);
+      runs[0].RequestHash = 'f'.repeat(64); inventory.publicationState.CurrentRunsJSON = JSON.stringify(runs);
+    },
+    inventory => { inventory.publicationState.CurrentRunsJSON = '{broken'; },
+    inventory => { inventory.publicationState.LatestAttemptSequence = 2; },
+    inventory => { inventory.analysisRuns.pop(); },
+    inventory => { inventory.analysisRuns[0].Status = 'FAILED_RETRYABLE'; },
+    inventory => { inventory.analysisRuns[0].PublicationGeneration = 99; },
+    inventory => { inventory.analysisRuns[0].AttemptSequence = 2; },
+  ];
+  for (const mutate of mutations) {
+    const inventory = legacyInventory({ migrated: true, proven: true });
+    mutate(inventory);
+    const result = planPublicationPointerMigration({ manifest: migration, inventory, mode: 'VERIFY' });
+    assert.equal(result.validation.enforcementReady, false);
+    assert.notEqual(result.state.status, 'VERIFIED');
+  }
 });

@@ -34,7 +34,7 @@
 - [ ] Implement a pure migration planner that accepts a Catalyst inventory snapshot and emits bounded ZCQL/data-store actions for `DRY_RUN`, `APPLY`, `VERIFY`, and `ROLLBACK`.
 - [ ] Require the existing 31 tables, create `INT_PublicationState`, add nullable `RequestHash`, `PublicationGeneration`, `AttemptSequence`, and pointer attempt fields first, and backfill only a coherent seven-run group.
 - [ ] Mark unprovable legacy identities with `LEGACY_IDENTITY_UNKNOWN`; require runtime replay conflict instead of accepting a caller-supplied identity.
-- [ ] Make rollback ignore/remove the pointer selector and restore legacy reads without deleting run/finding data.
+- [x] Make rollback redeploy the previous verified bundle without deleting or rewriting run/finding/pointer data.
 - [ ] Re-run migration tests and generate the operator runbook from the migration manifest.
 
 ### Task 3: Pointer-final publication commit

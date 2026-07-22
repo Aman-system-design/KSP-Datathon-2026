@@ -29,7 +29,7 @@ function input(overrides = {}) {
     projectConfig, catalystConfig,
     sourceSchema: { tables: Array.from({ length: 29 }, (_, i) => ({ name: `SRC_${i}` })) },
     intelligenceSchema: canonicalIntelligenceSchema,
-    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'VERIFIED', runtimeSelector: 'PUBLICATION_POINTER' },
+    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'VERIFIED', deploymentBundle: 'PUBLICATION_POINTER' },
     apiOperations: Array.from({ length: 42 }, (_, i) => ({ method: 'GET', path: `/v1/${i}` })),
     cliVersion: '1.27.0', gitStatus: '', branch: 'codex/intelligence-workspaces', remote: true,
     ...overrides,
@@ -77,11 +77,11 @@ test('local preflight reports a dirty tree without authorizing remote mutation',
 
 test('remote preflight requires a verified publication-pointer migration', () => {
   assert.throws(() => evaluateCatalystPreflight(input({
-    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'NOT_APPLIED', runtimeSelector: 'LEGACY_COMPLETE_GROUP' },
+    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'NOT_APPLIED', deploymentBundle: 'PREVIOUS_VERIFIED' },
   })), /migration/i);
   const local = evaluateCatalystPreflight(input({
     remote: false,
-    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'NOT_APPLIED', runtimeSelector: 'LEGACY_COMPLETE_GROUP' },
+    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'NOT_APPLIED', deploymentBundle: 'PREVIOUS_VERIFIED' },
   }));
   assert.equal(local.migrationReady, false);
 });

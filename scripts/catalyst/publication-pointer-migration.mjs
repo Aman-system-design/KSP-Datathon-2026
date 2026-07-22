@@ -30,6 +30,53 @@ function inventoryDigest(inventory) {
   })).digest('hex');
 }
 
+function parsePointerRuns(pointer) {
+  try {
+    const runs = JSON.parse(pointer?.CurrentRunsJSON ?? 'null');
+    return Array.isArray(runs) ? runs : [];
+  } catch { return []; }
+}
+
+function verifyPointer({ manifest, inventory, groups, tables }) {
+  const pointer = inventory.publicationState;
+  const pointerRuns = parsePointerRuns(pointer);
+  const storedById = new Map((inventory.analysisRuns ?? []).map(run => [run.AnalysisRunID, run]));
+  const required = new Set(manifest.requiredAnalysisTypes);
+  const identities = new Set(pointerRuns.map(run => run.AnalysisRunID));
+  const types = new Set(pointerRuns.map(run => run.AnalysisType));
+  const safePositive = value => Number.isSafeInteger(Number(value)) && Number(value) >= 1;
+  const generation = Number(pointer?.PublicationGeneration);
+  const latestSequence = Number(pointer?.LatestAttemptSequence);
+  const lastReserved = Number(pointer?.LastReservedAttemptSequence);
+  const rowsMatch = pointerRuns.length === 7 && identities.size === 7 && types.size === 7
+    && [...required].every(type => types.has(type))
+    && pointerRuns.every(run => {
+      const stored = storedById.get(run.AnalysisRunID);
+      return stored
+        && stored.RunGroupID === pointer.CurrentRunGroupID
+        && run.RunGroupID === pointer.CurrentRunGroupID
+        && stored.AnalysisType === run.AnalysisType
+        && stored.Status === 'COMPLETED' && stored.PublishStatus === 'PUBLISHED'
+        && Number(stored.PublicationGeneration) === generation
+        && Number(run.PublicationGeneration) === generation
+        && Number(stored.AttemptSequence) === latestSequence
+        && Number(run.AttemptSequence) === latestSequence
+        && stored.RequestHash === run.RequestHash;
+    });
+  const requestHashes = new Set(pointerRuns.map(run => run.RequestHash));
+  const requestIdentityReady = requestHashes.size === 1
+    && [...requestHashes].every(value => value === manifest.legacyUnknownRequestHash || SHA256.test(value));
+  const sequenceReady = safePositive(pointer?.PointerVersion) && safePositive(generation)
+    && safePositive(latestSequence) && safePositive(lastReserved) && latestSequence <= lastReserved
+    && pointer?.LatestAttemptStatus === 'COMPLETED'
+    && pointer?.LatestAttemptRunGroupID === pointer?.CurrentRunGroupID;
+  const pointerReady = tables.has(manifest.newTable)
+    && pointer?.PublicationStateID === 'CURRENT'
+    && groups.some(group => group.runGroupId === pointer?.CurrentRunGroupID)
+    && rowsMatch && requestIdentityReady && sequenceReady;
+  return { pointerReady, pointerRunCount: pointerRuns.length, rowsMatch, requestIdentityReady, sequenceReady };
+}
+
 export function planPublicationPointerMigration({ manifest, inventory, mode, confirmed = false }) {
   invariant(MODES.has(mode), 'mode is invalid');
   invariant(inventory?.environment === manifest?.environment, 'only the approved Development environment is allowed');
@@ -55,10 +102,7 @@ export function planPublicationPointerMigration({ manifest, inventory, mode, con
   }
   if (mode === 'ROLLBACK') return {
     ...result,
-    actions: [
-      { kind: 'SET_RUNTIME_SELECTOR', value: manifest.rollbackSelector },
-      { kind: 'IGNORE_TABLE', table: manifest.newTable },
-    ],
+    actions: [{ kind: 'REDEPLOY_PREVIOUS_VERIFIED_BUNDLE', retainTables: true, retainRows: true }],
   };
 
   if (mode === 'APPLY') {
@@ -110,7 +154,7 @@ export function planPublicationPointerMigration({ manifest, inventory, mode, con
       state: {
         status: result.actions.length === 0 ? 'APPLIED' : 'APPLY_PLANNED',
         inventoryDigest: result.inventory.digest, unknownLegacyIdentityCount,
-        runtimeSelector: manifest.rollbackSelector,
+        activation: 'PENDING_VERIFICATION',
       },
     };
   }
@@ -119,20 +163,19 @@ export function planPublicationPointerMigration({ manifest, inventory, mode, con
   const missingColumns = requiredColumns.filter(column => !tables.get('INT_AnalysisRun').has(column));
   const nullBackfillCount = (inventory.analysisRuns ?? []).filter(run => groups.some(group => group.runGroupId === run.RunGroupID))
     .reduce((count, run) => count + requiredColumns.filter(column => run[column] === null || run[column] === undefined).length, 0);
-  const pointerReady = tables.has(manifest.newTable)
-    && inventory.publicationState?.PublicationStateID === 'CURRENT'
-    && groups.some(group => group.runGroupId === inventory.publicationState?.CurrentRunGroupID);
+  const pointerValidation = verifyPointer({ manifest, inventory, groups, tables });
+  const { pointerReady } = pointerValidation;
   const enforcementReady = missingColumns.length === 0 && nullBackfillCount === 0 && pointerReady;
   return {
     ...result,
     validation: {
-      missingColumns, nullBackfillCount, pointerReady,
+      missingColumns, nullBackfillCount, ...pointerValidation,
       enforcementReady,
     },
     state: {
       status: enforcementReady ? 'VERIFIED' : 'VERIFY_FAILED',
       inventoryDigest: result.inventory.digest,
-      runtimeSelector: enforcementReady ? 'PUBLICATION_POINTER' : manifest.rollbackSelector,
+      deploymentBundle: enforcementReady ? 'PUBLICATION_POINTER' : 'PREVIOUS_VERIFIED',
     },
   };
 }

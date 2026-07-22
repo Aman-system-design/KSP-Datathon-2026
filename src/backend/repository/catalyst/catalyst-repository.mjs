@@ -614,6 +614,9 @@ export class CatalystIntelligenceRepository {
       const pointer = await this.#publicationPointer();
       if (!pointer) return;
       if (Number(sequence) < Number(pointer.LatestAttemptSequence ?? 0)) return;
+      if (Number(sequence) === Number(pointer.LatestAttemptSequence ?? 0)
+        && ['COMPLETED', 'FAILED_FINAL'].includes(pointer.LatestAttemptStatus)
+        && status !== pointer.LatestAttemptStatus) return;
       const rowId = String(pointer.ROWID);
       if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
       const currentVersion = Number(pointer.PointerVersion);
@@ -1443,6 +1446,14 @@ export class CatalystIntelligenceRepository {
     if (!existing) return undefined;
     const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length !== 7) fail('DATA_NOT_READY', 'Refresh run group is incomplete.');
+    const persistedGenerations = [...new Set(rows.map(row => Number(row.PublicationGeneration))
+      .filter(value => Number.isSafeInteger(value) && value >= 1))];
+    if (existing.Status === 'COMPLETED' && persistedGenerations.length === 1
+      && rows.every(row => Number(row.PublicationGeneration) === persistedGenerations[0])) {
+      const pointer = await this.#publicationPointer();
+      if (pointer?.CurrentRunGroupID === existing.RunGroup.RunGroupID
+        || Number(pointer?.PublicationGeneration) >= persistedGenerations[0]) return existing;
+    }
     // Generation annotations are prepared before the pointer CAS. A retry must be
     // allowed to reconcile a partially annotated group after an interrupted write.
     if (existing.Status !== 'COMPLETED') {

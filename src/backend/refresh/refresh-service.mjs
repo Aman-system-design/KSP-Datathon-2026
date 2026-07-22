@@ -8,6 +8,20 @@ import { isCompletePublishedGroup, REQUIRED_ANALYSIS_TYPES } from './run-groups.
 
 const hash = value => createHash('sha256').update(canonicalStringify(value)).digest('hex');
 
+function batchPublicationGeneration(batch) {
+  const runs = batch?.RunGroup?.runs ?? [];
+  const values = [...new Set(runs.map(run => Number(run.PublicationGeneration)).filter(Number.isSafeInteger))];
+  return runs.length === 7 && values.length === 1 && values[0] >= 1 ? values[0] : null;
+}
+
+function isCommittedBatch(batch, refreshStatus) {
+  if (batch?.Status !== 'COMPLETED') return false;
+  const generation = batchPublicationGeneration(batch);
+  const current = refreshStatus?.currentRunGroup;
+  if (current?.RunGroupID === batch.RunGroup?.RunGroupID) return true;
+  return generation !== null && Number(refreshStatus?.publicationGeneration) >= generation;
+}
+
 function publicResult(batch) {
   const findings = batch.Findings ?? {};
   return {
@@ -97,6 +111,8 @@ export function createRefreshService({
 
       if (batch && (batch.Operation !== operation || batch.RequestHash !== requestHash)) fail('IDEMPOTENCY_CONFLICT');
       if (batch?.Status === 'COMPLETED') {
+        const refreshStatus = await repository.getRefreshStatus();
+        if (isCommittedBatch(batch, refreshStatus)) return publicResult(batch);
         return publicResult(await repository.publishRefreshBatch(batchKey, clock()));
       }
       if (!batch) {
@@ -159,9 +175,18 @@ export function createRefreshService({
         const completed = await repository.publishRefreshBatch(batchKey, clock());
         return publicResult(completed);
       } catch (error) {
+        let reconciled = false;
         try {
-          await repository.updateRefreshBatch(batchKey, { Status: 'FAILED_RETRYABLE', CompletedAt: clock() });
-        } catch { /* Preserve the publication failure; stale state remains safely unpublished. */ }
+          const persisted = await repository.getRefreshBatch(batchKey);
+          const refreshStatus = await repository.getRefreshStatus();
+          reconciled = true;
+          if (isCommittedBatch(persisted, refreshStatus)) return publicResult(persisted);
+        } catch { /* An unavailable reconciliation read must not cause a speculative state downgrade. */ }
+        if (reconciled) {
+          try {
+            await repository.updateRefreshBatch(batchKey, { Status: 'FAILED_RETRYABLE', CompletedAt: clock() });
+          } catch { /* Preserve the publication failure; stale state remains safely unpublished. */ }
+        }
         throw error;
       }
     },

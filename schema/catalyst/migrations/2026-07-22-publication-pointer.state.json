@@ -4,5 +4,5 @@
   "lastVerifiedAt": null,
   "inventoryDigest": null,
   "unknownLegacyIdentityCount": null,
-  "runtimeSelector": "LEGACY_COMPLETE_GROUP"
+  "deploymentBundle": "PREVIOUS_VERIFIED"
 }

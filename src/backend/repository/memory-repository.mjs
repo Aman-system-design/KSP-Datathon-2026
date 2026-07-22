@@ -392,6 +392,9 @@ export class MemoryIntelligenceRepository {
     const pointer = this.#state.publicationState;
     const sequence = Number(batch.AttemptSequence ?? 0);
     if (!pointer || sequence < Number(pointer.LatestAttemptSequence ?? 0)) return;
+    if (sequence === Number(pointer.LatestAttemptSequence ?? 0)
+      && ['COMPLETED', 'FAILED_FINAL'].includes(pointer.LatestAttemptStatus)
+      && status !== pointer.LatestAttemptStatus) return;
     Object.assign(pointer, {
       LatestAttemptSequence: sequence, LatestAttemptStatus: status,
       LatestAttemptRunGroupID: batch.RunGroup?.RunGroupID ?? null, LatestAttemptAt: at,

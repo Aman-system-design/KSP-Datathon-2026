@@ -272,6 +272,23 @@ test('partial refresh staging stays invisible and a retry converges without dupl
   assert.equal(completed.Status, 'COMPLETED');
 });
 
+function minimalRefreshBatch({ key, group, attemptSequence }) {
+  const types = ['FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK', 'IDENTITY_RESOLUTION'];
+  return {
+    BatchKey: key, Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: key.padEnd(64, 'a').slice(0, 64),
+    AttemptSequence: attemptSequence, Status: 'STAGED',
+    Reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true },
+    PublishedFindings: {}, RunGroup: { RunGroupID: group, runs: types.map((AnalysisType, index) => ({
+      AnalysisRunID: `${group}-${index}`, RunGroupID: group, AnalysisType,
+      RunTypeKey: `${group}:${AnalysisType}`, RequestHash: key.padEnd(64, 'a').slice(0, 64), AttemptSequence: attemptSequence,
+      Status: 'COMPLETED', PublishStatus: 'STAGED', InputManifestHash: 'e'.repeat(64),
+      ObservationStart: '2026-06-01T00:00:00Z', ObservationEnd: '2026-07-01T00:00:00Z',
+      EngineVersion: '1.0.0', MethodVersion: '1.0.0', CompletedAt: '2026-07-20T00:00:00Z',
+      PublishedAt: null, SyntheticData: true,
+    })) }, CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true,
+  };
+}
+
 test('publication pointer remains uncommitted when any run generation annotation fails', async () => {
   const types = ['FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK', 'IDENTITY_RESOLUTION'];
   for (let annotation = 0; annotation < 7; annotation += 1) {
@@ -301,4 +318,34 @@ test('publication pointer remains uncommitted when any run generation annotation
     assert.equal(completed.Status, 'COMPLETED');
     assert.equal(fake.tables.get('INT_AnalysisRun').every(row => row.PublicationGeneration === 1), true);
   }
+});
+
+test('replaying an older completed Catalyst batch never moves the newer current pointer', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const firstSequence = await repository.reserveRefreshAttempt();
+  const first = minimalRefreshBatch({ key: 'REPLAY-A', group: 'REPLAY-GROUP-A', attemptSequence: firstSequence });
+  await repository.createRefreshBatch(first);
+  const firstResult = await repository.publishRefreshBatch(first.BatchKey, '2026-07-20T01:00:00Z');
+  const secondSequence = await repository.reserveRefreshAttempt();
+  const second = minimalRefreshBatch({ key: 'REPLAY-B', group: 'REPLAY-GROUP-B', attemptSequence: secondSequence });
+  await repository.createRefreshBatch(second);
+  await repository.publishRefreshBatch(second.BatchKey, '2026-07-20T02:00:00Z');
+  assert.deepEqual(await repository.publishRefreshBatch(first.BatchKey, '2026-07-20T03:00:00Z'), firstResult);
+  assert.equal((await repository.getCurrentRunGroup()).RunGroupID, second.RunGroup.RunGroupID);
+  await repository.updateRefreshBatch(second.BatchKey, { Status: 'FAILED_RETRYABLE', CompletedAt: '2026-07-20T04:00:00Z' });
+  assert.equal((await repository.getRefreshStatus()).latestAttempt.status, 'COMPLETED');
+});
+
+test('FAILED_FINAL Catalyst attempt status cannot be downgraded at the same sequence', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const sequence = await repository.reserveRefreshAttempt();
+  const batch = minimalRefreshBatch({ key: 'FINAL-A', group: 'FINAL-GROUP-A', attemptSequence: sequence });
+  await repository.createRefreshBatch(batch);
+  await repository.updateRefreshBatch(batch.BatchKey, { Status: 'FAILED_FINAL', CompletedAt: '2026-07-20T01:00:00Z' });
+  await repository.updateRefreshBatch(batch.BatchKey, { Status: 'FAILED_RETRYABLE', CompletedAt: '2026-07-20T02:00:00Z' });
+  const status = await repository.getRefreshStatus();
+  assert.equal(status.latestAttempt.sequence, sequence);
+  assert.equal(status.latestAttempt.status, 'FAILED_FINAL');
 });

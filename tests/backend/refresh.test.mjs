@@ -74,6 +74,8 @@ test('publication generation is monotonic even when completed timestamps are ide
   assert.equal(first.runGroup.PublishedAt, second.runGroup.PublishedAt);
   assert.equal(afterSecond.PublicationGeneration, afterFirst.PublicationGeneration + 1);
   assert.equal(afterSecond.RunGroupID, second.runGroup.RunGroupID);
+  assert.deepEqual(await service(repository).execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'GEN-1', seed: 20260720 }), first);
+  assert.equal((await repository.getCurrentRunGroup()).RunGroupID, second.runGroup.RunGroupID);
 });
 
 test('a refresh idempotency key replays only the exact same operation and input', async () => {
@@ -163,6 +165,33 @@ test('partial publication failure preserves the prior current group and retry co
   const completed = await refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BOOT-1', seed: 20260720 });
   assert.equal(completed.status, 'COMPLETED');
   assert.notEqual((await repository.getCurrentRunGroup()).RunGroupID, 'RUN-GROUP-DEMO-1');
+});
+
+test('a committed publication response is reconciled as success before recording retryable failure', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  let throwAfterCommit = true;
+  const uncertain = new Proxy(repository, { get(target, property) {
+    if (property === 'publishRefreshBatch') return async (...args) => {
+      const value = await target.publishRefreshBatch(...args);
+      if (throwAfterCommit) { throwAfterCommit = false; throw new Error('uncertain transport response'); }
+      return value;
+    };
+    const value = target[property];
+    return typeof value === 'function' ? value.bind(target) : value;
+  } });
+  const result = await service(uncertain).execute({
+    operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'UNCERTAIN-COMMIT', seed: 20260720,
+  });
+  assert.equal(result.status, 'COMPLETED');
+  assert.equal((await repository.getRefreshStatus()).latestAttempt.status, 'COMPLETED');
+});
+
+test('terminal attempt status cannot be downgraded by an equal-sequence retry', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  await service(repository).execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'TERMINAL-1', seed: 20260720 });
+  await repository.updateRefreshBatch('TERMINAL-1', { Status: 'FAILED_RETRYABLE', CompletedAt: clock() });
+  const status = await repository.getRefreshStatus();
+  assert.equal(status.latestAttempt.status, 'COMPLETED');
 });
 
 test('a late failure from an older attempt cannot replace a newer completed attempt', async () => {

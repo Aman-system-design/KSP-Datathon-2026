@@ -56,7 +56,7 @@ export function evaluateCatalystPreflight({
   const clean = String(gitStatus ?? '').trim() === '';
   const migrationReady = migrationState?.migrationId === '2026-07-22-publication-pointer-v1'
     && migrationState?.status === 'VERIFIED'
-    && migrationState?.runtimeSelector === 'PUBLICATION_POINTER';
+    && migrationState?.deploymentBundle === 'PUBLICATION_POINTER';
   if (remote) invariant(migrationReady, 'publication-pointer migration must be VERIFIED before remote mutation');
   if (remote) invariant(clean, 'Git worktree must be clean before remote mutation');
 

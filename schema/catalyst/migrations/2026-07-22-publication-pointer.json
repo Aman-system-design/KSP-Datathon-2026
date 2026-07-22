@@ -22,5 +22,5 @@
     "IDENTITY_RESOLUTION"
   ],
   "stateFile": "schema/catalyst/migrations/2026-07-22-publication-pointer.state.json",
-  "rollbackSelector": "LEGACY_COMPLETE_GROUP"
+  "rollbackAction": "REDEPLOY_PREVIOUS_VERIFIED_BUNDLE"
 }
