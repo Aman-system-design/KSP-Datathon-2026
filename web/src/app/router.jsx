@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from '
 
 import { createApiClient } from '../api/client.js';
 import { AccessNotProvisioned } from '../auth/AccessNotProvisioned.jsx';
-import { catalystAuth } from '../auth/catalyst-auth.js';
+import { createCatalystAuth } from '../auth/catalyst-auth.js';
 import { SignInRequired } from '../auth/SignInRequired.jsx';
 import { AlertDetail } from '../features/alerts/AlertDetail.jsx';
 import { AlertInbox } from '../features/alerts/AlertInbox.jsx';
@@ -175,13 +175,15 @@ function RoutedDashboardPage({ api }) {
 export function Application({ api: providedApi }) {
   const location = useLocation();
   const demoPersona = readDemoPersona(location.search);
+  const runtime = readRuntime();
+  const auth = useMemo(() => createCatalystAuth({ authOrigin: runtime.authOrigin }), [runtime.authOrigin]);
   const api = useMemo(() => providedApi ?? createApiClient({
-    baseUrl: readRuntime().apiBase,
+    baseUrl: runtime.apiBase,
     headers: demoPersona ? { 'X-Demo-Persona': demoPersona } : {},
   }), [providedApi, demoPersona]);
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
-  if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired loginUrl={catalystAuth.loginUrl} />;
+  if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired loginUrl={auth.loginUrl} />;
   if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
   if (state.error) return <main className="application-gate"><Failure error={state.error} /></main>;
   const workspace = state.data ?? fallbackWorkspace;
@@ -189,7 +191,7 @@ export function Application({ api: providedApi }) {
     if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" />;
     return <CommandCentrePage api={api} workspace={workspace} />;
   }
-  return <AppShell workspace={workspace}><Routes>
+  return <AppShell workspace={workspace} auth={auth}><Routes>
     <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
     <Route path="/intelligence" element={<CommandPage api={api} role={workspace.role} />} />
     <Route path="/geospatial" element={<GeospatialPage api={api} />} />

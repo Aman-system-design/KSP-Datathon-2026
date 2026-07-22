@@ -9,8 +9,11 @@ export class ApiError extends Error {
   }
 }
 
+const DEVELOPMENT_API = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
+
 export function createApiClient({ baseUrl, keyFactory = () => crypto.randomUUID(), headers = {} }) {
-  if (typeof baseUrl !== 'string' || !baseUrl.startsWith('/')) throw new TypeError('A relative API base URL is required');
+  const relative = typeof baseUrl === 'string' && baseUrl.startsWith('/') && !baseUrl.startsWith('//');
+  if (!relative && baseUrl !== DEVELOPMENT_API) throw new TypeError('An approved API base URL is required');
   async function request(method, path, body, extraHeaders = {}) {
     const response = await fetch(`${baseUrl}${path}`, {
       method, credentials: 'include',

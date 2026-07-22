@@ -12,6 +12,15 @@ test('API client sends credentialed JSON and returns the governed data envelope'
   expect(fetch).toHaveBeenCalledWith('/server/crime_intelligence_api/v1/workspace', expect.objectContaining({ credentials: 'include' }));
 });
 
+test('Slate API client permits only the approved Catalyst Development Function base', async () => {
+  const baseUrl = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
+  const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
+  vi.stubGlobal('fetch', fetch);
+  await createApiClient({ baseUrl }).get('/v1/workspace');
+  expect(fetch).toHaveBeenCalledWith(`${baseUrl}/v1/workspace`, expect.objectContaining({ credentials: 'include' }));
+  expect(() => createApiClient({ baseUrl: 'https://example.com/server/crime_intelligence_api' })).toThrow(TypeError);
+});
+
 test('workflow requests carry a client idempotency key', async () => {
   const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
   vi.stubGlobal('fetch', fetch);

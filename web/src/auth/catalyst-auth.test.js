@@ -29,10 +29,26 @@ test('falls back to the hosted-login URL when the Web SDK is unavailable', () =>
   expect(assign).toHaveBeenCalledWith('/__catalyst/auth/login');
 });
 
+test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
+  const assign = vi.fn();
+  const authOrigin = 'https://kspdatathon2026-60077844198.development.catalystserverless.in';
+  const auth = createCatalystAuth({ authOrigin, location: { origin: 'https://aiksp.onslate.in', assign } });
+  expect(auth.loginUrl).toBe(`${authOrigin}/__catalyst/auth/login`);
+  auth.signOut();
+  expect(assign).toHaveBeenCalledWith(`${authOrigin}/__catalyst/auth/login`);
+});
+
 test('loads the same-origin Catalyst initializer once', () => {
   loadCatalystInit(document);
   loadCatalystInit(document);
   const scripts = document.querySelectorAll('script[data-catalyst-init]');
   expect(scripts).toHaveLength(1);
   expect(scripts[0]).toHaveAttribute('src', '/__catalyst/sdk/init.js');
+});
+
+test('Slate loads Catalyst initialization from the approved Function origin', () => {
+  document.querySelectorAll('script[data-catalyst-init]').forEach(script => script.remove());
+  const source = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/__catalyst/sdk/init.js';
+  loadCatalystInit(document, source);
+  expect(document.querySelector('script[data-catalyst-init]')).toHaveAttribute('src', source);
 });

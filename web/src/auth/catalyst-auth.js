@@ -1,9 +1,9 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
 
-export function loadCatalystInit(document = globalThis.document) {
+export function loadCatalystInit(document = globalThis.document, source = '/__catalyst/sdk/init.js') {
   if (!document || document.querySelector('script[data-catalyst-init]')) return;
   const script = document.createElement('script');
-  script.src = '/__catalyst/sdk/init.js';
+  script.src = source;
   script.dataset.catalystInit = 'true';
   document.head.append(script);
 }
@@ -11,8 +11,9 @@ export function loadCatalystInit(document = globalThis.document) {
 export function createCatalystAuth({
   catalyst = globalThis.catalyst,
   location = globalThis.location,
+  authOrigin = '',
 } = {}) {
-  const loginUrl = LOGIN_PATH;
+  const loginUrl = `${authOrigin}${LOGIN_PATH}`;
 
   return Object.freeze({
     loginUrl,
@@ -22,10 +23,10 @@ export function createCatalystAuth({
     },
     signOut() {
       if (typeof catalyst?.auth?.signOut === 'function') {
-        catalyst.auth.signOut(`${location.origin}${LOGIN_PATH}`);
+        catalyst.auth.signOut(loginUrl.startsWith('http') ? loginUrl : `${location.origin}${loginUrl}`);
         return;
       }
-      location.assign(LOGIN_PATH);
+      location.assign(loginUrl);
     },
   });
 }
