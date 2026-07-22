@@ -85,18 +85,19 @@ function clusterIndex(data, layer) {
   const cached = cache.byConfiguration.get(key);
   if (cached) return cached;
   const sorted = [...data].sort((left, right) => String(left.id ?? '').localeCompare(String(right.id ?? '')));
-  const points = sorted.map(feature => {
+  const points = sorted.map((feature, index) => {
     const coordinates = pointPosition(feature);
     return {
       type: 'Feature',
       id: feature.id,
       geometry: { type: 'Point', coordinates },
-      properties: { ...(feature.properties ?? {}), __sourceId: feature.id },
+      properties: { __kspLeafIndex: index, __kspFeatureId: feature.id },
     };
   });
   const index = new Supercluster(configuration).load(points);
-  cache.byConfiguration.set(key, index);
-  return index;
+  const compiled = { index, sorted };
+  cache.byConfiguration.set(key, compiled);
+  return compiled;
 }
 
 function clusterBounds(viewport, data) {
@@ -122,15 +123,20 @@ function clusterBounds(viewport, data) {
 }
 
 function clusterSpecs(layer, data, viewport, onFeatureSelect) {
-  const index = clusterIndex(data, layer);
+  const { index, sorted } = clusterIndex(data, layer);
   const zoom = Math.max(0, Math.min(clusterConfiguration(layer).maxZoom,
     Math.floor(Number.isFinite(viewport?.zoom) ? viewport.zoom : 0)));
+  const aggregateFeatures = new WeakSet();
   const clusters = index.getClusters(clusterBounds(viewport, data), zoom).map(feature => {
-    if (!feature.properties.cluster) {
-      const { __sourceId, ...properties } = feature.properties;
-      return { ...feature, id: __sourceId, properties };
+    const isAggregate = feature.properties.cluster === true && Number.isInteger(feature.properties.cluster_id);
+    if (!isAggregate) {
+      const source = sorted[feature.properties.__kspLeafIndex];
+      if (!source || source.id !== feature.properties.__kspFeatureId) {
+        throw new Error('Supercluster returned an unknown leaf feature');
+      }
+      return { ...feature, id: source.id, properties: { ...(source.properties ?? {}) } };
     }
-    return {
+    const aggregate = {
       ...feature,
       id: `${layer.id}:cluster:${feature.properties.cluster_id}`,
       properties: {
@@ -139,13 +145,15 @@ function clusterSpecs(layer, data, viewport, onFeatureSelect) {
         pointCountAbbreviated: feature.properties.point_count_abbreviated,
       },
     };
+    aggregateFeatures.add(aggregate);
+    return aggregate;
   });
-  const labels = clusters.filter(feature => feature.properties.cluster);
+  const labels = clusters.filter(feature => aggregateFeatures.has(feature));
   const scatter = pointSpec({ ...layer, id: `${layer.id}:cluster` }, clusters, onFeatureSelect);
   scatter.id = `${layer.id}:cluster-points`;
   const selectLeaf = scatter.onClick;
   scatter.onClick = info => {
-    if (!info?.object?.properties?.cluster) selectLeaf(info);
+    if (!aggregateFeatures.has(info?.object)) selectLeaf(info);
   };
   if (labels.length === 0) return [scatter];
   return [scatter, {

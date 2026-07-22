@@ -136,6 +136,31 @@ test('CLUSTER aggregate marks are not evidence selections while leaf points rema
   expect(onFeatureSelect).toHaveBeenCalledWith({ id: 'A', properties: { label: 'A' } });
 });
 
+test('CLUSTER isolates Supercluster metadata from colliding leaf properties', () => {
+  const onFeatureSelect = vi.fn();
+  const source = point('LEAF-1', 77.5949, 12.9718, {
+    cluster: true,
+    cluster_id: 999,
+    point_count: 42,
+    label: 'Source leaf',
+    secret: 'not approved',
+  });
+  const scatter = buildDeckLayerSpecs({
+    layer: { id: 'clustered', renderer: 'CLUSTER', tooltipFields: ['cluster', 'label'] },
+    featureCollection: collection(source),
+    viewport: { zoom: 16, bounds: [77, 12, 78, 13] },
+    onFeatureSelect,
+  }).find(spec => spec.kind === 'ScatterplotLayer');
+
+  scatter.onClick({ object: scatter.data[0] });
+
+  expect(onFeatureSelect).toHaveBeenCalledWith({
+    id: 'LEAF-1',
+    properties: { cluster: true, label: 'Source leaf' },
+  });
+  expect(onFeatureSelect.mock.calls[0][0].properties).not.toHaveProperty('secret');
+});
+
 test('CLUSTER derives a bounded non-world query for a single point', () => {
   const getClusters = vi.spyOn(Supercluster.prototype, 'getClusters');
   buildDeckLayerSpecs({
