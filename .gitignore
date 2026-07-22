@@ -1,4 +1,5 @@
 .superpowers/
+.worktrees/
 .catalystrc
 node_modules/
 web/dist/
