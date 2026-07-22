@@ -104,6 +104,46 @@ function startsKeyword(source, index, keyword) {
     && !isIdentifierCharacter(source[index + keyword.length]);
 }
 
+function previousSignificantCharacter(source, start) {
+  let index = start - 1;
+  while (index >= 0) {
+    if (/\s/u.test(source[index])) { index -= 1; continue; }
+    if (source[index] === '/' && source[index - 1] === '*') {
+      const commentStart = source.lastIndexOf('/*', index - 2);
+      if (commentStart !== -1) { index = commentStart - 1; continue; }
+    }
+    return source[index];
+  }
+  return undefined;
+}
+
+function scanTemplateLiteral(source, start) {
+  const expressions = [];
+  for (let index = start + 1; index < source.length;) {
+    if (source[index] === '\\') { index += 2; continue; }
+    if (source[index] === '`') return { end: index + 1, expressions };
+    if (!source.startsWith('${', index)) { index += 1; continue; }
+    const expressionStart = index + 2;
+    let depth = 1;
+    index = expressionStart;
+    while (index < source.length && depth > 0) {
+      if (source.startsWith('//', index) || source.startsWith('/*', index)) {
+        index = skipSpaceAndComments(source, index);
+      } else if (source[index] === "'" || source[index] === '"') {
+        index = skipQuoted(source, index).end;
+      } else if (source[index] === '`') {
+        index = scanTemplateLiteral(source, index).end;
+      } else {
+        if (source[index] === '{') depth += 1;
+        if (source[index] === '}') depth -= 1;
+        index += 1;
+      }
+    }
+    if (depth === 0) expressions.push(source.slice(expressionStart, index - 1));
+  }
+  return { end: source.length, expressions };
+}
+
 function sourceAfterFrom(source, start) {
   for (let index = start; index < source.length;) {
     index = skipSpaceAndComments(source, index);
@@ -129,11 +169,17 @@ function javascriptModuleSpecifiers(source) {
       index = skipSpaceAndComments(source, index);
       continue;
     }
-    if (source[index] === "'" || source[index] === '"' || source[index] === '`') {
+    if (source[index] === '`') {
+      const template = scanTemplateLiteral(source, index);
+      for (const expression of template.expressions) values.push(...javascriptModuleSpecifiers(expression));
+      index = template.end;
+      continue;
+    }
+    if (source[index] === "'" || source[index] === '"') {
       index = skipQuoted(source, index).end;
       continue;
     }
-    if (startsKeyword(source, index, 'import')) {
+    if (startsKeyword(source, index, 'import') && previousSignificantCharacter(source, index) !== '.') {
       let cursor = skipSpaceAndComments(source, index + 6);
       if (source[cursor] === '.') { index = cursor + 1; continue; }
       if (source[cursor] === '(') cursor = skipSpaceAndComments(source, cursor + 1);
@@ -156,7 +202,7 @@ function javascriptModuleSpecifiers(source) {
       index = literal.end;
       continue;
     }
-    if (startsKeyword(source, index, 'require')) {
+    if (startsKeyword(source, index, 'require') && previousSignificantCharacter(source, index) !== '.') {
       let cursor = skipSpaceAndComments(source, index + 7);
       if (source[cursor] === '(') cursor = skipSpaceAndComments(source, cursor + 1);
       else { index += 7; continue; }
@@ -214,8 +260,18 @@ function cssReferences(source) {
 
 function isLeafletPackage(value) {
   const normalized = value.trim().toLowerCase().replace(/^~/u, '');
-  return /^(?:react-)?leaflet(?:\/|$)/u.test(normalized)
-    || /(?:^|\/)node_modules\/(?:react-)?leaflet(?:\/|$)/u.test(normalized);
+  if (/^(?:react-)?leaflet(?:\/|$)/u.test(normalized)
+    || /(?:^|\/)node_modules\/(?:react-)?leaflet(?:\/|$)/u.test(normalized)) return true;
+  try {
+    const url = new URL(normalized.startsWith('//') ? `https:${normalized}` : normalized);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    return url.pathname.split('/').filter(Boolean).some(segment => {
+      try { return /^(?:react-)?leaflet(?:@[^/]+)?$/u.test(decodeURIComponent(segment).toLowerCase()); }
+      catch { return false; }
+    });
+  } catch {
+    return false;
+  }
 }
 
 export async function assertNoLeafletReferences(source, relativePath) {

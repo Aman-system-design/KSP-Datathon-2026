@@ -101,3 +101,39 @@ test('Leaflet words in comments and inert strings do not fail the removal check'
     .note::before { content: "url(leaflet/images/marker.png)"; }
   `, 'web/src/example.css'));
 });
+
+test('Leaflet removal rejects CDN package URLs by pathname in JavaScript and CSS', async () => {
+  const violations = [
+    ["import 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';", 'web/src/example.js'],
+    ["await import('https://cdn.jsdelivr.net/npm/react-leaflet@5.0.0/+esm');", 'web/src/example.js'],
+    ["require('https://esm.sh/v135/leaflet@1.9.4/es2022/leaflet.mjs');", 'web/src/example.js'],
+    ['@import url("https://unpkg.com/leaflet@1.9.4/dist/leaflet.css");', 'web/src/example.css'],
+    ['@import url("//unpkg.com/leaflet@1.9.4/dist/leaflet.css");', 'web/src/example.css'],
+    ['.marker { background: url("https://cdn.jsdelivr.net/npm/leaflet@1.9.4/images/marker.png"); }', 'web/src/example.css'],
+  ];
+  for (const [source, file] of violations) {
+    await assert.rejects(() => assertNoLeafletReferences(source, file), /Leaflet/u);
+  }
+});
+
+test('Leaflet hostnames, member methods and inert template text do not masquerade as package loads', async () => {
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    const docs = 'https://leaflet.example.com/application.js';
+    loader.import('leaflet');
+    loader . require('react-leaflet');
+    const inert = \`import('leaflet'); require('react-leaflet')\`;
+  `, 'web/src/example.js'));
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    @import url("https://leaflet.example.com/application.css");
+    .logo { background: url("https://react-leaflet.example.com/logo.svg"); }
+  `, 'web/src/example.css'));
+});
+
+test('Leaflet removal scans executable template interpolations', async () => {
+  await assert.rejects(() => assertNoLeafletReferences(
+    'const module = `${await import(\'leaflet\')}`;', 'web/src/example.js',
+  ), /imports Leaflet/u);
+  await assert.rejects(() => assertNoLeafletReferences(
+    'const module = `prefix ${require(\'react-leaflet\')} suffix`;', 'web/src/example.js',
+  ), /imports Leaflet/u);
+});
