@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
+import Supercluster from 'supercluster';
 import { buildDeckLayerSpecs } from './layer-adapters.js';
 
 const point = (id, longitude, latitude, properties = {}) => ({
@@ -14,7 +15,7 @@ test('POINT uses GeoJSON longitude-latitude coordinates and emits a safe selecti
   const onFeatureSelect = vi.fn();
   const feature = point('HOT-1', 77.5949, 12.9718, { area: 'Central', caseCount: 6 });
   const [spec] = buildDeckLayerSpecs({
-    layer: { id: 'hotspots', renderer: 'POINT' },
+    layer: { id: 'hotspots', renderer: 'POINT', tooltipFields: ['area'] },
     featureCollection: collection(feature),
     onFeatureSelect,
   });
@@ -25,7 +26,7 @@ test('POINT uses GeoJSON longitude-latitude coordinates and emits a safe selecti
   spec.onClick({ object: feature });
   expect(onFeatureSelect).toHaveBeenCalledWith({
     id: 'HOT-1',
-    properties: { area: 'Central', caseCount: 6 },
+    properties: { area: 'Central' },
   });
   expect(onFeatureSelect.mock.calls[0][0]).not.toHaveProperty('geometry');
 });
@@ -65,6 +66,43 @@ test('CLUSTER output is deterministic regardless of input order', () => {
   }));
 
   expect(compile([first, second])).toEqual(compile([second, first]));
+});
+
+test('CLUSTER caches indexing by data identity and config while querying current bounds', () => {
+  const load = vi.spyOn(Supercluster.prototype, 'load');
+  const getClusters = vi.spyOn(Supercluster.prototype, 'getClusters');
+  const featureCollection = collection(point('A', 77.5949, 12.9718), point('B', 77.595, 12.972));
+  const compile = (data, viewport, layer = { id: 'clustered', renderer: 'CLUSTER' }) => buildDeckLayerSpecs({
+    layer, featureCollection: data, viewport,
+  });
+
+  compile(featureCollection, { zoom: 8, bounds: [77, 12, 78, 13] });
+  compile(featureCollection, { zoom: 8, bounds: [77.2, 12.2, 78.2, 13.2] });
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(getClusters.mock.calls.at(-1)[0]).toEqual([77.2, 12.2, 78.2, 13.2]);
+
+  compile(collection(...featureCollection.features), { zoom: 8, bounds: [77, 12, 78, 13] });
+  expect(load).toHaveBeenCalledTimes(2);
+  compile(featureCollection, { zoom: 8, bounds: [77, 12, 78, 13] }, {
+    id: 'clustered', renderer: 'CLUSTER', clusterRadius: 60,
+  });
+  expect(load).toHaveBeenCalledTimes(3);
+  load.mockRestore();
+  getClusters.mockRestore();
+});
+
+test('CLUSTER derives a bounded non-world query for a single point', () => {
+  const getClusters = vi.spyOn(Supercluster.prototype, 'getClusters');
+  buildDeckLayerSpecs({
+    layer: { id: 'clustered', renderer: 'CLUSTER' },
+    featureCollection: collection(point('A', 77.5949, 12.9718)),
+    viewport: { zoom: 8 },
+  });
+  const bounds = getClusters.mock.calls.at(-1)[0];
+  expect(bounds[0]).toBeLessThan(bounds[2]);
+  expect(bounds[1]).toBeLessThan(bounds[3]);
+  expect(bounds).not.toEqual([-180, -90, 180, 90]);
+  getClusters.mockRestore();
 });
 
 test('H3 accepts valid cells and rejects invalid cells', () => {
@@ -107,6 +145,15 @@ test('CHOROPLETH requires polygon geometry', () => {
     layer: { id: 'districts', renderer: 'CHOROPLETH' },
     featureCollection: collection(unclosed),
   })).toThrow(/polygon geometry/);
+
+  const degenerate = {
+    ...polygon,
+    geometry: { type: 'Polygon', coordinates: [[[77, 12], [78, 12], [79, 12], [77, 12]]] },
+  };
+  expect(() => buildDeckLayerSpecs({
+    layer: { id: 'districts', renderer: 'CHOROPLETH' },
+    featureCollection: collection(degenerate),
+  })).toThrow(/structural polygon geometry/);
 });
 
 describe.each(['PATH', 'ARC'])('%s', renderer => {

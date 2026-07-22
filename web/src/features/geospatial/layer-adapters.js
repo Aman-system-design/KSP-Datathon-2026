@@ -3,9 +3,10 @@ import Supercluster from 'supercluster';
 import { GeoJsonLayer, HeatmapLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
 import { H3HexagonLayer } from '@deck.gl/geo-layers';
 
-const WORLD_BOUNDS = [-180, -90, 180, 90];
 const POINT_COLOR = [30, 136, 229, 190];
 const POLYGON_COLOR = [30, 136, 229, 150];
+const MINIMUM_BOUNDS_SPAN = 1e-9;
+const clusterIndexes = new WeakMap();
 
 function featuresOf(featureCollection) {
   if (featureCollection?.type !== 'FeatureCollection' || !Array.isArray(featureCollection.features)) {
@@ -24,15 +25,19 @@ function pointPosition(feature) {
   return [longitude, latitude];
 }
 
-function safeSelection(feature) {
+function safeSelection(feature, tooltipFields = []) {
   if (!feature) return null;
   const id = feature.id ?? feature.properties?.id;
-  return { id, properties: { ...(feature.properties ?? {}) } };
+  if (id === undefined || id === null) return null;
+  const properties = Object.fromEntries(tooltipFields
+    .filter(field => Object.hasOwn(feature.properties ?? {}, field))
+    .map(field => [field, feature.properties[field]]));
+  return { id, properties };
 }
 
-function clickHandler(onFeatureSelect) {
+function clickHandler(onFeatureSelect, tooltipFields) {
   return ({ object } = {}) => {
-    const selection = safeSelection(object);
+    const selection = safeSelection(object, tooltipFields);
     if (selection && typeof onFeatureSelect === 'function') onFeatureSelect(selection);
   };
 }
@@ -54,11 +59,26 @@ function pointSpec(layer, data, onFeatureSelect) {
       : 6,
     radiusMinPixels: 3,
     getFillColor: POINT_COLOR,
-    onClick: clickHandler(onFeatureSelect),
+    onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
   };
 }
 
-function clusterSpecs(layer, data, viewport, onFeatureSelect) {
+function clusterConfiguration(layer) {
+  return {
+    radius: Number.isFinite(layer.clusterRadius) ? layer.clusterRadius : 40,
+    maxZoom: Number.isInteger(layer.clusterMaxZoom) ? layer.clusterMaxZoom : 16,
+  };
+}
+
+function clusterIndex(featureCollection, data, layer) {
+  const configuration = clusterConfiguration(layer);
+  const key = `${configuration.radius}:${configuration.maxZoom}`;
+  let byConfiguration = clusterIndexes.get(featureCollection);
+  if (!byConfiguration) {
+    byConfiguration = new Map();
+    clusterIndexes.set(featureCollection, byConfiguration);
+  }
+  if (byConfiguration.has(key)) return byConfiguration.get(key);
   const sorted = [...data].sort((left, right) => String(left.id ?? '').localeCompare(String(right.id ?? '')));
   const points = sorted.map(feature => {
     const coordinates = pointPosition(feature);
@@ -69,9 +89,49 @@ function clusterSpecs(layer, data, viewport, onFeatureSelect) {
       properties: { ...(feature.properties ?? {}), __sourceId: feature.id },
     };
   });
-  const index = new Supercluster({ radius: 40, maxZoom: 16 }).load(points);
-  const zoom = Math.max(0, Math.min(16, Math.floor(Number.isFinite(viewport?.zoom) ? viewport.zoom : 0)));
-  const clusters = index.getClusters(WORLD_BOUNDS, zoom).map(feature => {
+  const index = new Supercluster(configuration).load(points);
+  byConfiguration.set(key, index);
+  return index;
+}
+
+function clusterBounds(viewport, data) {
+  if (Array.isArray(viewport?.bounds) && viewport.bounds.length === 4
+    && viewport.bounds.every(Number.isFinite)
+    && viewport.bounds[0] < viewport.bounds[2] && viewport.bounds[1] < viewport.bounds[3]) {
+    return [...viewport.bounds];
+  }
+  if (Array.isArray(viewport?.center) && viewport.center.length === 2
+    && viewport.center.every(Number.isFinite) && Number.isFinite(viewport.zoom)) {
+    const longitudeSpan = 180 / (2 ** Math.max(0, viewport.zoom));
+    const latitudeSpan = 90 / (2 ** Math.max(0, viewport.zoom));
+    return [
+      Math.max(-180, viewport.center[0] - longitudeSpan),
+      Math.max(-90, viewport.center[1] - latitudeSpan),
+      Math.min(180, viewport.center[0] + longitudeSpan),
+      Math.min(90, viewport.center[1] + latitudeSpan),
+    ];
+  }
+  const positions = data.map(pointPosition);
+  if (positions.length === 0) return [0, 0, MINIMUM_BOUNDS_SPAN, MINIMUM_BOUNDS_SPAN];
+  const longitudes = positions.map(position => position[0]);
+  const latitudes = positions.map(position => position[1]);
+  const west = Math.min(...longitudes);
+  const south = Math.min(...latitudes);
+  const east = Math.max(...longitudes);
+  const north = Math.max(...latitudes);
+  return [
+    east === west ? Math.max(-180, west - MINIMUM_BOUNDS_SPAN) : west,
+    north === south ? Math.max(-90, south - MINIMUM_BOUNDS_SPAN) : south,
+    east === west ? Math.min(180, east + MINIMUM_BOUNDS_SPAN) : east,
+    north === south ? Math.min(90, north + MINIMUM_BOUNDS_SPAN) : north,
+  ];
+}
+
+function clusterSpecs(layer, featureCollection, data, viewport, onFeatureSelect) {
+  const index = clusterIndex(featureCollection, data, layer);
+  const zoom = Math.max(0, Math.min(clusterConfiguration(layer).maxZoom,
+    Math.floor(Number.isFinite(viewport?.zoom) ? viewport.zoom : 0)));
+  const clusters = index.getClusters(clusterBounds(viewport, data), zoom).map(feature => {
     if (!feature.properties.cluster) {
       const { __sourceId, ...properties } = feature.properties;
       return { ...feature, id: __sourceId, properties };
@@ -115,7 +175,7 @@ function h3Spec(layer, data, onFeatureSelect) {
     getHexagon,
     getFillColor: POLYGON_COLOR,
     getElevation: weightAccessor(layer.weightField),
-    onClick: clickHandler(onFeatureSelect),
+    onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
   };
 }
 
@@ -125,18 +185,30 @@ function validPosition(position) {
     && Number.isFinite(position[1]) && position[1] >= -90 && position[1] <= 90;
 }
 
-function validPolygonGeometry(geometry) {
+function nonDegenerateRing(ring) {
+  let doubledArea = 0;
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    doubledArea += ring[index][0] * ring[index + 1][1] - ring[index + 1][0] * ring[index][1];
+  }
+  return Math.abs(doubledArea) > 1e-12;
+}
+
+// Full topology (self-intersections and hole relationships) belongs at the import-validation boundary.
+function hasStructuralPolygonGeometry(geometry) {
   const polygons = geometry?.type === 'Polygon' ? [geometry.coordinates]
     : geometry?.type === 'MultiPolygon' ? geometry.coordinates : null;
   return Array.isArray(polygons) && polygons.length > 0 && polygons.every(polygon =>
     Array.isArray(polygon) && polygon.length > 0 && polygon.every(ring =>
       Array.isArray(ring) && ring.length >= 4 && ring.every(validPosition)
-      && ring[0][0] === ring.at(-1)[0] && ring[0][1] === ring.at(-1)[1]));
+      && ring[0][0] === ring.at(-1)[0] && ring[0][1] === ring.at(-1)[1]
+      && nonDegenerateRing(ring)));
 }
 
 function choroplethSpec(layer, data, onFeatureSelect) {
   for (const feature of data) {
-    if (!validPolygonGeometry(feature?.geometry)) throw new Error(`feature ${feature?.id ?? ''} must have valid polygon geometry`);
+    if (!hasStructuralPolygonGeometry(feature?.geometry)) {
+      throw new Error(`feature ${feature?.id ?? ''} must have structural polygon geometry`);
+    }
   }
   return {
     kind: 'GeoJsonLayer',
@@ -147,7 +219,7 @@ function choroplethSpec(layer, data, onFeatureSelect) {
     stroked: true,
     getFillColor: POLYGON_COLOR,
     getLineColor: [16, 78, 139, 255],
-    onClick: clickHandler(onFeatureSelect),
+    onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
   };
 }
 
@@ -158,7 +230,7 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
     features.forEach(pointPosition);
     return [pointSpec(layer, features, onFeatureSelect)];
   }
-  if (layer.renderer === 'CLUSTER') return clusterSpecs(layer, features, viewport, onFeatureSelect);
+  if (layer.renderer === 'CLUSTER') return clusterSpecs(layer, featureCollection, features, viewport, onFeatureSelect);
   if (layer.renderer === 'HEATMAP') {
     features.forEach(pointPosition);
     return [{
@@ -168,7 +240,7 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
       getPosition: pointPosition,
       getWeight: weightAccessor(layer.weightField),
       pickable: true,
-      onClick: clickHandler(onFeatureSelect),
+      onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
     }];
   }
   if (layer.renderer === 'H3') return [h3Spec(layer, features, onFeatureSelect)];
