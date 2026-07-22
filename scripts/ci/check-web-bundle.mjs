@@ -8,6 +8,23 @@ export const BUDGETS = Object.freeze({ mainGzip: 100 * KIB, studioGzip: 100 * KI
 
 function invariant(condition, message) { if (!condition) throw new Error(message); }
 
+function staticClosure(manifest, entryKey) {
+  const seen = new Set();
+  const pending = [entryKey];
+  while (pending.length > 0) {
+    const key = pending.pop();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    for (const dependency of manifest[key]?.imports ?? []) pending.push(dependency);
+  }
+  return seen;
+}
+
+function optionalImports(manifest, entryKey) {
+  return [...staticClosure(manifest, entryKey)]
+    .flatMap(key => manifest[key]?.dynamicImports ?? []);
+}
+
 export async function checkWebBundle(distDirectory = resolve('web/dist')) {
   const manifest = JSON.parse(await readFile(resolve(distDirectory, '.vite/manifest.json'), 'utf8'));
   const main = manifest['index.html'];
@@ -15,9 +32,10 @@ export async function checkWebBundle(distDirectory = resolve('web/dist')) {
   invariant(main?.isEntry === true, 'main web entry is missing from the Vite manifest');
   invariant(studio?.isDynamicEntry === true, 'Geospatial Studio must remain a dynamic entry');
   invariant(main.dynamicImports?.includes('src/features/geospatial/GeospatialStudio.jsx'), 'main entry must lazy-load Geospatial Studio');
-  invariant(!(main.imports ?? []).some(key => manifest[key]?.name === 'maplibre-vendor'), 'main entry must not statically import MapLibre');
-  invariant((studio.dynamicImports ?? []).some(key => key.includes('@deck.gl/aggregation-layers')), 'heatmap renderer must remain optional');
-  invariant((studio.dynamicImports ?? []).some(key => key.includes('@deck.gl/geo-layers')), 'H3 renderer must remain optional');
+  invariant(![...staticClosure(manifest, 'index.html')].some(key => manifest[key]?.name === 'maplibre-vendor'), 'main entry must not statically import MapLibre');
+  const studioOptional = optionalImports(manifest, 'src/features/geospatial/GeospatialStudio.jsx');
+  invariant(studioOptional.some(key => key.includes('@deck.gl/aggregation-layers')), 'heatmap renderer must remain optional');
+  invariant(studioOptional.some(key => key.includes('@deck.gl/geo-layers')), 'H3 renderer must remain optional');
 
   const gzipSize = async file => gzipSync(await readFile(resolve(distDirectory, file)), { level: 9 }).length;
   const mainSize = await gzipSize(main.file);

@@ -85,11 +85,13 @@ export function createApiApplication({
       await context.authorize(profile);
 
       const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
-      const workspaceServices = createWorkspaceServices({ repository, readServices, now, idFactory });
+      const mapViewServices = createMapViewService({ repository, clock: now });
+      const workspaceServices = createWorkspaceServices({
+        repository, readServices, mapViewService: mapViewServices, now, idFactory,
+      });
       const geospatialServices = createGeospatialLayerService({
         readServices: { ...readServices, ...workspaceServices }, clock: () => new Date(now()),
       });
-      const mapViewServices = createMapViewService({ repository, clock: now });
       const runService = createIntelligenceRunService({
         repository, scheduler: schedulerFactory(profileApplication, config.intelligenceJobPool),
         clock: now, idFactory,

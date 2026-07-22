@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -30,4 +30,21 @@ test('accepts isolated, optional geospatial chunks within gzip budgets', async (
 
 test('rejects a Studio build that eagerly includes optional renderers', async () => {
   await assert.rejects(checkWebBundle(await fixture({ optional: false })), /heatmap renderer must remain optional/);
+});
+
+test('accepts optional renderers dynamically imported by a shared Studio dependency', async () => {
+  const directory = await fixture();
+  const manifestPath = join(directory, '.vite/manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  manifest['src/features/geospatial/GeospatialStudio.jsx'].dynamicImports = [];
+  manifest['src/features/geospatial/GeospatialStudio.jsx'].imports = ['_geospatial-shared.js'];
+  manifest['_geospatial-shared.js'] = {
+    file: 'assets/geospatial-shared.js', name: 'geospatial-shared',
+    dynamicImports: ['../node_modules/@deck.gl/aggregation-layers/dist/index.js', '../node_modules/@deck.gl/geo-layers/dist/index.js'],
+  };
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await writeFile(join(directory, 'assets/geospatial-shared.js'), 'shared');
+
+  const result = await checkWebBundle(directory);
+  assert.equal(result.chunks.length, 4);
 });

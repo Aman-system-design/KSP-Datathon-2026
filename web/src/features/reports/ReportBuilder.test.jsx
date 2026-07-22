@@ -32,3 +32,35 @@ test('missing report-source data renders an empty governed builder instead of cr
   expect(await screen.findByRole('heading', { name: 'Build a report' })).toBeInTheDocument();
   expect(screen.getByText('Configure the report to inspect live governed results.')).toBeInTheDocument();
 });
+
+test('map reports select only viewer-authorized saved views and submit the governed reference', async () => {
+  const api = {
+    get: vi.fn(async path => {
+      if (path === '/v1/report-sources') return { data: [{
+        key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'],
+      }] };
+      if (path === '/v1/geospatial/views') return { data: { items: [
+        { id: 'MAP-AUTH', name: 'Authorized hotspot posture', visibility: 'SHARED', definition: { layers: [] } },
+      ] } };
+      throw new Error(`Unexpected GET ${path}`);
+    }),
+    post: vi.fn(async path => path.endsWith('/execute')
+      ? { data: { result: { data: { mapView: { id: 'MAP-AUTH', definition: { layers: [] } }, executions: [] } } } }
+      : { data: { id: 'REPORT-MAP' } }),
+  };
+  function MapPreview({ mapExecution }) { return <div>Embedded {mapExecution.mapView.id}</div>; }
+
+  render(<ReportBuilder api={api} EmbeddedMapComponent={MapPreview} />);
+  await screen.findByRole('option', { name: 'Crime hotspots' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Hotspot posture' } });
+  fireEvent.change(screen.getByLabelText('Visualization'), { target: { value: 'map' } });
+  expect(await screen.findByRole('option', { name: 'Authorized hotspot posture' })).toBeInTheDocument();
+  expect(screen.queryByText(/private.invalid/i)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Saved map view'), { target: { value: 'MAP-AUTH' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
+
+  expect(await screen.findByText('Embedded MAP-AUTH')).toBeInTheDocument();
+  expect(api.post).toHaveBeenCalledWith('/v1/reports', expect.objectContaining({
+    visualization: { type: 'map', mapViewId: 'MAP-AUTH' },
+  }));
+});

@@ -55,6 +55,7 @@ function nextStateFor(collection) {
 
 export function useGeospatialWorkspace({
   api, pollIntervalMs = 60_000, idFactory = defaultIdFactory, initialViewport = NEUTRAL_VIEWPORT,
+  loadSavedViews = true,
 } = {}) {
   if (!api || typeof api.get !== 'function' || typeof api.post !== 'function') {
     throw new TypeError('A geospatial API client is required');
@@ -63,7 +64,7 @@ export function useGeospatialWorkspace({
   const [savedViews, setSavedViews] = useState([]);
   const [catalogStatus, setCatalogStatus] = useState('LOADING');
   const [catalogError, setCatalogError] = useState(null);
-  const [viewsStatus, setViewsStatus] = useState('LOADING');
+  const [viewsStatus, setViewsStatus] = useState(loadSavedViews ? 'LOADING' : 'IDLE');
   const [viewsError, setViewsError] = useState(null);
   const [layers, setLayers] = useState([]);
   const initialViewportRef = useRef(structuredClone(initialViewport));
@@ -117,12 +118,12 @@ export function useGeospatialWorkspace({
       setCatalogStatus('FAILED');
       setCatalogError(messageOf(error));
     });
-    void retryViews();
+    if (loadSavedViews) void retryViews();
     return () => {
       live = false;
       viewsRequestToken.current += 1;
     };
-  }, [api, retryViews]);
+  }, [api, loadSavedViews, retryViews]);
 
   const executeLayer = useCallback(async layerId => {
     const current = layersRef.current.find(item => item.id === layerId);

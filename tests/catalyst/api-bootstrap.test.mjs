@@ -158,6 +158,35 @@ test('API composition persists and reads an audited organization-scoped map view
   }
 });
 
+test('API composes a saved map report into a viewer-safe execution contract', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' } });
+  const map = await application({ method: 'POST', url: '/v1/geospatial/views', headers: {}, body: {
+    name: 'Verified hotspots', visibility: 'PRIVATE',
+    definition: {
+      id: 'MAP-REPORT-1', name: 'Verified hotspots', version: 1, visibility: 'PRIVATE',
+      viewport: { center: [77.59, 12.97], zoom: 9 },
+      layers: [{ id: 'hotspots-1', datasetId: 'hotspots', renderer: 'POINT', limit: 100 }],
+    },
+  } });
+  assert.equal(map.status, 200);
+  const report = await application({ method: 'POST', url: '/v1/reports', headers: {}, body: {
+    name: 'Hotspot posture', sourceKey: 'hotspots', dimensions: [], measures: [],
+    visualization: { type: 'map', mapViewId: 'MAP-REPORT-1' }, limit: 100,
+  } });
+  assert.equal(report.status, 200);
+
+  const execution = await application({
+    method: 'POST', url: `/v1/reports/${report.body.data.id}/execute`, headers: {}, body: {},
+  });
+
+  assert.equal(execution.status, 200);
+  assert.equal(execution.body.data.result.data.mapView.id, 'MAP-REPORT-1');
+  assert.equal(execution.body.data.result.data.executions[0].layer.datasetId, 'hotspots');
+  assert.equal('organizationId' in execution.body.data.result.data.mapView, false);
+  assert.equal('ownerEmployeeId' in execution.body.data.result.data.mapView, false);
+  assert.equal('ownerUserId' in execution.body.data.definition, false);
+});
+
 test('API composition fails closed for missing identity, undeclared route and malformed URL', async () => {
   const unauthenticated = harness({ currentUser: null });
   const denied = await unauthenticated.application({ method: 'GET', url: '/v1/intelligence/brief', headers: {} });

@@ -95,3 +95,24 @@ test('rejects duplicate dimensions and unbounded limits', () => {
     /limit/i,
   );
 });
+
+test('map reports require exactly one governed map view reference', () => {
+  const source = getReportSource('hotspots');
+  const definition = normalizeReportDefinition({
+    name: 'Current hotspot posture', sourceKey: 'hotspots',
+    visualization: { type: 'map', mapViewId: 'MAP-1' },
+  }, source);
+
+  assert.deepEqual(definition.visualization, { type: 'map', mapViewId: 'MAP-1' });
+  for (const visualization of [
+    { type: 'map' },
+    { type: 'map', mapViewId: 'not valid' },
+    { type: 'map', mapViewId: 'MAP-1', inlineStyleUrl: 'https://private.invalid/style.json' },
+    { type: 'map', mapViewId: 'MAP-1', sourceUrl: 'pmtiles://private-object' },
+    { type: 'bar', mapViewId: 'MAP-1' },
+  ]) {
+    assert.throws(() => normalizeReportDefinition({
+      name: 'Unsafe map', sourceKey: 'hotspots', visualization,
+    }, source), /visualization|map view/i);
+  }
+});

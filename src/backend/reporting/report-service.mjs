@@ -1,15 +1,19 @@
 import { fail } from '../services/errors.mjs';
 import { getReportSource } from './semantic-sources.mjs';
 import { normalizeReportDefinition } from './report-definition.mjs';
-import { executeReportDefinition, projectReportRows } from './report-execution.mjs';
+import { executeReportDefinition, projectMapReportExecution, projectReportRows } from './report-execution.mjs';
 
 const hasAction = (access, action) => access?.actions?.includes(action);
 const owns = (row, access) => row.ownerUserId === access?.actualUserId;
 const matchesShare = (share, access) => share.targetUserId === access.actualUserId
   || share.targetRole === access.role
   || (share.targetUnitId !== undefined && access.authorizedUnitIds?.has(share.targetUnitId));
+const clientReport = report => Object.freeze({
+  id: report.id, name: report.name, visibility: report.visibility,
+  version: report.version, definition: structuredClone(report.definition),
+});
 
-export function createReportService({ repository, readServices, now, idFactory }) {
+export function createReportService({ repository, readServices, mapViewService, now, idFactory }) {
   async function visible(report, access) {
     if (!report) return false;
     if (owns(report, access) || report.visibility === 'GLOBAL') return true;
@@ -56,14 +60,24 @@ export function createReportService({ repository, readServices, now, idFactory }
       if (!updated) fail('NOT_FOUND');
       return updated;
     },
-    async execute({ access, reportId }) {
+    async execute({ access, reportId, requestId }) {
       const report = await requireVisible(reportId, access);
+      if (report.definition.visualization.type === 'map') {
+        if (typeof mapViewService?.getMapView !== 'function') fail('DATA_NOT_READY');
+        const governed = await mapViewService.getMapView({
+          access, params: { mapViewId: report.definition.visualization.mapViewId }, requestId,
+        });
+        return {
+          definition: clientReport(report),
+          result: { data: projectMapReportExecution(governed.data), meta: governed.meta },
+        };
+      }
       const source = getReportSource(report.definition.sourceKey);
       const service = readServices[source.service];
       if (typeof service !== 'function') fail('DATA_NOT_READY');
       const result = await service({ access, query: { limit: Math.min(report.definition.limit, 200) } });
       return {
-        definition: report,
+        definition: clientReport(report),
         result: {
           data: { items: executeReportDefinition(report.definition, projectReportRows(source.key, result)) },
           meta: result.meta,
