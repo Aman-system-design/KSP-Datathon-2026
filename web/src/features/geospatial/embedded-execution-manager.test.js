@@ -5,6 +5,11 @@ import { createEmbeddedExecutionManager } from './embedded-execution-manager.js'
 const featureResponse = count => ({ data: {
   type: 'FeatureCollection', features: Array.from({ length: count }, (_, id) => ({ id })),
 } });
+const deferred = () => {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+};
 
 test('shares catalog and bounds concurrency across 24 embedded widgets', async () => {
   let active = 0;
@@ -89,4 +94,98 @@ test('releases layer reservations on widget disposal and failed execution', asyn
   await expect(afterFailure.client('W-2').post('/v1/geospatial/layers/execute', {
     layer: { id: 'L-2' }, runtime: {},
   })).resolves.toEqual(featureResponse(1));
+});
+
+test('release cancels in-flight work without resurrecting its reservation', async () => {
+  const first = deferred();
+  const api = { get: vi.fn(), post: vi.fn()
+    .mockImplementationOnce(() => first.promise)
+    .mockResolvedValueOnce(featureResponse(1)) };
+  const manager = createEmbeddedExecutionManager(api, { maxConcurrent: 1, maxLayers: 1, maxFeatures: 2 });
+  const stale = manager.client('W-1').post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-1' }, runtime: {},
+  });
+  const staleResult = expect(stale).rejects.toMatchObject({ code: 'EMBEDDED_MAP_EXECUTION_CANCELLED' });
+  await vi.waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+  manager.release('W-1');
+  const current = manager.client('W-2').post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-2' }, runtime: {},
+  });
+  first.resolve(featureResponse(1));
+
+  await staleResult;
+  await expect(current).resolves.toEqual(featureResponse(1));
+  expect(api.post).toHaveBeenCalledTimes(2);
+});
+
+test('release rejects queued work before it can issue an API request', async () => {
+  const first = deferred();
+  const api = { get: vi.fn(), post: vi.fn().mockImplementationOnce(() => first.promise) };
+  const manager = createEmbeddedExecutionManager(api, { maxConcurrent: 1, maxLayers: 2, maxFeatures: 2 });
+  const active = manager.client('W-1').post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-1' }, runtime: {},
+  });
+  await vi.waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+  const queued = manager.client('W-2').post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-2' }, runtime: {},
+  });
+  const queuedResult = expect(queued).rejects.toMatchObject({ code: 'EMBEDDED_MAP_EXECUTION_CANCELLED' });
+  manager.release('W-2');
+
+  await queuedResult;
+  expect(api.post).toHaveBeenCalledTimes(1);
+  first.resolve(featureResponse(0));
+  await active;
+});
+
+test('late large same-layer result cannot overwrite the accepted newer small result', async () => {
+  const older = deferred();
+  const newer = deferred();
+  const api = { get: vi.fn(), post: vi.fn((_path, body) => {
+    if (body.runtime.request === 'older') return older.promise;
+    if (body.runtime.request === 'newer') return newer.promise;
+    return Promise.resolve(featureResponse(8_999));
+  }) };
+  const manager = createEmbeddedExecutionManager(api, { maxConcurrent: 2, maxLayers: 2, maxFeatures: 9_000 });
+  const client = manager.client('W-1');
+  const oldRequest = client.post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-1' }, runtime: { request: 'older' },
+  });
+  const oldResult = expect(oldRequest).rejects.toMatchObject({ code: 'EMBEDDED_MAP_EXECUTION_CANCELLED' });
+  const newRequest = client.post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-1' }, runtime: { request: 'newer' },
+  });
+  newer.resolve(featureResponse(1));
+  await expect(newRequest).resolves.toEqual(featureResponse(1));
+  older.resolve(featureResponse(9_000));
+  await oldResult;
+  await expect(manager.client('W-2').post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-2' }, runtime: {},
+  })).resolves.toEqual(featureResponse(8_999));
+});
+
+test('early small same-layer result cannot bypass the accepted newer large budget', async () => {
+  const older = deferred();
+  const newer = deferred();
+  const api = { get: vi.fn(), post: vi.fn((_path, body) => {
+    if (body.runtime.request === 'older') return older.promise;
+    if (body.runtime.request === 'newer') return newer.promise;
+    return Promise.resolve(featureResponse(1));
+  }) };
+  const manager = createEmbeddedExecutionManager(api, { maxConcurrent: 2, maxLayers: 2, maxFeatures: 9_000 });
+  const client = manager.client('W-1');
+  const oldRequest = client.post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-1' }, runtime: { request: 'older' },
+  });
+  const oldResult = expect(oldRequest).rejects.toMatchObject({ code: 'EMBEDDED_MAP_EXECUTION_CANCELLED' });
+  const newRequest = client.post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-1' }, runtime: { request: 'newer' },
+  });
+  older.resolve(featureResponse(1));
+  await oldResult;
+  newer.resolve(featureResponse(9_000));
+  await expect(newRequest).resolves.toEqual(featureResponse(9_000));
+  await expect(manager.client('W-2').post('/v1/geospatial/layers/execute', {
+    layer: { id: 'L-2' }, runtime: {},
+  })).rejects.toMatchObject({ code: 'EMBEDDED_MAP_BUDGET_EXCEEDED' });
 });

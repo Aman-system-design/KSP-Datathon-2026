@@ -14,8 +14,9 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
   const [mapViews, setMapViews] = useState([]);
   const [mapViewId, setMapViewId] = useState('');
   const [mapPreview, setMapPreview] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [savingGeneration, setSavingGeneration] = useState(null);
   const generation = useRef(0);
+  const saving = savingGeneration !== null;
 
   useEffect(() => {
     let active = true;
@@ -52,30 +53,38 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
 
   function invalidatePreview() {
     generation.current += 1;
+    setSavingGeneration(null);
     setPreview([]);
     setMapPreview(null);
     setStatus('');
   }
 
+  function updateDefinition(update) {
+    invalidatePreview();
+    update();
+  }
+
   function changeSource(nextSourceKey) {
     const nextSource = sources.find(item => item.key === nextSourceKey);
-    invalidatePreview();
-    setSourceKey(nextSourceKey);
-    setDimension('');
-    setMeasure('');
-    setVisualization(nextSource?.visualizations?.[0] ?? 'table');
-    setMapViewId('');
+    updateDefinition(() => {
+      setSourceKey(nextSourceKey);
+      setDimension('');
+      setMeasure('');
+      setVisualization(nextSource?.visualizations?.[0] ?? 'table');
+      setMapViewId('');
+    });
   }
 
   function changeVisualization(nextVisualization) {
-    invalidatePreview();
-    setVisualization(nextVisualization);
-    if (nextVisualization === 'map') {
-      setDimension('');
-      setMeasure('');
-    } else {
-      setMapViewId('');
-    }
+    updateDefinition(() => {
+      setVisualization(nextVisualization);
+      if (nextVisualization === 'map') {
+        setDimension('');
+        setMeasure('');
+      } else {
+        setMapViewId('');
+      }
+    });
   }
 
   async function save(event) {
@@ -83,7 +92,7 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
     if (saving) return;
     const requestGeneration = generation.current + 1;
     generation.current = requestGeneration;
-    setSaving(true);
+    setSavingGeneration(requestGeneration);
     setStatus('Saving…');
     const [field, aggregate] = measure.split(':');
     const isMap = visualization === 'map';
@@ -112,7 +121,7 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
     } catch (error) {
       if (generation.current === requestGeneration) setStatus(error.message ?? 'Report could not be saved.');
     } finally {
-      setSaving(false);
+      setSavingGeneration(current => current === requestGeneration ? null : current);
     }
   }
 
@@ -120,16 +129,16 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
     <div className="page-heading"><div><span className="eyebrow">Governed analytics</span><h1>Build a report</h1><p>Compose reusable views from authorized intelligence sources. Data access is evaluated when each viewer runs the report.</p></div></div>
     <div className="builder-layout">
       <form className="panel report-form" onSubmit={save}>
-        <label>Report name<input aria-label="Report name" value={name} onChange={event => setName(event.target.value)} required /></label>
+        <label>Report name<input aria-label="Report name" value={name} onChange={event => updateDefinition(() => setName(event.target.value))} required /></label>
         <label>Intelligence source<select aria-label="Intelligence source" value={sourceKey} onChange={event => changeSource(event.target.value)}>
           {sources.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
         </select></label>
         <div className="form-row">
-          <label>Group by<select aria-label="Group by" value={dimension} onChange={event => setDimension(event.target.value)}><option value="">No grouping</option>{dimensions.map(([key]) => <option key={key}>{key}</option>)}</select></label>
-          <label>Measure<select aria-label="Measure" value={measure} onChange={event => setMeasure(event.target.value)}><option value="">Choose measure</option>{measures.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Group by<select aria-label="Group by" value={dimension} onChange={event => updateDefinition(() => setDimension(event.target.value))}><option value="">No grouping</option>{dimensions.map(([key]) => <option key={key}>{key}</option>)}</select></label>
+          <label>Measure<select aria-label="Measure" value={measure} onChange={event => updateDefinition(() => setMeasure(event.target.value))}><option value="">Choose measure</option>{measures.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         </div>
         <label>Visualization<select aria-label="Visualization" value={visualization} onChange={event => changeVisualization(event.target.value)}>{(source?.visualizations ?? ['table']).map(type => <option key={type}>{type}</option>)}</select></label>
-        {visualization === 'map' ? <label>Saved map view<select aria-label="Saved map view" value={mapViewId} onChange={event => setMapViewId(event.target.value)} required>
+        {visualization === 'map' ? <label>Saved map view<select aria-label="Saved map view" value={mapViewId} onChange={event => updateDefinition(() => setMapViewId(event.target.value))} required>
           {mapViews.length === 0 ? <option value="">No authorized map views</option> : mapViews.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}
         </select></label> : null}
         <button className="primary-button" type="submit" disabled={saving || (visualization === 'map' && !mapViewId)}>{saving ? 'Saving…' : 'Save and preview'}</button>

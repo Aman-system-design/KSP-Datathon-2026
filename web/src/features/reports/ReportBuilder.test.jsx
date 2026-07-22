@@ -93,3 +93,63 @@ test('source capability changes reset map state and stale previews cannot overwr
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
   expect(screen.queryByText('Stale map preview')).not.toBeInTheDocument();
 });
+
+test.each([
+  ['name', () => fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Changed name' } })],
+  ['dimension', () => fireEvent.change(screen.getByLabelText('Group by'), { target: { value: 'unitId' } })],
+])('%s edits invalidate an in-flight execution response', async (_field, editDefinition) => {
+  let resolveExecute;
+  const executePending = new Promise(resolve => { resolveExecute = resolve; });
+  const api = {
+    get: vi.fn(async () => ({ data: [{
+      key: 'anomalies', label: 'Trend anomalies',
+      fields: { unitId: { type: 'string', dimension: true } }, visualizations: ['table'],
+    }] })),
+    post: vi.fn(path => path === '/v1/reports'
+      ? Promise.resolve({ data: { id: 'R-PENDING' } })
+      : executePending),
+  };
+  render(<ReportBuilder api={api} />);
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Original name' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+  editDefinition();
+  resolveExecute({ data: { result: { data: { items: [{ unitId: 999 }] } } } });
+
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
+  expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+  expect(screen.queryByText('Unit 999')).not.toBeInTheDocument();
+});
+
+test('map selection edits invalidate an in-flight map response', async () => {
+  let resolveExecute;
+  const executePending = new Promise(resolve => { resolveExecute = resolve; });
+  const api = {
+    get: vi.fn(async path => path === '/v1/report-sources' ? { data: [{
+      key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'],
+    }] } : { data: { items: [
+      { id: 'MAP-1', name: 'Map one', definition: { layers: [] } },
+      { id: 'MAP-2', name: 'Map two', definition: { layers: [] } },
+    ] } }),
+    post: vi.fn(path => path === '/v1/reports'
+      ? Promise.resolve({ data: { id: 'R-PENDING' } })
+      : executePending),
+  };
+  function MapPreview() { return <div>Stale selected map</div>; }
+  render(<ReportBuilder api={api} EmbeddedMapComponent={MapPreview} />);
+  await screen.findByRole('option', { name: 'Crime hotspots' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Map report' } });
+  fireEvent.change(screen.getByLabelText('Visualization'), { target: { value: 'map' } });
+  await screen.findByRole('option', { name: 'Map two' });
+  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+  fireEvent.change(screen.getByLabelText('Saved map view'), { target: { value: 'MAP-2' } });
+  resolveExecute({ data: { result: { data: {
+    mapView: { id: 'MAP-1', definition: { layers: [] } }, executions: [],
+  } } } });
+
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
+  expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+  expect(screen.queryByText('Stale selected map')).not.toBeInTheDocument();
+});
