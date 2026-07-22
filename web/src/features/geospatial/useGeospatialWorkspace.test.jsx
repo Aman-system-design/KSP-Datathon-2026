@@ -94,6 +94,24 @@ describe('useGeospatialWorkspace', () => {
     expect(result.current.renderLayers).toHaveLength(0);
   });
 
+  test('requests only display-authorized fields for default tooltip and evidence projection', async () => {
+    const governed = dataset({
+      fields: {
+        labelOnly: { type: 'string', uses: ['label'] },
+        weightOnly: { type: 'number', uses: ['weight'] },
+        colorOnly: { type: 'number', uses: ['color'] },
+        displayEvidence: { type: 'string', uses: ['display'] },
+      },
+      labelFields: ['labelOnly'], weightField: 'weightOnly', severityField: 'colorOnly',
+    });
+    const { api, executions } = apiHarness({ datasets: [governed] });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    expect(executions[0].body.layer.tooltipFields).toEqual(['displayEvidence']);
+  });
+
   test('applies the global time window only to datasets declaring a time field', async () => {
     const timed = dataset({
       id: 'timed', name: 'Timed intelligence', timeField: 'observedAt',

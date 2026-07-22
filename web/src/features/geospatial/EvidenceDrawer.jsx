@@ -57,7 +57,11 @@ export function EvidenceDrawer({
   }, []);
   if (!selection || !layer) return null;
   const metadata = layer.meta ?? {};
-  const properties = selection.properties ?? {};
+  const displayFields = new Set(Object.entries(layer.dataset?.fields ?? {})
+    .filter(([, definition]) => Array.isArray(definition?.uses) && definition.uses.includes('display'))
+    .map(([field]) => field));
+  const properties = Object.fromEntries(Object.entries(selection.properties ?? {})
+    .filter(([field]) => displayFields.has(field)));
   const actions = safeActions(metadata);
   const closeOnEscape = event => {
     if (event.key === 'Escape') { event.preventDefault(); closeRef.current?.(); }

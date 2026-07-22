@@ -21,9 +21,10 @@ function defaultDisplayProjection(dataset) {
     .filter(([, definition]) => definition.uses.includes('display'))
     .map(([field]) => field)
     .sort();
-  return [...new Set([
-    ...(dataset.labelFields ?? []), dataset.weightField, dataset.severityField, ...declared,
-  ].filter(Boolean))].slice(0, MAX_DISPLAY_FIELDS);
+  const preferred = [
+    ...(dataset.labelFields ?? []), dataset.weightField, dataset.severityField,
+  ].filter(field => field && dataset.fields[field]?.uses.includes('display'));
+  return [...new Set([...preferred, ...declared])].slice(0, MAX_DISPLAY_FIELDS);
 }
 
 function requiredFields(dataset, layer) {

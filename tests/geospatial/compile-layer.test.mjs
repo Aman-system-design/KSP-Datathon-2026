@@ -106,6 +106,41 @@ test('default display evidence projection is deterministically bounded', () => {
   assert.equal(plan.fields.includes('display100'), false);
 });
 
+test('label, weight, and color-only fields require renderer mappings and never join the default display projection', () => {
+  const mixedDataset = {
+    id: 'mixed', name: 'Mixed field permissions', sourceType: 'SEMANTIC_API', sourceReference: 'mixedSource',
+    geometryType: 'POINT', sensitivity: 'RESTRICTED', requiredAction: 'READ_MIXED',
+    fields: {
+      longitude: { type: 'number', uses: ['geometry'] },
+      latitude: { type: 'number', uses: ['geometry'] },
+      labelOnly: { type: 'string', uses: ['label'] },
+      weightOnly: { type: 'number', uses: ['weight'] },
+      colorOnly: { type: 'number', uses: ['color'] },
+      displayEvidence: { type: 'string', uses: ['display'] },
+    },
+    geometry: { longitudeField: 'longitude', latitudeField: 'latitude' },
+    labelFields: ['labelOnly'], weightField: 'weightOnly', severityField: 'colorOnly',
+  };
+  const defaultPlan = compileLayerExecution({
+    dataset: mixedDataset,
+    layer: { id: 'mixed-default', datasetId: 'mixed', renderer: 'POINT' },
+    runtime: {},
+  });
+  assert.deepEqual(defaultPlan.fields, ['displayEvidence', 'latitude', 'longitude']);
+
+  const renderedPlan = compileLayerExecution({
+    dataset: mixedDataset,
+    layer: {
+      id: 'mixed-rendered', datasetId: 'mixed', renderer: 'POINT',
+      labelField: 'labelOnly', weightField: 'weightOnly', colorField: 'colorOnly',
+    },
+    runtime: {},
+  });
+  assert.deepEqual(renderedPlan.fields, [
+    'colorOnly', 'displayEvidence', 'labelOnly', 'latitude', 'longitude', 'weightOnly',
+  ]);
+});
+
 test('rejects non-finite or invalid coordinates and reversed time windows', () => {
   for (const bounds of [
     [77, 12, Number.NaN, 13],
