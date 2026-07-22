@@ -1,10 +1,11 @@
-import { compileLayerExecution, deepFreeze, MAX_FEATURES } from '@ksp/geospatial-core';
+import { compileLayerExecution, deepFreeze } from '@ksp/geospatial-core';
 
 import { fail } from '../services/errors.mjs';
 import { DATASET_CATALOG } from './dataset-catalog.mjs';
 
 const EXECUTION_KEYS = new Set(['layer', 'runtime']);
-const SEMANTIC_LIMIT = Math.min(MAX_FEATURES, 200);
+const RENDER_USES = new Set(['display', 'label', 'weight', 'color', 'size']);
+const SEMANTIC_LIMIT = 200;
 
 function plain(value) {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -24,13 +25,10 @@ function normalizedExecution(body, dataset) {
   if (!plain(body) || Object.keys(body).some(key => !EXECUTION_KEYS.has(key)) || !plain(body.layer) || !plain(body.runtime)) {
     fail('INVALID_REQUEST');
   }
-  if (body.runtime.limit !== undefined
-    && (!Number.isInteger(body.runtime.limit) || body.runtime.limit < 1 || body.runtime.limit > SEMANTIC_LIMIT)) {
-    fail('INVALID_REQUEST');
-  }
   try {
     const { service, spatialStatus, missingRequiredFields, ...definition } = dataset;
-    return compileLayerExecution({ dataset: definition, layer: body.layer, runtime: body.runtime });
+    const plan = compileLayerExecution({ dataset: definition, layer: body.layer, runtime: body.runtime });
+    return deepFreeze({ ...plan, limit: Math.min(plan.limit, SEMANTIC_LIMIT) });
   } catch { fail('INVALID_REQUEST'); }
 }
 
@@ -38,6 +36,16 @@ function valueAt(row, field) {
   if (field === 'latitude') return row.centroid?.latitude;
   if (field === 'longitude') return row.centroid?.longitude;
   return row[field];
+}
+
+function projectProperties(row, plan, dataset) {
+  const properties = { id: row.id };
+  for (const field of plan.fields) {
+    if (field === 'id' || !dataset.fields[field]?.uses.some(use => RENDER_USES.has(use))) continue;
+    const value = valueAt(row, field);
+    if (value !== undefined) properties[field] = structuredClone(value);
+  }
+  return properties;
 }
 
 function predicate(actual, expected) {
@@ -141,7 +149,7 @@ export function createGeospatialLayerService({ readServices, clock, idFactory })
         features.push(deepFreeze({
           type: 'Feature', id: row.id,
           geometry: { type: 'Point', coordinates: [longitude, latitude] },
-          properties: structuredClone(row),
+          properties: projectProperties(row, plan, dataset),
         }));
       }
       if (features.length === 0 && omittedFeatureCount === rows.length && rows.length > 0) fail('DATA_NOT_READY');

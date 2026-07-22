@@ -25,7 +25,7 @@ function envelope(items) {
 function harness(items = [{
   id: 'HOT-1', centroid: { latitude: 12.9718, longitude: 77.5949 }, magnitude: 6,
   confidence: 0.9, method: 'HAVERSINE_DBSCAN', version: '1.0.0', limitations: ['SYNTHETIC_DATA'],
-  evidenceCaseIds: ['CASE-1'],
+  evidenceCaseIds: ['CASE-1'], evidenceUnits: { 'CASE-1': 101 }, internal: 'secret', futureField: 'future-secret',
 }]) {
   const calls = [];
   const service = createGeospatialLayerService({
@@ -67,7 +67,10 @@ test('execution enforces action and emits governed GeoJSON metadata', async () =
   const response = await service.executeLayer({ access: allowed, body: hotspotRequest });
   assert.equal(response.data.type, 'FeatureCollection');
   assert.deepEqual(response.data.features[0].geometry.coordinates, [77.5949, 12.9718]);
-  assert.equal(response.data.features[0].properties.evidenceCaseIds[0], 'CASE-1');
+  assert.deepEqual(response.data.features[0].properties, { id: 'HOT-1', magnitude: 6 });
+  for (const hidden of ['centroid', 'evidenceCaseIds', 'evidenceUnits', 'internal', 'futureField']) {
+    assert.equal(hidden in response.data.features[0].properties, false);
+  }
   assert.equal(response.meta.runGroupId, 'RUN-1');
   assert.equal(response.meta.requestId, 'READ-1');
   assert.equal(response.meta.analysisRunId, 'RUN-1');
@@ -105,9 +108,30 @@ test('output remains bounded when a source ignores its requested limit', async (
   assert.equal(response.meta.sourceRecordCount, 3);
 });
 
-test('execution rejects excessive limits, authority filters, malformed bodies, and unavailable geometry', async () => {
+test('semantic source limits are capped after compilation for layer and default limits', async () => {
+  const runtimeLimited = harness();
+  await runtimeLimited.service.executeLayer({
+    access: allowed, body: { ...hotspotRequest, runtime: { limit: 5000 } },
+  });
+  assert.equal(runtimeLimited.calls[0].query.limit, 200);
+
+  const layerLimited = harness();
+  await layerLimited.service.executeLayer({
+    access: allowed,
+    body: { layer: { ...hotspotRequest.layer, limit: 5000 }, runtime: { viewport: hotspotRequest.runtime.viewport } },
+  });
+  assert.equal(layerLimited.calls[0].query.limit, 200);
+
+  const defaultLimited = harness();
+  await defaultLimited.service.executeLayer({
+    access: allowed,
+    body: { layer: { id: 'layer-default', datasetId: 'hotspots', renderer: 'POINT' }, runtime: {} },
+  });
+  assert.equal(defaultLimited.calls[0].query.limit, 200);
+});
+
+test('execution rejects authority filters and malformed bodies and unavailable geometry', async () => {
   const { service } = harness();
-  await assert.rejects(service.executeLayer({ access: allowed, body: { ...hotspotRequest, runtime: { limit: 201 } } }), { code: 'INVALID_REQUEST' });
   await assert.rejects(service.executeLayer({ access: allowed, body: {
     ...hotspotRequest, layer: { ...hotspotRequest.layer, filter: { organizationId: 'other' } },
   } }), { code: 'INVALID_REQUEST' });
