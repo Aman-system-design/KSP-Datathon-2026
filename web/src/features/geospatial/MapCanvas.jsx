@@ -74,6 +74,10 @@ function cameraMatches(camera, viewport) {
     && (viewport.zoom === undefined || valuesMatch(viewport.zoom, camera.zoom));
 }
 
+function boundsSignature(bounds) {
+  return bounds.map(value => Math.round(value / CAMERA_TOLERANCE)).join(':');
+}
+
 export function MapCanvas({
   layers = [],
   viewport,
@@ -84,6 +88,8 @@ export function MapCanvas({
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const overlayRef = useRef(null);
+  const layersRef = useRef(layers);
+  const lastRequestedBoundsRef = useRef(null);
   const viewportCallbackRef = useRef(onViewportChange);
   const featureCallbackRef = useRef(onFeatureSelect);
   const errorCallbackRef = useRef(onLayerError);
@@ -91,6 +97,29 @@ export function MapCanvas({
   viewportCallbackRef.current = onViewportChange;
   featureCallbackRef.current = onFeatureSelect;
   errorCallbackRef.current = onLayerError;
+  layersRef.current = layers;
+
+  const updateOverlay = (map, overlay) => {
+    const camera = currentCamera(map);
+    if (!camera.bounds) return;
+    const deckLayers = layersRef.current.flatMap(input => {
+      try {
+        return createDeckLayers({
+          ...input,
+          viewport: camera,
+          onFeatureSelect: selection => featureCallbackRef.current?.(selection),
+        });
+      } catch (error) {
+        errorCallbackRef.current?.(error, input.layer);
+        return [];
+      }
+    });
+    try {
+      overlay.setProps({ layers: deckLayers });
+    } catch (error) {
+      errorCallbackRef.current?.(error);
+    }
+  };
 
   useEffect(() => {
     registerPmtilesProtocol();
@@ -110,6 +139,7 @@ export function MapCanvas({
     if (initialViewport?.bounds) {
       const [west, south, east, north] = initialViewport.bounds;
       options.bounds = [[west, south], [east, north]];
+      lastRequestedBoundsRef.current = boundsSignature(initialViewport.bounds);
     }
     const map = new maplibregl.Map(options);
     const overlay = new MapboxOverlay({
@@ -124,44 +154,28 @@ export function MapCanvas({
         return;
       }
       viewportCallbackRef.current?.(camera);
+      updateOverlay(map, overlay);
     };
+    const handleLoad = () => updateOverlay(map, overlay);
     const handleError = event => errorCallbackRef.current?.(event?.error ?? event);
     map.on('moveend', handleMove);
     map.on('error', handleError);
+    map.on('load', handleLoad);
     map.addControl(overlay);
     mapRef.current = map;
     overlayRef.current = overlay;
+    updateOverlay(map, overlay);
 
     return () => {
       map.off('moveend', handleMove);
       map.off('error', handleError);
+      map.off('load', handleLoad);
       map.removeControl(overlay);
       map.remove();
       overlayRef.current = null;
       mapRef.current = null;
     };
   }, []);
-
-  useEffect(() => {
-    if (!overlayRef.current) return;
-    const deckLayers = layers.flatMap(input => {
-      try {
-        return createDeckLayers({
-          ...input,
-          viewport,
-          onFeatureSelect: selection => featureCallbackRef.current?.(selection),
-        });
-      } catch (error) {
-        errorCallbackRef.current?.(error, input.layer);
-        return [];
-      }
-    });
-    try {
-      overlayRef.current.setProps({ layers: deckLayers });
-    } catch (error) {
-      errorCallbackRef.current?.(error);
-    }
-  }, [layers, viewport]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -174,12 +188,17 @@ export function MapCanvas({
       return;
     }
     const camera = currentCamera(map);
-    if (cameraMatches(camera, nextViewport)) return;
     if (nextViewport.bounds) {
+      const signature = boundsSignature(nextViewport.bounds);
+      if (lastRequestedBoundsRef.current === signature) return;
+      lastRequestedBoundsRef.current = signature;
+      if (cameraMatches(camera, nextViewport)) return;
       const [west, south, east, north] = nextViewport.bounds;
       map.fitBounds([[west, south], [east, north]]);
       return;
     }
+    lastRequestedBoundsRef.current = null;
+    if (cameraMatches(camera, nextViewport)) return;
     const next = {};
     if (nextViewport.center && !nextViewport.center.every((value, index) => valuesMatch(value, camera.center[index]))) {
       next.center = nextViewport.center;
@@ -187,6 +206,10 @@ export function MapCanvas({
     if (nextViewport.zoom !== undefined && !valuesMatch(nextViewport.zoom, camera.zoom)) next.zoom = nextViewport.zoom;
     if (Object.keys(next).length > 0) map.jumpTo(next);
   }, [viewport]);
+
+  useEffect(() => {
+    if (mapRef.current && overlayRef.current) updateOverlay(mapRef.current, overlayRef.current);
+  }, [layers]);
 
   return <div className="geospatial-map-frame">
     <div className="geospatial-map" ref={containerRef} role="region" aria-label="Geospatial intelligence map" />

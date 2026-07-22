@@ -1,12 +1,15 @@
 import { StrictMode, useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import Supercluster from 'supercluster';
 
 const mocks = vi.hoisted(() => ({
   addProtocol: vi.fn(),
   maps: [],
   overlays: [],
   protocols: [],
+  nextBounds: null,
+  fitBoundsResult: null,
 }));
 
 vi.mock('maplibre-gl', () => {
@@ -16,7 +19,11 @@ vi.mock('maplibre-gl', () => {
       this.handlers = {};
       this.center = { lng: options.center?.[0] ?? 77.5946, lat: options.center?.[1] ?? 12.9716 };
       this.zoom = options.zoom ?? 6;
-      this.bounds = options.bounds ?? [this.center.lng - 0.1, this.center.lat - 0.1, this.center.lng + 0.1, this.center.lat + 0.1];
+      const optionBounds = options.bounds
+        ? [options.bounds[0][0], options.bounds[0][1], options.bounds[1][0], options.bounds[1][1]] : null;
+      this.bounds = mocks.nextBounds ?? optionBounds
+        ?? [this.center.lng - 0.1, this.center.lat - 0.1, this.center.lng + 0.1, this.center.lat + 0.1];
+      mocks.nextBounds = null;
       this.on = vi.fn((event, handler) => { this.handlers[event] = handler; });
       this.off = vi.fn((event, handler) => {
         if (this.handlers[event] === handler) delete this.handlers[event];
@@ -30,7 +37,8 @@ vi.mock('maplibre-gl', () => {
         this.handlers.moveend?.();
       });
       this.fitBounds = vi.fn(bounds => {
-        this.bounds = [bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]];
+        this.bounds = mocks.fitBoundsResult
+          ?? [bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]];
         this.center = { lng: (this.bounds[0] + this.bounds[2]) / 2, lat: (this.bounds[1] + this.bounds[3]) / 2 };
         this.handlers.moveend?.();
       });
@@ -94,7 +102,11 @@ const layerInput = (id = 'hotspots', longitude) => ({
   featureCollection: featureCollection(longitude),
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  mocks.nextBounds = null;
+  mocks.fitBoundsResult = null;
+});
 
 test('creates one map and overlay, updates them imperatively, and shows attribution', () => {
   const onViewportChange = vi.fn();
@@ -149,7 +161,7 @@ test('uses current callbacks without recreating map subscriptions', () => {
 
   expect(first).not.toHaveBeenCalled();
   expect(second).toHaveBeenCalledWith({ id: 'HOT-1', properties: {} });
-  expect(map.on).toHaveBeenCalledTimes(2);
+  expect(map.on).toHaveBeenCalledTimes(3);
 });
 
 test('registers PMTiles once and cleans up controls, listeners, and maps', () => {
@@ -163,7 +175,7 @@ test('registers PMTiles once and cleans up controls, listeners, and maps', () =>
   expect(mocks.addProtocol).toHaveBeenCalledTimes(1);
   expect(mocks.protocols).toHaveLength(1);
   expect(firstMap.removeControl).toHaveBeenCalledWith(firstOverlay);
-  expect(firstMap.off).toHaveBeenCalledTimes(2);
+  expect(firstMap.off).toHaveBeenCalledTimes(3);
   expect(firstMap.remove).toHaveBeenCalledOnce();
 });
 
@@ -210,6 +222,50 @@ test('controlled viewport feedback converges without an initial or repeated came
   fireEvent.click(screen.getByRole('button', { name: 'Move map' }));
 
   expect(map.jumpTo).toHaveBeenCalledOnce();
+  expect(map.fitBounds).not.toHaveBeenCalled();
+});
+
+test('CLUSTER queries use actual MapLibre bounds initially and after map movement', () => {
+  const getClusters = vi.spyOn(Supercluster.prototype, 'getClusters');
+  mocks.nextBounds = [179.5, -1, 180, 1];
+  render(<MapCanvas
+    layers={[{
+      layer: { id: 'edge-cluster', renderer: 'CLUSTER' },
+      featureCollection: {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature', id: 'EDGE-1', properties: {},
+          geometry: { type: 'Point', coordinates: [179.8, 0] },
+        }],
+      },
+    }]}
+    viewport={{ center: [179.8, 0], zoom: 8 }}
+  />);
+  const map = mocks.maps.at(-1);
+  expect(getClusters.mock.calls.at(-1)[0]).toEqual([179.5, -1, 180, 1]);
+
+  map.bounds = [179.7, -0.5, 180, 0.5];
+  map.handlers.moveend();
+  expect(getClusters.mock.calls.at(-1)[0]).toEqual([179.7, -0.5, 180, 0.5]);
+  getClusters.mockRestore();
+});
+
+test('semantically unchanged requested bounds do not repeat fitBounds on unrelated rerenders', () => {
+  const requested = [77, 12, 78, 13];
+  mocks.fitBoundsResult = [76.99, 11.99, 78.01, 13.01];
+  const { rerender } = render(<MapCanvas layers={[]} viewport={{ center: [77.5, 12.5], zoom: 8 }} />);
+  const map = mocks.maps.at(-1);
+  rerender(<MapCanvas layers={[]} viewport={{ bounds: requested }} />);
+  rerender(<MapCanvas layers={[layerInput()]} viewport={{ bounds: [...requested] }} />);
+  expect(map.fitBounds).toHaveBeenCalledOnce();
+});
+
+test('initial requested bounds are applied only by the Map constructor', () => {
+  const requested = [77, 12, 78, 13];
+  mocks.nextBounds = [76.99, 11.99, 78.01, 13.01];
+  render(<MapCanvas layers={[]} viewport={{ bounds: requested }} />);
+  const map = mocks.maps.at(-1);
+  expect(map.options.bounds).toEqual([[77, 12], [78, 13]]);
   expect(map.fitBounds).not.toHaveBeenCalled();
 });
 

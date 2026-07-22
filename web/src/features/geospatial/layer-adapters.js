@@ -6,6 +6,7 @@ import { H3HexagonLayer } from '@deck.gl/geo-layers';
 const POINT_COLOR = [30, 136, 229, 190];
 const POLYGON_COLOR = [30, 136, 229, 150];
 const MINIMUM_BOUNDS_SPAN = 1e-9;
+// Cluster inputs are immutable by reference: replace the features array for any structural change.
 const clusterIndexes = new WeakMap();
 
 function featuresOf(featureCollection) {
@@ -70,15 +71,19 @@ function clusterConfiguration(layer) {
   };
 }
 
-function clusterIndex(featureCollection, data, layer) {
+function clusterIndex(data, layer) {
   const configuration = clusterConfiguration(layer);
   const key = `${configuration.radius}:${configuration.maxZoom}`;
-  let byConfiguration = clusterIndexes.get(featureCollection);
-  if (!byConfiguration) {
-    byConfiguration = new Map();
-    clusterIndexes.set(featureCollection, byConfiguration);
+  let cache = clusterIndexes.get(data);
+  if (!cache) {
+    cache = { snapshot: [...data], byConfiguration: new Map() };
+    clusterIndexes.set(data, cache);
+  } else if (cache.snapshot.length !== data.length
+    || cache.snapshot.some((feature, index) => feature !== data[index])) {
+    throw new Error('featureCollection.features array is immutable; replace it instead of mutating in place');
   }
-  if (byConfiguration.has(key)) return byConfiguration.get(key);
+  const cached = cache.byConfiguration.get(key);
+  if (cached) return cached;
   const sorted = [...data].sort((left, right) => String(left.id ?? '').localeCompare(String(right.id ?? '')));
   const points = sorted.map(feature => {
     const coordinates = pointPosition(feature);
@@ -90,7 +95,7 @@ function clusterIndex(featureCollection, data, layer) {
     };
   });
   const index = new Supercluster(configuration).load(points);
-  byConfiguration.set(key, index);
+  cache.byConfiguration.set(key, index);
   return index;
 }
 
@@ -99,17 +104,6 @@ function clusterBounds(viewport, data) {
     && viewport.bounds.every(Number.isFinite)
     && viewport.bounds[0] < viewport.bounds[2] && viewport.bounds[1] < viewport.bounds[3]) {
     return [...viewport.bounds];
-  }
-  if (Array.isArray(viewport?.center) && viewport.center.length === 2
-    && viewport.center.every(Number.isFinite) && Number.isFinite(viewport.zoom)) {
-    const longitudeSpan = 180 / (2 ** Math.max(0, viewport.zoom));
-    const latitudeSpan = 90 / (2 ** Math.max(0, viewport.zoom));
-    return [
-      Math.max(-180, viewport.center[0] - longitudeSpan),
-      Math.max(-90, viewport.center[1] - latitudeSpan),
-      Math.min(180, viewport.center[0] + longitudeSpan),
-      Math.min(90, viewport.center[1] + latitudeSpan),
-    ];
   }
   const positions = data.map(pointPosition);
   if (positions.length === 0) return [0, 0, MINIMUM_BOUNDS_SPAN, MINIMUM_BOUNDS_SPAN];
@@ -127,8 +121,8 @@ function clusterBounds(viewport, data) {
   ];
 }
 
-function clusterSpecs(layer, featureCollection, data, viewport, onFeatureSelect) {
-  const index = clusterIndex(featureCollection, data, layer);
+function clusterSpecs(layer, data, viewport, onFeatureSelect) {
+  const index = clusterIndex(data, layer);
   const zoom = Math.max(0, Math.min(clusterConfiguration(layer).maxZoom,
     Math.floor(Number.isFinite(viewport?.zoom) ? viewport.zoom : 0)));
   const clusters = index.getClusters(clusterBounds(viewport, data), zoom).map(feature => {
@@ -149,6 +143,10 @@ function clusterSpecs(layer, featureCollection, data, viewport, onFeatureSelect)
   const labels = clusters.filter(feature => feature.properties.cluster);
   const scatter = pointSpec({ ...layer, id: `${layer.id}:cluster` }, clusters, onFeatureSelect);
   scatter.id = `${layer.id}:cluster-points`;
+  const selectLeaf = scatter.onClick;
+  scatter.onClick = info => {
+    if (!info?.object?.properties?.cluster) selectLeaf(info);
+  };
   if (labels.length === 0) return [scatter];
   return [scatter, {
     kind: 'TextLayer',
@@ -230,7 +228,7 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
     features.forEach(pointPosition);
     return [pointSpec(layer, features, onFeatureSelect)];
   }
-  if (layer.renderer === 'CLUSTER') return clusterSpecs(layer, featureCollection, features, viewport, onFeatureSelect);
+  if (layer.renderer === 'CLUSTER') return clusterSpecs(layer, features, viewport, onFeatureSelect);
   if (layer.renderer === 'HEATMAP') {
     features.forEach(pointPosition);
     return [{

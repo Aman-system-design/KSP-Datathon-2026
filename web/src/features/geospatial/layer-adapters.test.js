@@ -91,6 +91,51 @@ test('CLUSTER caches indexing by data identity and config while querying current
   getClusters.mockRestore();
 });
 
+test('CLUSTER rebuilds when a stable collection receives a replacement features array', () => {
+  const load = vi.spyOn(Supercluster.prototype, 'load');
+  const featureCollection = collection(point('A', 77.5949, 12.9718));
+  const options = { layer: { id: 'clustered', renderer: 'CLUSTER' }, featureCollection };
+  buildDeckLayerSpecs(options);
+  featureCollection.features = [point('B', 77.6, 12.98)];
+  buildDeckLayerSpecs(options);
+  expect(load).toHaveBeenCalledTimes(2);
+  load.mockRestore();
+});
+
+test('CLUSTER rejects in-place features array mutation as an immutable-input contract violation', () => {
+  const featureCollection = collection(point('A', 77.5949, 12.9718));
+  const options = { layer: { id: 'clustered', renderer: 'CLUSTER' }, featureCollection };
+  buildDeckLayerSpecs(options);
+  featureCollection.features.push(point('B', 77.6, 12.98));
+  expect(() => buildDeckLayerSpecs(options)).toThrow(/features array is immutable/);
+});
+
+test('CLUSTER aggregate marks are not evidence selections while leaf points remain selectable', () => {
+  const onFeatureSelect = vi.fn();
+  const clustered = buildDeckLayerSpecs({
+    layer: { id: 'clustered', renderer: 'CLUSTER', tooltipFields: ['label'] },
+    featureCollection: collection(
+      point('A', 77.5949, 12.9718, { label: 'A' }),
+      point('B', 77.595, 12.972, { label: 'B' }),
+    ),
+    viewport: { zoom: 0, bounds: [77, 12, 78, 13] },
+    onFeatureSelect,
+  });
+  const scatter = clustered.find(spec => spec.kind === 'ScatterplotLayer');
+  const aggregate = scatter.data.find(feature => feature.properties.cluster);
+  scatter.onClick({ object: aggregate });
+  expect(onFeatureSelect).not.toHaveBeenCalled();
+
+  const leaf = buildDeckLayerSpecs({
+    layer: { id: 'clustered', renderer: 'CLUSTER', tooltipFields: ['label'] },
+    featureCollection: collection(point('A', 77.5949, 12.9718, { label: 'A' })),
+    viewport: { zoom: 16, bounds: [77, 12, 78, 13] },
+    onFeatureSelect,
+  }).find(spec => spec.kind === 'ScatterplotLayer');
+  leaf.onClick({ object: leaf.data[0] });
+  expect(onFeatureSelect).toHaveBeenCalledWith({ id: 'A', properties: { label: 'A' } });
+});
+
 test('CLUSTER derives a bounded non-world query for a single point', () => {
   const getClusters = vi.spyOn(Supercluster.prototype, 'getClusters');
   buildDeckLayerSpecs({
