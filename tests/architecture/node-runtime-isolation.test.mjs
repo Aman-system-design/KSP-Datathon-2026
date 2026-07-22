@@ -20,7 +20,12 @@ test('normal verification and isolated Node 18 use distinct pinned runtimes', as
   }
 
   const runtimeRoot = path.join(repositoryRoot, 'tools', 'node18-runtime');
-  const binary = path.join(runtimeRoot, 'node_modules', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
+  const packageName = ({
+    'linux:x64': 'node-linux-x64', 'linux:arm64': 'node-linux-arm64',
+    'win32:x64': 'node-win-x64', 'darwin:x64': 'node-darwin-x64',
+  })[`${process.platform}:${process.arch}`];
+  assert.ok(packageName, `unsupported compatibility host ${process.platform}/${process.arch}`);
+  const binary = path.join(runtimeRoot, 'node_modules', packageName, 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
   const result = spawnSync(binary, ['--version'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   assert.equal(result.stdout.trim(), 'v18.20.8');

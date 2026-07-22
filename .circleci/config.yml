@@ -10,7 +10,7 @@ jobs:
           keys:
             - npm-v2-node24-{{ checksum "package-lock.json" }}-{{ checksum "tools/node18-runtime/package-lock.json" }}
       - run: npm ci
-      - run: npm ci --prefix tools/node18-runtime
+      - run: npm ci --prefix tools/node18-runtime --ignore-scripts
       - save_cache:
           key: npm-v2-node24-{{ checksum "package-lock.json" }}-{{ checksum "tools/node18-runtime/package-lock.json" }}
           paths:

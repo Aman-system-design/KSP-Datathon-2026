@@ -3,7 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "description": "Pinned Catalyst Node 18 compatibility runtime; not application code.",
-  "devDependencies": {
-    "node": "18.20.8"
+  "optionalDependencies": {
+    "node-darwin-x64": "18.20.8",
+    "node-linux-arm64": "18.20.8",
+    "node-linux-x64": "18.20.8",
+    "node-win-x64": "18.20.8"
   }
 }

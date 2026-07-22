@@ -45,14 +45,24 @@ test('CircleCI performs one deterministic verification job on a pinned compatibl
   const node18Package = await readJson('tools/node18-runtime/package.json');
   const node18Lock = await readJson('tools/node18-runtime/package-lock.json');
   assert.equal(node18Package.private, true);
-  assert.equal(node18Package.devDependencies?.node, '18.20.8');
-  assert.equal(node18Lock.packages?.['']?.devDependencies?.node, '18.20.8');
-  assert.equal(node18Lock.packages?.['node_modules/node']?.version, '18.20.8');
+  const platformPackages = [
+    'node-linux-x64', 'node-linux-arm64', 'node-win-x64', 'node-darwin-x64',
+  ];
+  assert.deepEqual(Object.keys(node18Package.optionalDependencies ?? {}).sort(), platformPackages.sort());
+  for (const packageName of platformPackages) {
+    assert.equal(node18Package.optionalDependencies[packageName], '18.20.8');
+  }
+  for (const [packagePath, metadata] of Object.entries(node18Lock.packages ?? {})) {
+    if (packagePath === '') continue;
+    assert.equal(metadata.version, '18.20.8', `${packagePath} must be exactly pinned`);
+    assert.match(metadata.integrity ?? '', /^sha512-/u, `${packagePath} must be integrity locked`);
+    assert.notEqual(metadata.hasInstallScript, true, `${packagePath} must not run install scripts`);
+  }
 
   assert.equal(namedStep(job.steps, 'run'), 'npm ci');
   const runCommands = job.steps.filter(step => typeof step === 'object' && step.run).map(step => step.run);
   assert.deepEqual(runCommands, [
-    'npm ci', 'npm ci --prefix tools/node18-runtime',
+    'npm ci', 'npm ci --prefix tools/node18-runtime --ignore-scripts',
     'npm run verify', 'npm run compat:node18', 'npm run geospatial:verify',
   ]);
 });
@@ -172,6 +182,11 @@ test('Leaflet removal scans HTML entry points and JSX resource elements', async 
     ['<script src="/vendor/leaflet.min.js"></script>', 'web/index.html'],
     ['<link rel="stylesheet" href="/vendor/react-leaflet.css">', 'web/index.html'],
     ["import '/vendor/leaflet.css';", 'web/src/vendor.js'],
+    ["import './vendor/leaflet.css?inline';", 'web/src/vendor.js'],
+    ["import './vendor/leaflet%2Emin%2Ejs#legacy';", 'web/src/vendor.js'],
+    ["import './vendor%2Fleaflet.min.js#legacy';", 'web/src/vendor.js'],
+    ["<script src='/vendor/leaflet.min.js?v=1'></script>", 'web/index.html'],
+    ["<link href='/vendor/react-leaflet%2Ecss#theme'>", 'web/index.html'],
   ];
   for (const [source, file] of violations) {
     await assert.rejects(() => assertNoLeafletReferences(source, file), /Leaflet/u);
@@ -186,6 +201,10 @@ test('resource scanning requires exact src and href attributes', async () => {
   await assert.doesNotReject(() => assertNoLeafletReferences(`
     export const Deferred = () => <script data-src={'/vendor/leaflet.min.js'} />;
   `, 'web/src/deferred.jsx'));
+  await assert.doesNotReject(() => assertNoLeafletReferences(`
+    <script src="/vendor/map.js?name=leaflet.min.js"></script>
+    <link href="/styles/site.css#leaflet.css">
+  `, 'web/index.html'));
 });
 
 test('recursive web asset scan includes nested public assets', async () => {

@@ -383,20 +383,26 @@ function markupReferences(source, { javascript = false } = {}) {
 }
 
 function isLeafletPackage(value) {
-  const normalized = value.trim().toLowerCase().replace(/^~/u, '');
+  const raw = value.trim().replace(/^~/u, '');
   const packageSegment = segment => /^(?:react-)?leaflet(?:@[^/]+)?$/u.test(segment)
     || /^(?:react-)?leaflet(?:\.min)?\.(?:js|css)$/u.test(segment);
+  const matchesPath = pathname => {
+    try {
+      return decodeURIComponent(pathname).split('/').filter(Boolean)
+        .some(segment => packageSegment(segment.toLowerCase()));
+    } catch { return false; }
+  };
+  const normalized = raw.toLowerCase();
   if (/^(?:react-)?leaflet(?:\/|$)/u.test(normalized)
     || /(?:^|\/)node_modules\/(?:react-)?leaflet(?:\/|$)/u.test(normalized)) return true;
-  if (!/^[a-z][a-z\d+.-]*:/u.test(normalized)
-    && normalized.split('/').filter(Boolean).some(packageSegment)) return true;
+  if (!/^[a-z][a-z\d+.-]*:/u.test(normalized)) {
+    const pathname = raw.split(/[?#]/u, 1)[0];
+    if (matchesPath(pathname)) return true;
+  }
   try {
-    const url = new URL(normalized.startsWith('//') ? `https:${normalized}` : normalized);
+    const url = new URL(raw.startsWith('//') ? `https:${raw}` : raw);
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
-    return url.pathname.split('/').filter(Boolean).some(segment => {
-      try { return packageSegment(decodeURIComponent(segment).toLowerCase()); }
-      catch { return false; }
-    });
+    return matchesPath(url.pathname);
   } catch {
     return false;
   }
