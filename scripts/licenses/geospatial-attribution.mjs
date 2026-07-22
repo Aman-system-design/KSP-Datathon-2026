@@ -182,7 +182,7 @@ async function runCli() {
   if (process.argv.includes('--check')) {
     let committed;
     try {
-      committed = await readFile(outputPath, 'utf8');
+      committed = (await readFile(outputPath, 'utf8')).replaceAll('\r\n', '\n');
     } catch (error) {
       if (error.code === 'ENOENT') throw new Error(`Attribution artifact is missing: ${outputPath}`);
       throw error;
