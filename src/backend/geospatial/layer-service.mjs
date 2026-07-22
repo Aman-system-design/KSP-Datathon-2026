@@ -94,6 +94,21 @@ function queryFor(plan, access, nextToken) {
   ].filter(([, value]) => value !== undefined));
 }
 
+function snapshotFingerprint(meta) {
+  const source = plain(meta) ? meta : {};
+  const period = plain(source.observationPeriod) ? source.observationPeriod : {};
+  const field = (object, key) => Object.hasOwn(object, key)
+    ? { present: true, value: object[key] } : { present: false };
+  return JSON.stringify({
+    analysisRunId: field(source, 'analysisRunId'),
+    runGroupId: field(source, 'runGroupId'),
+    observationPeriod: { present: Object.hasOwn(source, 'observationPeriod') },
+    observationFrom: field(period, 'from'), observationTo: field(period, 'to'),
+    methodVersion: field(source, 'methodVersion'), engineVersion: field(source, 'engineVersion'),
+    syntheticData: field(source, 'syntheticData'), dataQualityStatus: field(source, 'dataQualityStatus'),
+  });
+}
+
 function metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated }) {
   const sourceMeta = plain(envelope.meta) ? structuredClone(envelope.meta) : {};
   const limitations = [...new Set([
@@ -149,6 +164,7 @@ export function createGeospatialLayerService({ readServices, clock }) {
       let nextToken;
       let pageCount = 0;
       let scanTruncated = false;
+      let governingFingerprint;
       const seenTokens = new Set();
       const rows = [];
       const features = [];
@@ -157,6 +173,9 @@ export function createGeospatialLayerService({ readServices, clock }) {
         if (pageCount >= MAX_PAGES) { scanTruncated = true; break; }
         const page = await source({ access, params: {}, query: queryFor(plan, access, nextToken) });
         pageCount += 1;
+        const pageFingerprint = snapshotFingerprint(page?.meta);
+        if (governingFingerprint === undefined) governingFingerprint = pageFingerprint;
+        else if (governingFingerprint !== pageFingerprint) fail('DATA_NOT_READY');
         envelope ??= page;
         const items = page?.data?.items;
         if (!Array.isArray(items)) fail('DATA_NOT_READY');

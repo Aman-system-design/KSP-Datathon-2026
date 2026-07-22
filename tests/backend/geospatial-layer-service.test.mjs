@@ -110,7 +110,13 @@ test('execution follows opaque pagination until the requested output is filled',
     ['PAGE-2', { items: [{ id: 'INSIDE', centroid: { latitude: 12.9718, longitude: 77.5949 } }] }],
   ]);
   const service = createGeospatialLayerService({
-    readServices: { async listHotspots({ query }) { calls.push(query); return { ...envelope([]), data: pages.get(query.nextToken) }; } },
+    readServices: { async listHotspots({ query }) {
+      calls.push(query);
+      const response = { ...envelope([]), data: pages.get(query.nextToken) };
+      response.meta.requestId = `READ-${calls.length}`;
+      response.meta.generatedAt = `2026-07-20T14:00:0${calls.length}.000Z`;
+      return response;
+    } },
     clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
   });
   const response = await service.executeLayer({
@@ -120,6 +126,26 @@ test('execution follows opaque pagination until the requested output is filled',
   assert.deepEqual(response.data.features.map(feature => feature.id), ['INSIDE']);
   assert.deepEqual(calls.map(query => query.nextToken), [undefined, 'PAGE-2']);
   assert.ok(calls.every(query => query.limit === 200));
+});
+
+test('execution rejects pages from different analytical snapshots', async () => {
+  let page = 0;
+  const service = createGeospatialLayerService({
+    readServices: { async listHotspots() {
+      page += 1;
+      const response = envelope(page === 1
+        ? [{ id: 'OUTSIDE', centroid: { latitude: 20, longitude: 80 } }]
+        : [{ id: 'INSIDE', centroid: { latitude: 12.9718, longitude: 77.5949 } }]);
+      response.meta.analysisRunId = page === 1 ? 'RUN-OLD' : 'RUN-NEW';
+      response.data.nextToken = page === 1 ? 'PAGE-2' : undefined;
+      return response;
+    } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'),
+  });
+  await assert.rejects(service.executeLayer({
+    access: allowed, requestId: 'REQ-GEO-1',
+    body: { ...hotspotRequest, runtime: { ...hotspotRequest.runtime, limit: 1 } },
+  }), { code: 'DATA_NOT_READY' });
 });
 
 test('execution reports incomplete results when the 5000-row scan cap is reached', async () => {
