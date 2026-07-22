@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import { DataState, StatusBadge, WorkspaceHeader } from '../../components/PlatformPrimitives.jsx';
 import { LeadershipView } from '../intelligence/LeadershipView.jsx';
+import { governedAppLocation } from '../../app/runtime.js';
 
 const definitions = {
   REGIONAL_LEADERSHIP: ['Jurisdiction Intelligence Pulse', 'Regional evidence requiring coordinated review.'],
@@ -24,13 +25,14 @@ function SignalQueue({ anomalies = [] }) {
 }
 
 function AnalystWorkspace({ data }) {
+  const location = useLocation();
   return <section className="feature-page">
     <WorkspaceHeader eyebrow="Evidence analysis" title="Analyst Workbench" description={definitions.CRIME_ANALYST[1]} meta={<StatusBadge tone="warning">Human review required</StatusBadge>} />
     {data.partial && <div className="partial-state">Some intelligence services are unavailable. Available governed results remain visible.</div>}
     <div className="analyst-workbench">
       <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Prioritized queue</span><h2>System signals</h2></div></div><SignalQueue anomalies={data.anomalies} /></section>
       <section className="panel analysis-canvas"><div className="panel-heading"><div><span className="eyebrow">Synchronized analysis</span><h2>Evidence views</h2></div></div>
-        <nav aria-label="Analytical views"><Link to="/geospatial">Map</Link><Link to="/intelligence">Timeline</Link><Link to="/networks">Network</Link><Link to="/alerts">Cases</Link></nav>
+        <nav aria-label="Analytical views"><Link to={governedAppLocation('/geospatial', location)}>Map</Link><Link to={governedAppLocation('/intelligence', location)}>Timeline</Link><Link to={governedAppLocation('/networks', location)}>Network</Link><Link to={governedAppLocation('/alerts', location)}>Cases</Link></nav>
         <div className="analysis-summary"><strong>{data.brief?.executiveSummary ?? 'No current brief is available.'}</strong><p>Model output remains immutable. Similarity and correlation are investigative signals, not proof.</p></div>
       </section>
       <aside className="panel evidence-context"><div className="panel-heading"><div><span className="eyebrow">Evidence and limits</span><h2>Review context</h2></div></div>

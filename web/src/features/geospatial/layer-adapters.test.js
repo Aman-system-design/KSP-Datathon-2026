@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import Supercluster from 'supercluster';
-import { buildDeckLayerSpecs } from './layer-adapters.js';
+import { buildDeckLayerSpecs, createDeckLayers } from './layer-adapters.js';
 
 const point = (id, longitude, latitude, properties = {}) => ({
   type: 'Feature',
@@ -42,6 +42,17 @@ test('HEATMAP reads finite weights from the configured field', () => {
   expect(spec.kind).toBe('HeatmapLayer');
   expect(spec.getWeight(feature)).toBe(6);
   expect(spec.getPosition(feature)).toEqual([77.5949, 12.9718]);
+});
+
+test('optional heatmap constructor loads on demand and produces a real deck layer', async () => {
+  const pending = createDeckLayers({
+    layer: { id: 'hotspots', renderer: 'HEATMAP', weightField: 'caseCount' },
+    featureCollection: collection(point('HOT-1', 77.59, 12.97, { caseCount: 4 })),
+  });
+  expect(pending).toBeInstanceOf(Promise);
+  const [layer] = await pending;
+  expect(layer.id).toBe('hotspots:heatmap');
+  expect(layer.constructor.name).toBe('HeatmapLayer');
 });
 
 test('point renderers reject non-finite and out-of-range coordinates', () => {

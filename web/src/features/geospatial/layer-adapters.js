@@ -1,8 +1,6 @@
 import { isValidCell } from 'h3-js';
 import Supercluster from 'supercluster';
-import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import { GeoJsonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
-import { H3HexagonLayer } from '@deck.gl/geo-layers';
 
 const POINT_COLOR = [30, 136, 229, 190];
 const POLYGON_COLOR = [30, 136, 229, 150];
@@ -257,12 +255,35 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
   throw new Error(`unknown renderer ${layer.renderer}`);
 }
 
-const CONSTRUCTORS = { ScatterplotLayer, TextLayer, HeatmapLayer, H3HexagonLayer, GeoJsonLayer };
+const CONSTRUCTORS = { ScatterplotLayer, TextLayer, GeoJsonLayer };
+const OPTIONAL_CONSTRUCTORS = Object.freeze({
+  HeatmapLayer: () => import('@deck.gl/aggregation-layers').then(module => module.HeatmapLayer),
+  H3HexagonLayer: () => import('@deck.gl/geo-layers').then(module => module.H3HexagonLayer),
+});
+const optionalConstructorCache = new Map();
+
+function optionalConstructor(kind) {
+  if (!optionalConstructorCache.has(kind)) {
+    optionalConstructorCache.set(kind, OPTIONAL_CONSTRUCTORS[kind]().catch(error => {
+      optionalConstructorCache.delete(kind);
+      throw error;
+    }));
+  }
+  return optionalConstructorCache.get(kind);
+}
 
 export function createDeckLayers(options) {
-  return buildDeckLayerSpecs(options).map(({ kind, ...props }) => {
+  const specs = buildDeckLayerSpecs(options);
+  const needsOptional = specs.some(spec => OPTIONAL_CONSTRUCTORS[spec.kind]);
+  const construct = ({ kind, ...props }) => {
     const Layer = CONSTRUCTORS[kind];
     if (!Layer) throw new Error(`unknown deck.gl layer kind ${kind}`);
     return new Layer(props);
-  });
+  };
+  if (!needsOptional) return specs.map(construct);
+  return Promise.all(specs.map(async ({ kind, ...props }) => {
+    const Layer = CONSTRUCTORS[kind] ?? await optionalConstructor(kind);
+    if (!Layer) throw new Error(`unknown deck.gl layer kind ${kind}`);
+    return new Layer(props);
+  }));
 }

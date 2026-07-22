@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { catalystAuth } from '../auth/catalyst-auth.js';
 import { Icon } from '../components/icons.jsx';
 import { OrganizationBrand } from '../components/OrganizationBrand.jsx';
-import { personaSearch } from './runtime.js';
+import { governedAppLocation, personaSearch } from './runtime.js';
 import { getWorkspaceNavigation } from './workspace-navigation.js';
 
 const titleCase = value => String(value ?? '').toLowerCase().split('_')
@@ -42,7 +42,7 @@ export function AppShell({ workspace, auth = catalystAuth, children }) {
         <span className="freshness-status"><small>Intelligence freshness</small><strong>{workspace?.freshness ?? 'Latest verified run'}</strong></span>
         {workspace?.syntheticData && <span className="data-provenance"><small>Data mode</small><strong>Demonstration</strong></span>}
       </div>
-      <NavLink className="header-alert" to="/alerts" aria-label="Alerts">
+      <NavLink className="header-alert" to={governedAppLocation('/alerts', location)} aria-label="Alerts">
         <Icon name="alerts" />
       </NavLink>
       <div className="account-menu">
@@ -72,7 +72,7 @@ export function AppShell({ workspace, auth = catalystAuth, children }) {
 
     <nav className="module-rail" aria-label="Platform modules">
       <div className="module-links">
-        {navigation.modules.map(item => <NavLink key={item.to} to={item.to} end={item.to === '/'} aria-label={item.label} title={item.label}>
+        {navigation.modules.map(item => <NavLink key={item.to} to={governedAppLocation(item.to, location)} end={item.to === '/'} aria-label={item.label} title={item.label}>
           <Icon name={item.icon} /><span>{item.label}</span>
           {item.to === '/alerts' && workspace?.alertSummary?.total > 0 && <b>{workspace.alertSummary.total}</b>}
         </NavLink>)}
@@ -88,12 +88,12 @@ export function AppShell({ workspace, auth = catalystAuth, children }) {
         <div className="context-block"><small>Geographic scope</small><strong>{unitLabel}</strong></div>
         <div className="context-divider" />
         <label className="dashboard-switcher">Active dashboard
-          <select aria-label="Active dashboard" defaultValue={dashboards[0]?.id ?? ''} onChange={event => event.target.value && navigate(`/dashboards/${event.target.value}`)}>
+          <select aria-label="Active dashboard" defaultValue={dashboards[0]?.id ?? ''} onChange={event => event.target.value && navigate(governedAppLocation(`/dashboards/${event.target.value}`, location))}>
             {dashboards.length === 0 && <option value="">Role workspace</option>}
             {dashboards.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>
-        <NavLink className="context-alert-link" to="/alerts"><span>Intelligence alerts</span><b>{workspace?.alertSummary?.total ?? 0}</b></NavLink>
+        <NavLink className="context-alert-link" to={governedAppLocation('/alerts', location)}><span>Intelligence alerts</span><b>{workspace?.alertSummary?.total ?? 0}</b></NavLink>
       </nav>}
     </aside>
 

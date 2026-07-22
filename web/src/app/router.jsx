@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 
 import { createApiClient } from '../api/client.js';
@@ -15,7 +15,7 @@ import { NetworkView } from '../features/intelligence/NetworkView.jsx';
 import { ReportBuilder } from '../features/reports/ReportBuilder.jsx';
 import { PersonaWorkspace } from '../features/workspaces/PersonaWorkspace.jsx';
 import { AppShell } from './AppShell.jsx';
-import { readDemoPersona, readRuntime } from './runtime.js';
+import { governedAppLocation, readDemoPersona, readRuntime } from './runtime.js';
 
 const GeospatialStudio = lazy(() => import('../features/geospatial/GeospatialStudio.jsx'));
 
@@ -72,10 +72,35 @@ function HomePage({ api, workspace }) {
   return <CommandPage api={api} role={workspace.role} />;
 }
 
-function GeospatialPage({ api }) {
-  return <Suspense fallback={<Busy label="Loading geospatial workspace…" />}>
-    <GeospatialStudio api={api} />
-  </Suspense>;
+export class GeospatialRouteErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() { return { failed: true }; }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <div className="failure-state" role="alert">
+      <strong>Geospatial workspace is unavailable</strong>
+      <span>The map workspace could not be loaded. Other authorized modules remain available.</span>
+      <button type="button" onClick={() => (this.props.reload ?? (() => globalThis.location?.reload?.()))()}>Reload map workspace</button>
+    </div>;
+  }
+}
+
+export function GeospatialPage({ api, Studio = GeospatialStudio, reload }) {
+  return <GeospatialRouteErrorBoundary reload={reload}>
+    <Suspense fallback={<Busy label="Loading geospatial workspace…" />}>
+      <Studio api={api} />
+    </Suspense>
+  </GeospatialRouteErrorBoundary>;
+}
+
+function LegacyMapsRedirect() {
+  const location = useLocation();
+  return <Navigate to={governedAppLocation('/geospatial', location, { preserveHash: true })} replace />;
 }
 
 export function AlertsPage({ api }) {
@@ -166,7 +191,7 @@ export function Application({ api: providedApi }) {
     <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
     <Route path="/intelligence" element={<CommandPage api={api} role={workspace.role} />} />
     <Route path="/geospatial" element={<GeospatialPage api={api} />} />
-    <Route path="/maps" element={<Navigate to="/geospatial" replace />} />
+    <Route path="/maps" element={<LegacyMapsRedirect />} />
     <Route path="/reports" element={<ReportBuilder api={api} />} />
     <Route path="/reports/:reportId" element={<ReportBuilder api={api} />} />
     <Route path="/dashboards" element={<DashboardLibrary workspace={workspace} />} />

@@ -83,3 +83,14 @@ test('Development demo presenter switches persona from the extreme-right profile
   fireEvent.click(screen.getByRole('button', { name: 'Crime Analyst' }));
   expect(screen.getByTestId('location')).toHaveTextContent('/?persona=CRIME_ANALYST');
 });
+
+test('platform navigation preserves the governed persona but drops unrelated query data', () => {
+  render(<MemoryRouter initialEntries={['/?persona=CRIME_ANALYST&token=unsafe']}>
+    <AppShell workspace={demoWorkspace} auth={{ signOut: vi.fn() }}><p>Content</p></AppShell>
+    <LocationProbe />
+  </MemoryRouter>);
+
+  fireEvent.click(screen.getByRole('link', { name: 'Geospatial' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/geospatial?persona=CRIME_ANALYST');
+  expect(screen.getByTestId('location')).not.toHaveTextContent('token');
+});

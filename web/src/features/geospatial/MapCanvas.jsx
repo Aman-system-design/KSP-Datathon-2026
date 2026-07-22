@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { Protocol } from 'pmtiles';
@@ -85,6 +85,7 @@ export function MapCanvas({
   onFeatureSelect,
   onLayerError,
 }) {
+  const [rendererLoading, setRendererLoading] = useState(false);
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const overlayRef = useRef(null);
@@ -93,6 +94,7 @@ export function MapCanvas({
   const viewportCallbackRef = useRef(onViewportChange);
   const featureCallbackRef = useRef(onFeatureSelect);
   const errorCallbackRef = useRef(onLayerError);
+  const overlayGenerationRef = useRef(0);
   const initialViewportRef = useRef(viewport);
   viewportCallbackRef.current = onViewportChange;
   featureCallbackRef.current = onFeatureSelect;
@@ -100,24 +102,38 @@ export function MapCanvas({
   layersRef.current = layers;
 
   const updateOverlay = (map, overlay) => {
+    const generation = overlayGenerationRef.current + 1;
+    overlayGenerationRef.current = generation;
     const camera = currentCamera(map);
     if (!camera.bounds) return;
-    const deckLayers = layersRef.current.flatMap(input => {
+    const builtLayers = layersRef.current.map(input => {
       try {
-        return createDeckLayers({
+        const result = createDeckLayers({
           ...input,
           viewport: camera,
           onFeatureSelect: selection => featureCallbackRef.current?.(selection),
         });
+        return typeof result?.then === 'function' ? result.catch(error => {
+          errorCallbackRef.current?.(error, input.layer);
+          return [];
+        }) : result;
       } catch (error) {
         errorCallbackRef.current?.(error, input.layer);
         return [];
       }
     });
-    try {
-      overlay.setProps({ layers: deckLayers });
-    } catch (error) {
-      errorCallbackRef.current?.(error);
+    const apply = groups => {
+      if (overlayGenerationRef.current !== generation || overlayRef.current !== overlay) return;
+      try { overlay.setProps({ layers: groups.flat() }); } catch (error) { errorCallbackRef.current?.(error); }
+    };
+    if (builtLayers.some(group => typeof group?.then === 'function')) {
+      setRendererLoading(true);
+      Promise.all(builtLayers).then(apply).finally(() => {
+        if (overlayGenerationRef.current === generation && overlayRef.current === overlay) setRendererLoading(false);
+      });
+    } else {
+      setRendererLoading(false);
+      apply(builtLayers);
     }
   };
 
@@ -167,6 +183,7 @@ export function MapCanvas({
     updateOverlay(map, overlay);
 
     return () => {
+      overlayGenerationRef.current += 1;
       map.off('moveend', handleMove);
       map.off('error', handleError);
       map.off('load', handleLoad);
@@ -213,6 +230,7 @@ export function MapCanvas({
 
   return <div className="geospatial-map-frame">
     <div className="geospatial-map" ref={containerRef} role="region" aria-label="Geospatial intelligence map" />
+    {rendererLoading ? <span className="geospatial-renderer-loading" role="status">Loading selected map renderer…</span> : null}
     <small className="geospatial-map-attribution">
       Basemap by <a href="https://openfreemap.org/">OpenFreeMap</a> ·
       {' '}<a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>

@@ -25,7 +25,8 @@
     "compat:node24": "node --test tests/compat/node18-core.test.mjs",
     "web:dev": "npm run dev --workspace web",
     "web:test": "npm run test --workspace web",
-    "web:build": "npm run build --workspace web",
+    "web:build": "npm run build --workspace web && npm run web:bundle:check",
+    "web:bundle:check": "node scripts/ci/check-web-bundle.mjs",
     "verify": "npm test && npm run web:test && npm run web:build && npm run catalyst:build && npm run catalyst:inspect && npm run schema:validate && npm run intelligence-schema:validate"
   },
   "engines": {
