@@ -34,13 +34,14 @@ function deferred() {
 
 function apiHarness({
   datasets = [dataset()], views = [], viewLoader = () => Promise.resolve({ data: { items: views } }),
+  freshnessLoader = () => Promise.resolve({ data: { layers: [] } }),
 } = {}) {
   const executions = [];
   const api = {
     get: vi.fn(path => {
       if (path === '/v1/geospatial/datasets') return Promise.resolve({ data: { items: datasets } });
       if (path === '/v1/geospatial/views') return viewLoader();
-      if (path === '/v1/geospatial/freshness') return Promise.resolve({ data: { layers: [] } });
+      if (path === '/v1/geospatial/freshness') return freshnessLoader();
       throw new Error(`unexpected GET ${path}`);
     }),
     post: vi.fn((path, body) => {
@@ -218,6 +219,25 @@ describe('useGeospatialWorkspace', () => {
     expect(result.current.visibleFeatures[0].id).toBe('NEW');
   });
 
+  test('re-executes an equivalent saved view after its retained map data is reset', async () => {
+    const { api, executions } = apiHarness();
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    const equivalentLayer = structuredClone(executions[0].body.layer);
+    await act(async () => { executions[0].resolve(execution('RUN-OLD')); await executions[0].promise; });
+
+    act(() => result.current.loadView({ definition: {
+      viewport: structuredClone(result.current.viewport), layers: [equivalentLayer],
+    } }));
+
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => { executions[1].resolve(execution('RUN-RELOADED', 'RELOADED')); await executions[1].promise; });
+    expect(result.current.layers[0].state).toBe('READY');
+    expect(result.current.visibleFeatures[0].id).toBe('RELOADED');
+  });
+
   test('retains last verified features and marks the layer stale after a transient refresh failure', async () => {
     const { api, executions } = apiHarness();
     const { result } = renderHook(() => useGeospatialWorkspace({ api }));
@@ -293,6 +313,31 @@ describe('useGeospatialWorkspace', () => {
     expect(result.current.layers[0].state).toBe('STALE');
     expect(result.current.layers[0].pendingUpdate.meta.runGroupId).toBe('RUN-2');
     expect(result.current.visibleFeatures[0].id).toBe('HOT-1');
+  });
+
+  test('does not re-execute the same fresh run while that run is pending evidence acceptance', async () => {
+    const freshnessLoader = vi.fn(() => Promise.resolve({
+      data: { layers: [{ datasetId: 'hotspots', runGroupId: 'RUN-2' }] },
+    }));
+    const { api, executions } = apiHarness({ freshnessLoader });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    await act(async () => { executions[0].resolve(execution('RUN-1')); await executions[0].promise; });
+    act(() => result.current.selectFeature({
+      layerId: result.current.layers[0].id, id: 'HOT-1', properties: { id: 'HOT-1' },
+    }));
+
+    await act(async () => { await result.current.retryFreshness(); });
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => { executions[1].resolve(execution('RUN-2', 'HOT-2')); await executions[1].promise; });
+    expect(result.current.layers[0].pendingUpdate?.meta.runGroupId).toBe('RUN-2');
+
+    await act(async () => { await result.current.retryFreshness(); });
+    expect(freshnessLoader).toHaveBeenCalledTimes(2);
+    expect(executions).toHaveLength(2);
+    expect(result.current.layers[0].pendingUpdate?.meta.runGroupId).toBe('RUN-2');
   });
 
   test('holds a new run while evidence is open and replaces it only after explicit acceptance', async () => {

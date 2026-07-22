@@ -73,6 +73,7 @@ export function useGeospatialWorkspace({
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [freshnessError, setFreshnessError] = useState(null);
   const [mapError, setMapError] = useState(null);
+  const [executionEpoch, setExecutionEpoch] = useState(0);
   const layersRef = useRef(layers);
   const selectedFeatureRef = useRef(selectedFeature);
   const viewportRef = useRef(viewport);
@@ -187,11 +188,12 @@ export function useGeospatialWorkspace({
   }, [api]);
 
   const executionSignature = useMemo(() => JSON.stringify({
+    executionEpoch,
     viewport,
     timeWindow,
     layers: layers.filter(layer => layer.visible && layer.spatialStatus === 'AVAILABLE')
       .map(layer => layerDefinition(layer)),
-  }), [layers, timeWindow, viewport]);
+  }), [executionEpoch, layers, timeWindow, viewport]);
   const previousSignature = useRef(null);
 
   useEffect(() => {
@@ -210,7 +212,8 @@ export function useGeospatialWorkspace({
       const updates = Array.isArray(response?.data?.layers) ? response.data.layers : [];
       for (const layer of layersRef.current) {
         const update = updates.find(item => item.datasetId === layer.datasetId);
-        if (layer.visible && update && update.runGroupId !== layer.meta?.runGroupId) void executeLayer(layer.id);
+        const effectiveRunGroupId = layer.pendingUpdate?.meta?.runGroupId ?? layer.meta?.runGroupId;
+        if (layer.visible && update && update.runGroupId !== effectiveRunGroupId) void executeLayer(layer.id);
       }
     } catch (error) {
       setFreshnessError(messageOf(error));
@@ -329,6 +332,7 @@ export function useGeospatialWorkspace({
       };
     });
     workspaceEpoch.current += 1;
+    setExecutionEpoch(workspaceEpoch.current);
     layerSequence.current = loaded.length;
     setLayers(loaded);
     setViewportState(structuredClone(definition.viewport ?? initialViewportRef.current));
