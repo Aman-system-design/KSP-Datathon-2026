@@ -1,4 +1,4 @@
-import { compileLayerExecution, deepFreeze } from '@ksp/geospatial-core';
+import { compileLayerExecution, deepFreeze, MAX_FEATURES } from '@ksp/geospatial-core';
 
 import { fail } from '../services/errors.mjs';
 import { DATASET_CATALOG } from './dataset-catalog.mjs';
@@ -6,6 +6,7 @@ import { DATASET_CATALOG } from './dataset-catalog.mjs';
 const EXECUTION_KEYS = new Set(['layer', 'runtime']);
 const RENDER_USES = new Set(['display', 'label', 'weight', 'color', 'size']);
 const SEMANTIC_LIMIT = 200;
+const MAX_PAGES = Math.ceil(MAX_FEATURES / SEMANTIC_LIMIT);
 
 function plain(value) {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -77,20 +78,28 @@ function inViewport(longitude, latitude, viewport) {
   return !bounds || (longitude >= bounds[0] && longitude <= bounds[2] && latitude >= bounds[1] && latitude <= bounds[3]);
 }
 
-function queryFor(plan, access) {
+function inTimeWindow(row, dataset, timeWindow) {
+  if (!timeWindow) return true;
+  const value = valueAt(row, dataset.timeField);
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp >= Date.parse(timeWindow.from) && timestamp <= Date.parse(timeWindow.to);
+}
+
+function queryFor(plan, access, nextToken) {
   return Object.fromEntries([
-    ['limit', plan.limit],
+    ['limit', SEMANTIC_LIMIT], ['nextToken', nextToken],
     ['unitId', access.scopeUnitId],
     ['from', plan.timeWindow?.from], ['to', plan.timeWindow?.to],
     ['bounds', plan.viewport?.bounds?.join(',')],
   ].filter(([, value]) => value !== undefined));
 }
 
-function metadata({ envelope, rows, features, omittedFeatureCount, clock, idFactory }) {
+function metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated }) {
   const sourceMeta = plain(envelope.meta) ? structuredClone(envelope.meta) : {};
   const limitations = [...new Set([
     ...(Array.isArray(sourceMeta.limitations) ? sourceMeta.limitations : []),
     ...rows.flatMap(row => Array.isArray(row.limitations) ? row.limitations : []),
+    ...(scanTruncated ? ['GEOSPATIAL_SCAN_LIMIT_REACHED'] : []),
   ])].sort();
   const recordMethodVersion = rows.find(row => typeof row.version === 'string')?.version;
   if (!sourceMeta.generatedAt) {
@@ -100,62 +109,91 @@ function metadata({ envelope, rows, features, omittedFeatureCount, clock, idFact
   }
   return deepFreeze({
     ...sourceMeta,
-    requestId: sourceMeta.requestId ?? idFactory(), runGroupId: sourceMeta.analysisRunId,
+    ...(sourceMeta.requestId && sourceMeta.requestId !== requestId ? { sourceRequestId: sourceMeta.requestId } : {}),
+    requestId, runGroupId: sourceMeta.analysisRunId,
     observationWindow: sourceMeta.observationPeriod,
     ...(sourceMeta.methodVersion ? { engineVersion: sourceMeta.methodVersion } : {}),
     ...(recordMethodVersion ? { recordMethodVersion } : {}),
-    sourceRecordCount: rows.length, outputFeatureCount: features.length, omittedFeatureCount, limitations,
+    sourceRecordCount: rows.length, outputFeatureCount: features.length, omittedFeatureCount,
+    resultComplete: !scanTruncated, scanTruncated, limitations,
   });
 }
 
-export function createGeospatialLayerService({ readServices, clock, idFactory }) {
-  if (!readServices || typeof clock !== 'function' || typeof idFactory !== 'function') throw new TypeError('readServices, clock, and idFactory are required');
+export function createGeospatialLayerService({ readServices, clock }) {
+  if (!readServices || typeof clock !== 'function') throw new TypeError('readServices and clock are required');
   const sources = new Map(DATASET_CATALOG.flatMap(dataset => (
     Object.hasOwn(readServices, dataset.service) && typeof readServices[dataset.service] === 'function'
       ? [[dataset.sourceReference, readServices[dataset.service].bind(readServices)]] : []
   )));
 
   return Object.freeze({
-    async listDatasets({ access }) {
+    async listDatasets({ access, requestId }) {
       const items = DATASET_CATALOG.filter(dataset => access?.actions?.includes(dataset.requiredAction)).map(publicDataset);
       const generatedAt = clock();
       return deepFreeze({
-        data: { items }, meta: { requestId: idFactory(), generatedAt: generatedAt.toISOString() },
+        data: { items }, meta: { requestId, generatedAt: generatedAt.toISOString() },
       });
     },
 
-    async executeLayer({ access, body }) {
+    async executeLayer({ access, body, requestId }) {
       const datasetId = plain(body?.layer) ? body.layer.datasetId : undefined;
       const dataset = DATASET_CATALOG.find(candidate => candidate.id === datasetId);
       if (!dataset) fail('INVALID_REQUEST');
       requireAction(access, dataset.requiredAction);
       if (dataset.spatialStatus !== 'AVAILABLE') fail('DATA_NOT_READY');
       const plan = normalizedExecution(body, dataset);
+      if (plan.timeWindow && !dataset.timeField) fail('INVALID_REQUEST');
       const source = sources.get(plan.sourceReference);
       if (!source) throw new TypeError('unconfigured geospatial source');
-      const envelope = await source({ access, params: {}, query: queryFor(plan, access) });
-      const rows = Array.isArray(envelope?.data?.items) ? envelope.data.items : envelope?.data ? [envelope.data] : [];
+      let envelope;
+      let nextToken;
+      let pageCount = 0;
+      let scanTruncated = false;
+      const seenTokens = new Set();
+      const rows = [];
       const features = [];
       let omittedFeatureCount = 0;
-      for (const row of rows) {
-        const longitude = valueAt(row, dataset.geometry.longitudeField);
-        const latitude = valueAt(row, dataset.geometry.latitudeField);
-        if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180
-          || !Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-          omittedFeatureCount += 1; continue;
+      while (features.length < plan.limit) {
+        if (pageCount >= MAX_PAGES) { scanTruncated = true; break; }
+        const page = await source({ access, params: {}, query: queryFor(plan, access, nextToken) });
+        pageCount += 1;
+        envelope ??= page;
+        const items = page?.data?.items;
+        if (!Array.isArray(items)) fail('DATA_NOT_READY');
+        let consumed = 0;
+        for (const row of items) {
+          if (rows.length >= MAX_FEATURES) { scanTruncated = true; break; }
+          rows.push(row); consumed += 1;
+          const longitude = valueAt(row, dataset.geometry.longitudeField);
+          const latitude = valueAt(row, dataset.geometry.latitudeField);
+          if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180
+            || !Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+            omittedFeatureCount += 1; continue;
+          }
+          if (!inViewport(longitude, latitude, plan.viewport)
+            || !inTimeWindow(row, dataset, plan.timeWindow) || !matches(row, plan.filter)) continue;
+          features.push(deepFreeze({
+            type: 'Feature', id: row.id,
+            geometry: { type: 'Point', coordinates: [longitude, latitude] },
+            properties: projectProperties(row, plan, dataset),
+          }));
+          if (features.length >= plan.limit) break;
         }
-        if (!inViewport(longitude, latitude, plan.viewport) || !matches(row, plan.filter)) continue;
-        if (features.length >= plan.limit) continue;
-        features.push(deepFreeze({
-          type: 'Feature', id: row.id,
-          geometry: { type: 'Point', coordinates: [longitude, latitude] },
-          properties: projectProperties(row, plan, dataset),
-        }));
+        if (features.length >= plan.limit) break;
+        const returnedToken = page.data.nextToken;
+        if (rows.length >= MAX_FEATURES) {
+          scanTruncated ||= consumed < items.length || returnedToken !== undefined;
+          break;
+        }
+        if (returnedToken === undefined || returnedToken === null || returnedToken === '') break;
+        if (typeof returnedToken !== 'string' || seenTokens.has(returnedToken)) fail('DATA_NOT_READY');
+        seenTokens.add(returnedToken);
+        nextToken = returnedToken;
       }
-      if (features.length === 0 && omittedFeatureCount === rows.length && rows.length > 0) fail('DATA_NOT_READY');
+      if (!scanTruncated && features.length === 0 && omittedFeatureCount === rows.length && rows.length > 0) fail('DATA_NOT_READY');
       return deepFreeze({
         data: { type: 'FeatureCollection', features },
-        meta: metadata({ envelope, rows, features, omittedFeatureCount, clock, idFactory }),
+        meta: metadata({ envelope, rows, features, omittedFeatureCount, clock, requestId, scanTruncated }),
       });
     },
   });

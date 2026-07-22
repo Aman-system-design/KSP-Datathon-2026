@@ -85,7 +85,7 @@ export function createApiApplication({
       const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
       const workspaceServices = createWorkspaceServices({ repository, readServices, now, idFactory });
       const geospatialServices = createGeospatialLayerService({
-        readServices: { ...readServices, ...workspaceServices }, clock: () => new Date(now()), idFactory,
+        readServices: { ...readServices, ...workspaceServices }, clock: () => new Date(now()),
       });
       const runService = createIntelligenceRunService({
         repository, scheduler: schedulerFactory(profileApplication, config.intelligenceJobPool),

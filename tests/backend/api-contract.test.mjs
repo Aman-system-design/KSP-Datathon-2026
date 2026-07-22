@@ -15,12 +15,12 @@ import { createCommandService } from '../../src/backend/workflow/command-service
 const policy = JSON.parse(await readFile(new URL('../../config/access-policy.json', import.meta.url), 'utf8'));
 const clock = () => '2026-07-20T15:00:00.000Z';
 
-function harness({ environment = 'Development', readServicesOverride, resourceServicesOverride } = {}) {
+function harness({ environment = 'Development', readServicesOverride, resourceServicesOverride, auditServiceOverride } = {}) {
   let id = 0;
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const readServices = readServicesOverride ?? createReadServices({ repository, clock: () => new Date(clock()), idFactory: () => `REQ-${++id}` });
   const commandService = createCommandService({ repository, clock, idFactory: prefix => `${prefix}-${++id}`, auditKeys: { v1: 'api-test-key' }, activeAuditKeyVersion: 'v1' });
-  const auditService = createAccessAuditService({ repository, clock, idFactory: prefix => `${prefix}-${++id}`, auditKeys: { v1: 'api-test-key' }, activeAuditKeyVersion: 'v1' });
+  const auditService = auditServiceOverride ?? createAccessAuditService({ repository, clock, idFactory: prefix => `${prefix}-${++id}`, auditKeys: { v1: 'api-test-key' }, activeAuditKeyVersion: 'v1' });
   const accessResolver = async ({ currentUser, profile, requestedPersona, units, assignments }) => {
     const base = resolveAccess({ currentUser, profile, requestedPersona, environment, policy });
     return Object.freeze({ ...base, authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }), assignments });
@@ -63,15 +63,19 @@ test('the public contract contains exactly the thirty-seven platform operations'
 });
 
 test('geospatial execution is audited as a sensitive read', async () => {
-  const dispatch = harness({ resourceServicesOverride: {
-    async executeGeospatialLayer() { return { data: { type: 'FeatureCollection', features: [] } }; },
-  } });
+  const audits = [];
+  const dispatch = harness({
+    auditServiceOverride: { async record(event) { audits.push(event); } },
+    resourceServicesOverride: {
+      async executeGeospatialLayer({ requestId }) { return { data: { type: 'FeatureCollection', features: [] }, meta: { requestId } }; },
+    },
+  });
   const response = await dispatch({ request: {
     method: 'POST', path: '/v1/geospatial/layers/execute', query: {}, headers: {}, body: {}, requestId: 'REQ-API',
   }, currentUser: user('CAT-DISTRICT') });
   assert.equal(response.status, 200);
-  const audit = await dispatch.repository.listAuditEvents();
-  assert.equal(audit.at(-1).EventType, 'SENSITIVE_READ');
+  assert.equal(audits.at(-1).eventType, 'SENSITIVE_READ');
+  assert.equal(response.body.meta.requestId, audits.at(-1).requestId);
 });
 
 test('all eight reads dispatch through authenticated, scoped services', async () => {

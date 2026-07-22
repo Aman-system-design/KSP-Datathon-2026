@@ -81,7 +81,10 @@ test('API composition serves the role workspace and governed report sources', as
 });
 
 test('API composition serves authorized geospatial catalog and layer execution', async () => {
-  const { application, repository } = harness();
+  const logs = [];
+  const { application, repository } = harness({ logger: {
+    info(value) { logs.push(JSON.parse(value)); }, error(value) { logs.push(JSON.parse(value)); },
+  } });
   const catalog = await application({ method: 'GET', url: '/v1/geospatial/datasets', headers: {}, body: null });
   assert.equal(catalog.status, 200);
   assert.deepEqual(catalog.body.data.items.map(item => item.id), ['hotspots', 'anomalies', 'areaRisk', 'alerts']);
@@ -97,7 +100,9 @@ test('API composition serves authorized geospatial catalog and layer execution',
   assert.equal(layer.status, 200);
   assert.equal(layer.body.data.type, 'FeatureCollection');
   assert.ok(layer.body.data.features.length > 0);
+  assert.match(layer.body.meta.requestId, /^REQ-\d+$/u);
   assert.ok((await repository.listAuditEvents()).every(row => row.EventType === 'SENSITIVE_READ'));
+  assert.equal(logs.at(-1).requestId, layer.body.meta.requestId);
 });
 
 test('API composition fails closed for missing identity, undeclared route and malformed URL', async () => {

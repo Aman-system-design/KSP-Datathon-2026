@@ -30,7 +30,7 @@ function harness(items = [{
   const calls = [];
   const service = createGeospatialLayerService({
     readServices: { async listHotspots(input) { calls.push(input); return envelope(items); } },
-    clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => 'REQ-GEO-1',
+    clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
   });
   return { service, calls };
 }
@@ -39,7 +39,8 @@ test('catalog is immutable, authorized, truthful, and strips server-only fields'
   assert.ok(Object.isFrozen(DATASET_CATALOG));
   assert.ok(DATASET_CATALOG.every(Object.isFrozen));
   const { service } = harness();
-  const response = await service.listDatasets({ access: allowed });
+  const response = await service.listDatasets({ access: allowed, requestId: 'REQ-GEO-1' });
+  assert.equal(response.meta.requestId, 'REQ-GEO-1');
   assert.deepEqual(response.data.items.map(item => item.id), ['hotspots']);
   const [dataset] = response.data.items;
   assert.deepEqual(dataset.access, { actions: ['READ_HOTSPOT'] });
@@ -47,12 +48,12 @@ test('catalog is immutable, authorized, truthful, and strips server-only fields'
   for (const hidden of ['sourceReference', 'service', 'requiredAction', 'internalService', 'evidenceCaseIds']) {
     assert.equal(hidden in dataset, false);
   }
-  assert.deepEqual((await service.listDatasets({ access: denied })).data.items, []);
+  assert.deepEqual((await service.listDatasets({ access: denied, requestId: 'REQ-GEO-2' })).data.items, []);
 });
 
 test('catalog reports unavailable geometry without inventing mappings', async () => {
   const access = { ...allowed, actions: ['READ_ANOMALY', 'READ_AREA_RISK', 'READ_ALERT'] };
-  const items = (await harness().service.listDatasets({ access })).data.items;
+  const items = (await harness().service.listDatasets({ access, requestId: 'REQ-GEO-1' })).data.items;
   assert.deepEqual(items.map(item => item.id), ['anomalies', 'areaRisk', 'alerts']);
   for (const item of items) {
     assert.equal(item.spatialStatus, 'GEOMETRY_NOT_AVAILABLE');
@@ -64,7 +65,7 @@ test('catalog reports unavailable geometry without inventing mappings', async ()
 test('execution enforces action and emits governed GeoJSON metadata', async () => {
   const { service, calls } = harness();
   await assert.rejects(service.executeLayer({ access: denied, body: hotspotRequest }), { code: 'FORBIDDEN_ACTION' });
-  const response = await service.executeLayer({ access: allowed, body: hotspotRequest });
+  const response = await service.executeLayer({ access: allowed, body: hotspotRequest, requestId: 'REQ-GEO-1' });
   assert.equal(response.data.type, 'FeatureCollection');
   assert.deepEqual(response.data.features[0].geometry.coordinates, [77.5949, 12.9718]);
   assert.deepEqual(response.data.features[0].properties, { id: 'HOT-1', magnitude: 6 });
@@ -72,7 +73,8 @@ test('execution enforces action and emits governed GeoJSON metadata', async () =
     assert.equal(hidden in response.data.features[0].properties, false);
   }
   assert.equal(response.meta.runGroupId, 'RUN-1');
-  assert.equal(response.meta.requestId, 'READ-1');
+  assert.equal(response.meta.requestId, 'REQ-GEO-1');
+  assert.equal(response.meta.sourceRequestId, 'READ-1');
   assert.equal(response.meta.analysisRunId, 'RUN-1');
   assert.equal(response.meta.generatedAt, '2026-07-20T14:00:00.000Z');
   assert.deepEqual(response.meta.observationPeriod, envelope([]).meta.observationPeriod);
@@ -86,7 +88,69 @@ test('execution enforces action and emits governed GeoJSON metadata', async () =
   assert.equal(response.meta.outputFeatureCount, 1);
   assert.equal(response.meta.omittedFeatureCount, 0);
   assert.deepEqual(response.meta.limitations, ['SYNTHETIC_DATA']);
-  assert.deepEqual(calls[0].query, { limit: 2, unitId: 101, bounds: '77,12,78,14' });
+  assert.deepEqual(calls[0].query, { limit: 200, unitId: 101, bounds: '77,12,78,14' });
+});
+
+test('output limit applies after local viewport filtering', async () => {
+  const rows = [
+    { id: 'OUTSIDE', centroid: { latitude: 20, longitude: 80 } },
+    { id: 'INSIDE', centroid: { latitude: 12.9718, longitude: 77.5949 } },
+  ];
+  const body = { ...hotspotRequest, runtime: { ...hotspotRequest.runtime, limit: 1 } };
+  const { service, calls } = harness(rows);
+  const response = await service.executeLayer({ access: allowed, body, requestId: 'REQ-GEO-1' });
+  assert.deepEqual(response.data.features.map(feature => feature.id), ['INSIDE']);
+  assert.equal(calls[0].query.limit, 200);
+});
+
+test('execution follows opaque pagination until the requested output is filled', async () => {
+  const calls = [];
+  const pages = new Map([
+    [undefined, { items: [{ id: 'OUTSIDE', centroid: { latitude: 20, longitude: 80 } }], nextToken: 'PAGE-2' }],
+    ['PAGE-2', { items: [{ id: 'INSIDE', centroid: { latitude: 12.9718, longitude: 77.5949 } }] }],
+  ]);
+  const service = createGeospatialLayerService({
+    readServices: { async listHotspots({ query }) { calls.push(query); return { ...envelope([]), data: pages.get(query.nextToken) }; } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
+  });
+  const response = await service.executeLayer({
+    access: allowed, requestId: 'REQ-GEO-1',
+    body: { ...hotspotRequest, runtime: { ...hotspotRequest.runtime, limit: 1 } },
+  });
+  assert.deepEqual(response.data.features.map(feature => feature.id), ['INSIDE']);
+  assert.deepEqual(calls.map(query => query.nextToken), [undefined, 'PAGE-2']);
+  assert.ok(calls.every(query => query.limit === 200));
+});
+
+test('execution reports incomplete results when the 5000-row scan cap is reached', async () => {
+  const calls = [];
+  const outside = Array.from({ length: 200 }, (_, index) => ({
+    id: `OUTSIDE-${index}`, centroid: { latitude: 20, longitude: 80 },
+  }));
+  const service = createGeospatialLayerService({
+    readServices: { async listHotspots({ query }) {
+      calls.push(query); return { ...envelope([]), data: { items: outside, nextToken: `PAGE-${calls.length + 1}` } };
+    } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
+  });
+  const response = await service.executeLayer({
+    access: allowed, body: hotspotRequest, requestId: 'REQ-GEO-1',
+  });
+  assert.equal(calls.length, 25);
+  assert.equal(response.meta.sourceRecordCount, 5000);
+  assert.equal(response.meta.resultComplete, false);
+  assert.equal(response.meta.scanTruncated, true);
+  assert.ok(response.meta.limitations.includes('GEOSPATIAL_SCAN_LIMIT_REACHED'));
+});
+
+test('execution fails safely when a source pagination token loops', async () => {
+  const service = createGeospatialLayerService({
+    readServices: { async listHotspots() { return { ...envelope([]), data: { items: [], nextToken: 'LOOP' } }; } },
+    clock: () => new Date('2026-07-20T15:00:00.000Z'), idFactory: () => { throw new Error('must not allocate request IDs'); },
+  });
+  await assert.rejects(service.executeLayer({
+    access: allowed, body: hotspotRequest, requestId: 'REQ-GEO-1',
+  }), { code: 'DATA_NOT_READY' });
 });
 
 test('invalid coordinates are omitted, counted, and never defaulted', async () => {
@@ -105,7 +169,7 @@ test('output remains bounded when a source ignores its requested limit', async (
   }));
   const response = await harness(rows).service.executeLayer({ access: allowed, body: hotspotRequest });
   assert.equal(response.data.features.length, 2);
-  assert.equal(response.meta.sourceRecordCount, 3);
+  assert.equal(response.meta.sourceRecordCount, 2);
 });
 
 test('semantic source limits are capped after compilation for layer and default limits', async () => {
