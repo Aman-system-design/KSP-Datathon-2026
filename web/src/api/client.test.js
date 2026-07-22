@@ -21,6 +21,29 @@ test('Slate API client permits only the approved Catalyst Development Function b
   expect(() => createApiClient({ baseUrl: 'https://example.com/server/crime_intelligence_api' })).toThrow(TypeError);
 });
 
+test('Slate API calls carry a fresh Catalyst backend token in Authorization', async () => {
+  const baseUrl = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
+  const tokenProvider = vi.fn(async () => 'TOKEN-1');
+  const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
+  vi.stubGlobal('fetch', fetch);
+
+  await createApiClient({ baseUrl, tokenProvider }).get('/v1/workspace');
+
+  expect(tokenProvider).toHaveBeenCalledOnce();
+  expect(fetch).toHaveBeenCalledWith(`${baseUrl}/v1/workspace`, expect.objectContaining({
+    headers: expect.objectContaining({ Authorization: 'TOKEN-1' }),
+  }));
+});
+
+test('API client never sends an empty Authorization header', async () => {
+  const fetch = vi.fn(async () => ({ ok: false, status: 401, json: async () => ({ error: { code: 'UNAUTHENTICATED' } }) }));
+  vi.stubGlobal('fetch', fetch);
+  const api = createApiClient({ baseUrl: '/api', tokenProvider: async () => null });
+
+  await expect(api.get('/v1/workspace')).rejects.toMatchObject({ status: 401 });
+  expect(fetch.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
+});
+
 test('workflow requests carry a client idempotency key', async () => {
   const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
   vi.stubGlobal('fetch', fetch);

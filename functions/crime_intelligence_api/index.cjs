@@ -16,7 +16,7 @@ app.use((request, response, next) => {
   if (origin === slateOrigin) {
     response.set('Access-Control-Allow-Origin', slateOrigin);
     response.set('Access-Control-Allow-Credentials', 'true');
-    response.set('Access-Control-Allow-Headers', 'Accept, Content-Type, Idempotency-Key, X-Demo-Persona');
+    response.set('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, Idempotency-Key, X-Demo-Persona');
     response.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     response.set('Vary', 'Origin');
   }

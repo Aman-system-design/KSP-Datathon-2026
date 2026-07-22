@@ -29,6 +29,20 @@ test('falls back to the hosted-login URL when the Web SDK is unavailable', () =>
   expect(assign).toHaveBeenCalledWith('/__catalyst/auth/login');
 });
 
+test('generates the Catalyst cross-domain backend token without storing it', async () => {
+  const generateAuthToken = vi.fn(async () => ({ access_token: 'TOKEN-1' }));
+  const auth = createCatalystAuth({ catalyst: { auth: { generateAuthToken } } });
+
+  await expect(auth.accessToken()).resolves.toBe('TOKEN-1');
+  expect(generateAuthToken).toHaveBeenCalledOnce();
+  expect(auth).not.toHaveProperty('token');
+});
+
+test('returns no backend token until the Catalyst Web SDK session is available', async () => {
+  const auth = createCatalystAuth({ catalyst: {} });
+  await expect(auth.accessToken()).resolves.toBeNull();
+});
+
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
   const assign = vi.fn();
   const authOrigin = 'https://kspdatathon2026-60077844198.development.catalystserverless.in';

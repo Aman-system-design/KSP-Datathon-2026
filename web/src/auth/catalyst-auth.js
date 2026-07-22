@@ -9,21 +9,27 @@ export function loadCatalystInit(document = globalThis.document, source = '/__ca
 }
 
 export function createCatalystAuth({
-  catalyst = globalThis.catalyst,
+  catalyst,
   location = globalThis.location,
   authOrigin = '',
 } = {}) {
   const loginUrl = `${authOrigin}${LOGIN_PATH}`;
+  const sdk = () => catalyst ?? globalThis.catalyst;
 
   return Object.freeze({
     loginUrl,
     async currentUser() {
-      const result = await catalyst?.auth?.isUserAuthenticated?.();
+      const result = await sdk()?.auth?.isUserAuthenticated?.();
       return result?.content ?? null;
     },
+    async accessToken() {
+      const result = await sdk()?.auth?.generateAuthToken?.();
+      return typeof result?.access_token === 'string' && result.access_token ? result.access_token : null;
+    },
     signOut() {
-      if (typeof catalyst?.auth?.signOut === 'function') {
-        catalyst.auth.signOut(loginUrl.startsWith('http') ? loginUrl : `${location.origin}${loginUrl}`);
+      const auth = sdk()?.auth;
+      if (typeof auth?.signOut === 'function') {
+        auth.signOut(loginUrl.startsWith('http') ? loginUrl : `${location.origin}${loginUrl}`);
         return;
       }
       location.assign(loginUrl);

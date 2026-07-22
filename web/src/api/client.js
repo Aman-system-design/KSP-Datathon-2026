@@ -11,15 +11,17 @@ export class ApiError extends Error {
 
 const DEVELOPMENT_API = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
 
-export function createApiClient({ baseUrl, keyFactory = () => crypto.randomUUID(), headers = {} }) {
+export function createApiClient({ baseUrl, keyFactory = () => crypto.randomUUID(), headers = {}, tokenProvider }) {
   const relative = typeof baseUrl === 'string' && baseUrl.startsWith('/') && !baseUrl.startsWith('//');
   if (!relative && baseUrl !== DEVELOPMENT_API) throw new TypeError('An approved API base URL is required');
   async function request(method, path, body, extraHeaders = {}) {
+    const token = await tokenProvider?.();
+    const authorization = typeof token === 'string' && token ? { Authorization: token } : {};
     const response = await fetch(`${baseUrl}${path}`, {
       method, credentials: 'include',
       headers: body === undefined
-        ? { Accept: 'application/json', ...headers, ...extraHeaders }
-        : { Accept: 'application/json', 'Content-Type': 'application/json', ...headers, ...extraHeaders },
+        ? { Accept: 'application/json', ...headers, ...extraHeaders, ...authorization }
+        : { Accept: 'application/json', 'Content-Type': 'application/json', ...headers, ...extraHeaders, ...authorization },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const payload = await response.json().catch(() => ({}));

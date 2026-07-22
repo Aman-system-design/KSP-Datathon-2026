@@ -180,7 +180,8 @@ export function Application({ api: providedApi }) {
   const api = useMemo(() => providedApi ?? createApiClient({
     baseUrl: runtime.apiBase,
     headers: demoPersona ? { 'X-Demo-Persona': demoPersona } : {},
-  }), [providedApi, demoPersona]);
+    tokenProvider: runtime.authOrigin ? () => auth.accessToken() : undefined,
+  }), [providedApi, demoPersona, runtime.apiBase, runtime.authOrigin, auth]);
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired loginUrl={auth.loginUrl} />;
