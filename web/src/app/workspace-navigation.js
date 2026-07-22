@@ -2,7 +2,7 @@ const intelligenceModules = Object.freeze([
   { to: '/', label: 'Home', icon: 'home' },
   { to: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
   { to: '/alerts', label: 'Alerts', icon: 'alerts' },
-  { to: '/maps', label: 'Hotspots', icon: 'map' },
+  { to: '/geospatial', label: 'Geospatial', icon: 'map' },
   { to: '/networks', label: 'Networks', icon: 'network' },
   { to: '/reports', label: 'Reports', icon: 'report' },
   { to: '/dashboards', label: 'Dashboards', icon: 'dashboard' },

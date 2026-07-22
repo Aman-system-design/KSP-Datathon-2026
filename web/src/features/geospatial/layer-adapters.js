@@ -1,6 +1,7 @@
 import { isValidCell } from 'h3-js';
 import Supercluster from 'supercluster';
-import { GeoJsonLayer, HeatmapLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
+import { HeatmapLayer } from '@deck.gl/aggregation-layers';
+import { GeoJsonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
 import { H3HexagonLayer } from '@deck.gl/geo-layers';
 
 const POINT_COLOR = [30, 136, 229, 190];

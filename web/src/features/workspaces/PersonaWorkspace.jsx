@@ -30,7 +30,7 @@ function AnalystWorkspace({ data }) {
     <div className="analyst-workbench">
       <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Prioritized queue</span><h2>System signals</h2></div></div><SignalQueue anomalies={data.anomalies} /></section>
       <section className="panel analysis-canvas"><div className="panel-heading"><div><span className="eyebrow">Synchronized analysis</span><h2>Evidence views</h2></div></div>
-        <nav aria-label="Analytical views"><Link to="/maps">Map</Link><Link to="/intelligence">Timeline</Link><Link to="/networks">Network</Link><Link to="/alerts">Cases</Link></nav>
+        <nav aria-label="Analytical views"><Link to="/geospatial">Map</Link><Link to="/intelligence">Timeline</Link><Link to="/networks">Network</Link><Link to="/alerts">Cases</Link></nav>
         <div className="analysis-summary"><strong>{data.brief?.executiveSummary ?? 'No current brief is available.'}</strong><p>Model output remains immutable. Similarity and correlation are investigative signals, not proof.</p></div>
       </section>
       <aside className="panel evidence-context"><div className="panel-heading"><div><span className="eyebrow">Evidence and limits</span><h2>Review context</h2></div></div>

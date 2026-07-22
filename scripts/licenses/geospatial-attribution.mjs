@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const governedRoots = [
+  '@deck.gl/aggregation-layers',
   '@deck.gl/core',
   '@deck.gl/geo-layers',
   '@deck.gl/layers',

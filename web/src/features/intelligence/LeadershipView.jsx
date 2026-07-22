@@ -8,7 +8,7 @@ export function LeadershipView({ data }) {
     <div className="page-heading command-heading"><div><span className="eyebrow">Statewide intelligence posture</span><h1>State Intelligence Brief</h1><p>{data?.brief?.executiveSummary}</p></div><div className="freshness"><i />Updated from verified run<br /><strong>Human review required</strong></div></div>
     <div className="signal-grid">
       <article className="signal-card critical"><span>Anomaly requiring review</span><strong>{anomaly?.observed ?? '—'}</strong><h2>{anomaly?.label}</h2><p>Expected baseline {anomaly?.expected} · {Math.round((anomaly?.confidence ?? 0) * 100)}% confidence</p><Link to="/alerts">Inspect evidence</Link></article>
-      <article className="signal-card"><span>Emerging hotspot</span><strong>{hotspot?.caseCount ?? '—'}</strong><h2>{hotspot?.area}</h2><p>Spatial severity {Math.round((hotspot?.severity ?? 0) * 100)}% · Area signal</p><Link to="/maps">Inspect evidence</Link></article>
+      <article className="signal-card"><span>Emerging hotspot</span><strong>{hotspot?.caseCount ?? '—'}</strong><h2>{hotspot?.area}</h2><p>Spatial severity {Math.round((hotspot?.severity ?? 0) * 100)}% · Area signal</p><Link to="/geospatial">Inspect evidence</Link></article>
       <article className="signal-card risk"><span>Explainable area risk</span><strong>{riskScore}</strong><h2>Area risk index</h2><p>{data?.risk?.limitation}</p><Link to="/intelligence">Inspect evidence</Link></article>
     </div>
     <div className="command-grid">

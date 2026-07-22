@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 
 import { createApiClient } from '../api/client.js';
 import { AccessNotProvisioned } from '../auth/AccessNotProvisioned.jsx';
@@ -11,12 +11,13 @@ import { DashboardWorkspace } from '../features/dashboards/DashboardWorkspace.js
 import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
 import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor.jsx';
 import { CommandCentre } from '../features/command-centre/CommandCentre.jsx';
-import { HotspotMap } from '../features/intelligence/HotspotMap.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
 import { ReportBuilder } from '../features/reports/ReportBuilder.jsx';
 import { PersonaWorkspace } from '../features/workspaces/PersonaWorkspace.jsx';
 import { AppShell } from './AppShell.jsx';
 import { readDemoPersona, readRuntime } from './runtime.js';
+
+const GeospatialStudio = lazy(() => import('../features/geospatial/GeospatialStudio.jsx'));
 
 const fallbackWorkspace = { role: 'LOADING', availableDashboards: [], alertSummary: { total: 0 }, syntheticData: true };
 
@@ -71,18 +72,10 @@ function HomePage({ api, workspace }) {
   return <CommandPage api={api} role={workspace.role} />;
 }
 
-function MapsPage({ api }) {
-  const state = useLoad(() => api.get('/v1/hotspots?limit=100').then(result => (result.data?.items ?? []).map(item => ({
-    id: item.id ?? item.hotspotId,
-    area: item.area ?? item.areaId ?? item.id ?? 'Authorized area',
-    latitude: item.latitude ?? item.centroid?.latitude,
-    longitude: item.longitude ?? item.centroid?.longitude,
-    caseCount: item.caseCount ?? item.magnitude ?? 0,
-    severity: item.severity ?? item.confidence ?? 0,
-  }))), [api]);
-  if (state.loading) return <Busy label="Loading scoped hotspot coordinates…" />;
-  if (state.error) return <Failure error={state.error} />;
-  return <HotspotMap hotspots={state.data} />;
+function GeospatialPage({ api }) {
+  return <Suspense fallback={<Busy label="Loading geospatial workspace…" />}>
+    <GeospatialStudio api={api} />
+  </Suspense>;
 }
 
 export function AlertsPage({ api }) {
@@ -172,7 +165,8 @@ export function Application({ api: providedApi }) {
   return <AppShell workspace={workspace}><Routes>
     <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
     <Route path="/intelligence" element={<CommandPage api={api} role={workspace.role} />} />
-    <Route path="/maps" element={<MapsPage api={api} />} />
+    <Route path="/geospatial" element={<GeospatialPage api={api} />} />
+    <Route path="/maps" element={<Navigate to="/geospatial" replace />} />
     <Route path="/reports" element={<ReportBuilder api={api} />} />
     <Route path="/reports/:reportId" element={<ReportBuilder api={api} />} />
     <Route path="/dashboards" element={<DashboardLibrary workspace={workspace} />} />

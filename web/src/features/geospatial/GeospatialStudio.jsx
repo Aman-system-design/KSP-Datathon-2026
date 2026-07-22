@@ -188,3 +188,5 @@ export function GeospatialStudio({
     <VisibleFeatureTable features={workspace.visibleFeatures} onSelect={selectTableFeature} />
   </section>;
 }
+
+export default GeospatialStudio;

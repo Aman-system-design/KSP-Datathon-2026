@@ -67,6 +67,7 @@ test('the web runtime declares approved geospatial dependencies and licenses', a
   const approved = {
     'maplibre-gl': 'BSD-3-Clause',
     '@deck.gl/core': 'MIT',
+    '@deck.gl/aggregation-layers': 'MIT',
     '@deck.gl/layers': 'MIT',
     '@deck.gl/geo-layers': 'MIT',
     '@deck.gl/mapbox': 'MIT',

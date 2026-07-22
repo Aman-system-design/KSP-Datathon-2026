@@ -6,6 +6,7 @@ The web application directly uses the following geospatial software:
 | --- | --- | --- | --- |
 | `maplibre-gl` | Browser map rendering | BSD-3-Clause | https://github.com/maplibre/maplibre-gl-js |
 | `@deck.gl/core` | GPU visualization framework | MIT | https://github.com/visgl/deck.gl |
+| `@deck.gl/aggregation-layers` | Heatmap aggregation renderer | MIT | https://github.com/visgl/deck.gl |
 | `@deck.gl/layers` | Standard geospatial visualization layers | MIT | https://github.com/visgl/deck.gl |
 | `@deck.gl/geo-layers` | Advanced geospatial data layers | MIT | https://github.com/visgl/deck.gl |
 | `@deck.gl/mapbox` | MapLibre-compatible deck.gl integration | MIT | https://github.com/visgl/deck.gl |

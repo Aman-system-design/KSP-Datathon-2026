@@ -153,7 +153,6 @@ td a { color: var(--blue-500); font-weight: 700; }
 .command-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; }
 .map-canvas { height: 330px; position: relative; overflow: hidden; background: #e6edf0; border-radius: 9px; }
 .hotspot-map-panel { padding: 0; overflow: hidden; }
-.leaflet-map { height: min(58vh, 620px); min-height: 420px; width: 100%; }
 .map-table { margin: 20px; width: calc(100% - 40px); }
 .map-grid { position: absolute; inset: 0; opacity: .55; background-image: linear-gradient(#b9c9cd 1px, transparent 1px), linear-gradient(90deg, #b9c9cd 1px, transparent 1px), linear-gradient(30deg, transparent 48%, #c0cdd0 49%, #c0cdd0 51%, transparent 52%); background-size: 42px 42px, 42px 42px, 110px 110px; }
 .hotspot { position: absolute; width: 90px; height: 90px; border-radius: 50%; background: #e34e4670; border: 18px solid #e34e4630; box-shadow: 0 0 0 14px #e34e4618; }
