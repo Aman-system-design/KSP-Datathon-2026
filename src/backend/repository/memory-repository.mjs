@@ -48,7 +48,7 @@ export class MemoryIntelligenceRepository {
       PublicationGeneration: 1, PointerVersion: 1, CurrentRunGroupID: initial.RunGroupID,
       CurrentRunGroup: initial, PublishedAt: initial.PublishedAt,
       LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: initial.RunGroupID,
-      LatestAttemptAt: initial.PublishedAt,
+      LatestAttemptAt: initial.PublishedAt, LastReservedAttemptSequence: 0, LatestAttemptSequence: 0,
     } : undefined;
     this.#state.findingsByRunGroup ??= initial ? { [initial.RunGroupID]: {
       brief: this.#state.brief, features: this.#state.features, patterns: this.#state.patterns,
@@ -68,14 +68,20 @@ export class MemoryIntelligenceRepository {
   }
 
   async getRefreshStatus() {
-    const currentRunGroup = await this.getCurrentRunGroup();
-    const latest = (this.#state.refreshBatches ?? []).at(-1);
+    const pointer = this.#state.publicationState;
+    const currentRunGroup = pointer?.CurrentRunGroup ? {
+      ...pointer.CurrentRunGroup,
+      PublicationGeneration: pointer.PublicationGeneration,
+      PointerVersion: pointer.PointerVersion,
+    } : undefined;
     return clone({
       currentRunGroup,
-      publicationGeneration: this.#state.publicationState?.PublicationGeneration ?? 0,
-      latestAttempt: latest ? {
-        batchKey: latest.BatchKey, status: latest.Status, runGroupId: latest.RunGroup?.RunGroupID,
-        createdAt: latest.CreatedAt ?? null, completedAt: latest.CompletedAt ?? null,
+      publicationGeneration: pointer?.PublicationGeneration ?? 0,
+      latestAttempt: pointer && Number(pointer.LatestAttemptSequence ?? 0) > 0 ? {
+        sequence: Number(pointer.LatestAttemptSequence), status: pointer.LatestAttemptStatus,
+        runGroupId: pointer.LatestAttemptRunGroupID ?? null,
+        createdAt: pointer.LatestAttemptAt ?? null,
+        completedAt: pointer.LatestAttemptStatus === 'COMPLETED' ? pointer.LatestAttemptAt : null,
       } : null,
     });
   }
@@ -369,14 +375,34 @@ export class MemoryIntelligenceRepository {
     return clone((this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey));
   }
 
+  async reserveRefreshAttempt() {
+    this.#state.publicationState ??= {
+      PublicationGeneration: 0, PointerVersion: 0, CurrentRunGroupID: null,
+      CurrentRunGroup: undefined, PublishedAt: null, LastReservedAttemptSequence: 0,
+      LatestAttemptSequence: 0, LatestAttemptStatus: 'NONE', LatestAttemptRunGroupID: null,
+      LatestAttemptAt: null,
+    };
+    const pointer = this.#state.publicationState;
+    pointer.LastReservedAttemptSequence = Number(pointer.LastReservedAttemptSequence ?? 0) + 1;
+    pointer.PointerVersion = Number(pointer.PointerVersion ?? 0) + 1;
+    return pointer.LastReservedAttemptSequence;
+  }
+
+  #recordAttempt(batch, status, at) {
+    const pointer = this.#state.publicationState;
+    const sequence = Number(batch.AttemptSequence ?? 0);
+    if (!pointer || sequence < Number(pointer.LatestAttemptSequence ?? 0)) return;
+    Object.assign(pointer, {
+      LatestAttemptSequence: sequence, LatestAttemptStatus: status,
+      LatestAttemptRunGroupID: batch.RunGroup?.RunGroupID ?? null, LatestAttemptAt: at,
+    });
+  }
+
   async createRefreshBatch(batch) {
     this.#state.refreshBatches ??= [];
     if (this.#state.refreshBatches.some(row => row.BatchKey === batch.BatchKey)) throw conflict('refresh batch conflict');
     this.#state.refreshBatches.push(clone(batch));
-    if (this.#state.publicationState) Object.assign(this.#state.publicationState, {
-      LatestAttemptStatus: 'STAGED', LatestAttemptRunGroupID: batch.RunGroup.RunGroupID,
-      LatestAttemptAt: batch.CreatedAt,
-    });
+    this.#recordAttempt(batch, 'STAGED', batch.CreatedAt);
     return clone(batch);
   }
 
@@ -384,10 +410,7 @@ export class MemoryIntelligenceRepository {
     const batch = (this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey);
     if (!batch) return undefined;
     Object.assign(batch, clone(changes));
-    if (this.#state.publicationState) Object.assign(this.#state.publicationState, {
-      LatestAttemptStatus: batch.Status, LatestAttemptRunGroupID: batch.RunGroup?.RunGroupID,
-      LatestAttemptAt: batch.CompletedAt ?? batch.CreatedAt,
-    });
+    this.#recordAttempt(batch, batch.Status, batch.CompletedAt ?? batch.CreatedAt);
     return clone(batch);
   }
 
@@ -395,12 +418,17 @@ export class MemoryIntelligenceRepository {
     const batch = (this.#state.refreshBatches ?? []).find(row => row.BatchKey === batchKey);
     if (!batch) return undefined;
     if (batch.Status === 'COMPLETED') return clone(batch);
+    if (Number(batch.AttemptSequence ?? 0) < Number(this.#state.publicationState?.LatestAttemptSequence ?? 0)) {
+      throw invalidState('a newer refresh attempt has already completed');
+    }
     const runs = batch.RunGroup.runs.map(row => ({
       ...row, Status: 'COMPLETED', PublishStatus: 'PUBLISHED', PublishedAt: publishedAt,
     }));
     if (!isCompletePublishedGroup(runs)) throw new Error('incoherent refresh group');
     this.#failureInjector('beforeRefreshPublish');
-    const runGroup = { RunGroupID: batch.RunGroup.RunGroupID, PublishedAt: publishedAt, runs };
+    const publicationGeneration = Number(this.#state.publicationState?.PublicationGeneration ?? 0) + 1;
+    const runGroup = { RunGroupID: batch.RunGroup.RunGroupID, PublishedAt: publishedAt,
+      runs: runs.map(row => ({ ...row, PublicationGeneration: publicationGeneration })) };
     const findings = batch.PublishedFindings;
     if (!findings) throw new Error('refresh findings are missing');
     for (const name of ['brief', 'features', 'patterns', 'hotspots', 'anomalies', 'areaRisks', 'networks', 'districtContexts']) {
@@ -411,13 +439,13 @@ export class MemoryIntelligenceRepository {
     }
     this.#state.runGroups.push(runGroup);
     this.#state.findingsByRunGroup[runGroup.RunGroupID] = clone(findings);
-    const previousGeneration = this.#state.publicationState?.PublicationGeneration ?? 0;
     const previousVersion = this.#state.publicationState?.PointerVersion ?? 0;
     this.#state.publicationState = {
-      PublicationGeneration: previousGeneration + 1, PointerVersion: previousVersion + 1,
+      PublicationGeneration: publicationGeneration, PointerVersion: previousVersion + 1,
       CurrentRunGroupID: runGroup.RunGroupID, CurrentRunGroup: clone(runGroup), PublishedAt: publishedAt,
-      LatestAttemptStatus: 'COMPLETED', LatestAttemptRunGroupID: runGroup.RunGroupID,
-      LatestAttemptAt: publishedAt,
+      LastReservedAttemptSequence: this.#state.publicationState?.LastReservedAttemptSequence ?? batch.AttemptSequence,
+      LatestAttemptSequence: batch.AttemptSequence, LatestAttemptStatus: 'COMPLETED',
+      LatestAttemptRunGroupID: runGroup.RunGroupID, LatestAttemptAt: publishedAt,
     };
     Object.assign(batch, { Status: 'COMPLETED', RunGroup: runGroup, CompletedAt: publishedAt });
     return clone(batch);

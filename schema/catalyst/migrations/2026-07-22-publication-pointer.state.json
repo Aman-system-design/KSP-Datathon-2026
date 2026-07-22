@@ -1,0 +1,8 @@
+{
+  "migrationId": "2026-07-22-publication-pointer-v1",
+  "status": "NOT_APPLIED",
+  "lastVerifiedAt": null,
+  "inventoryDigest": null,
+  "unknownLegacyIdentityCount": null,
+  "runtimeSelector": "LEGACY_COMPLETE_GROUP"
+}

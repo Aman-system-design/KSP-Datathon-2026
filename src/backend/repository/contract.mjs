@@ -58,6 +58,7 @@ export const repositoryMethods = Object.freeze([
   'persistValidatedSource',
   'getValidatedSource',
   'getRefreshBatch',
+  'reserveRefreshAttempt',
   'createRefreshBatch',
   'updateRefreshBatch',
   'publishRefreshBatch',

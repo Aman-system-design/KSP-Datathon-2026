@@ -1,0 +1,26 @@
+{
+  "migrationId": "2026-07-22-publication-pointer-v1",
+  "projectId": "43492000000013049",
+  "environment": "Development",
+  "fromTableCount": 31,
+  "toTableCount": 32,
+  "legacyRequiredTables": [
+    "CFG_UserAccess", "CFG_ReportDefinition", "CFG_Dashboard", "CFG_DashboardItem",
+    "CFG_ContentShare", "CFG_UserPreference", "CFG_MapView", "CFG_MapViewVersion",
+    "OPS_IntelligenceRunRequest", "TRN_CaseFeature", "TRN_LocationFeature",
+    "TRN_PersonResolution", "TRN_DistrictContext", "INT_AnalysisRun", "INT_Hotspot",
+    "INT_Anomaly", "INT_Pattern", "INT_AreaRisk", "INT_NetworkNode", "INT_NetworkEdge",
+    "INT_RepeatOffenderSignal", "INT_FindingEvidence", "WF_Alert", "WF_Command",
+    "WF_AlertEvidence", "WF_Assignment", "WF_AnalystConclusion", "WF_Outcome",
+    "WF_AuditEvent", "WF_AlertNote", "WF_Escalation"
+  ],
+  "newTable": "INT_PublicationState",
+  "nullableRunColumns": ["RequestHash", "PublicationGeneration", "AttemptSequence"],
+  "legacyUnknownRequestHash": "LEGACY_IDENTITY_UNKNOWN",
+  "requiredAnalysisTypes": [
+    "FEATURE_BUILD", "HOTSPOT", "ANOMALY", "PATTERN", "AREA_RISK", "NETWORK",
+    "IDENTITY_RESOLUTION"
+  ],
+  "stateFile": "schema/catalyst/migrations/2026-07-22-publication-pointer.state.json",
+  "rollbackSelector": "LEGACY_COMPLETE_GROUP"
+}

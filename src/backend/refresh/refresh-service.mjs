@@ -74,6 +74,13 @@ export function createRefreshService({
       if (!['BOOTSTRAP_SYNTHETIC', 'REFRESH_INTELLIGENCE'].includes(operation)) fail('INVALID_REQUEST', 'Unsupported refresh operation.');
       if (typeof batchKey !== 'string' || !batchKey.trim() || batchKey.length > 128) fail('INVALID_REQUEST', 'batchKey is required.');
 
+      onProgress('REFRESH_BATCH_LOOKUP');
+      let batch = await repository.getRefreshBatch(batchKey);
+      if (batch?.RequestHash === 'LEGACY_IDENTITY_UNKNOWN') {
+        fail('LEGACY_IDENTITY_CONFLICT', 'This legacy batch has no provable request identity and cannot be replayed.');
+      }
+      const attemptSequence = batch?.AttemptSequence ?? await repository.reserveRefreshAttempt({ at: clock() });
+
       let validation;
       let bootstrapSource;
       if (operation === 'BOOTSTRAP_SYNTHETIC') {
@@ -88,8 +95,6 @@ export function createRefreshService({
         ? { operation, seed: seed ?? null, source: bootstrapSource }
         : { operation, batchKey, accepted: validation.accepted, reconciliation: validation.reconciliation });
 
-      onProgress('REFRESH_BATCH_LOOKUP');
-      let batch = await repository.getRefreshBatch(batchKey);
       if (batch && (batch.Operation !== operation || batch.RequestHash !== requestHash)) fail('IDEMPOTENCY_CONFLICT');
       if (batch?.Status === 'COMPLETED') {
         return publicResult(await repository.publishRefreshBatch(batchKey, clock()));
@@ -120,7 +125,7 @@ export function createRefreshService({
         const runs = REQUIRED_ANALYSIS_TYPES.map(type => ({
           AnalysisRunID: idFactory('RUN'), RunGroupID: runGroupId,
           AnalysisType: type, RunTypeKey: `${runGroupId}:${type}`,
-          RequestHash: requestHash,
+          RequestHash: requestHash, AttemptSequence: attemptSequence,
           Status: 'COMPLETED', PublishStatus: 'STAGED', InputManifestHash: inputManifestHash,
           ObservationStart: observationStart, ObservationEnd: observationEnd,
           EngineVersion: findings.run?.engineVersion ?? '1.0.0', PublishedAt: null,
@@ -130,7 +135,8 @@ export function createRefreshService({
         const publishCandidate = runs.map(row => ({ ...row, PublishStatus: 'PUBLISHED', PublishedAt: candidatePublishedAt }));
         if (!isCompletePublishedGroup(publishCandidate)) fail('DATA_NOT_READY');
         batch = {
-          BatchKey: batchKey, Operation: operation, RequestHash: requestHash, Status: 'STAGED',
+          BatchKey: batchKey, Operation: operation, RequestHash: requestHash,
+          AttemptSequence: attemptSequence, Status: 'STAGED',
           InputManifestHash: inputManifestHash,
           Reconciliation: structuredClone(validation.reconciliation),
           Rejected: structuredClone(validation.rejected), Findings: structuredClone(findings),

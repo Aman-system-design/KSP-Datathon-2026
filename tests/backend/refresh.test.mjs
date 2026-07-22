@@ -114,6 +114,21 @@ test('a changed persisted source snapshot conflicts with an already completed ba
   );
 });
 
+test('a legacy batch without a provable request identity is never replayed', async () => {
+  const state = buildDemoState();
+  state.refreshBatches.push({
+    BatchKey: 'LEGACY-UNKNOWN', Operation: 'BOOTSTRAP_SYNTHETIC',
+    RequestHash: 'LEGACY_IDENTITY_UNKNOWN', AttemptSequence: 0, Status: 'COMPLETED',
+    RunGroup: state.runGroups[0], Reconciliation: { balanced: true }, SyntheticData: true,
+  });
+  await assert.rejects(
+    service(new MemoryIntelligenceRepository(state)).execute({
+      operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'LEGACY-UNKNOWN', seed: 20260720,
+    }),
+    { code: 'LEGACY_IDENTITY_CONFLICT' },
+  );
+});
+
 test('refresh uses the persisted accepted batch and never silently regenerates source', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const source = generateSourceSeed(20260720);
@@ -148,6 +163,31 @@ test('partial publication failure preserves the prior current group and retry co
   const completed = await refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BOOT-1', seed: 20260720 });
   assert.equal(completed.status, 'COMPLETED');
   assert.notEqual((await repository.getCurrentRunGroup()).RunGroupID, 'RUN-GROUP-DEMO-1');
+});
+
+test('a late failure from an older attempt cannot replace a newer completed attempt', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const attemptA = await repository.reserveRefreshAttempt();
+  const attemptB = await repository.reserveRefreshAttempt();
+  const baseRuns = buildDemoState().runGroups[0].runs;
+  const batch = (key, group, sequence) => ({
+    BatchKey: key, Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: key.padEnd(64, 'a'),
+    AttemptSequence: sequence, Status: 'STAGED', Reconciliation: { balanced: true },
+    PublishedFindings: buildDemoState().findingsByRunGroup['RUN-GROUP-DEMO-1'],
+    RunGroup: { RunGroupID: group, runs: baseRuns.map(run => ({
+      ...run, AnalysisRunID: `${group}-${run.AnalysisType}`, RunGroupID: group,
+      RunTypeKey: `${group}:${run.AnalysisType}`, AttemptSequence: sequence,
+      PublishStatus: 'STAGED', PublishedAt: null,
+    })) }, CreatedAt: clock(), SyntheticData: true,
+  });
+  await repository.createRefreshBatch(batch('ATTEMPT-A', 'GROUP-A', attemptA));
+  await repository.createRefreshBatch(batch('ATTEMPT-B', 'GROUP-B', attemptB));
+  await repository.publishRefreshBatch('ATTEMPT-B', clock());
+  await repository.updateRefreshBatch('ATTEMPT-A', { Status: 'FAILED_RETRYABLE', CompletedAt: clock() });
+  const status = await repository.getRefreshStatus();
+  assert.equal(status.currentRunGroup.RunGroupID, 'GROUP-B');
+  assert.equal(status.latestAttempt.sequence, attemptB);
+  assert.equal(status.latestAttempt.status, 'COMPLETED');
 });
 
 test('synthetic bootstrap rejects any source batch containing rejected rows before persistence', async () => {

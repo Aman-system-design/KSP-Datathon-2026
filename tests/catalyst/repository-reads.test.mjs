@@ -113,6 +113,15 @@ test('current pointer and hotspot evidence stay indexed with more than ten thous
   assert.ok(app.zcqlCalls.some(query => query.includes('INT_FindingEvidence WHERE AnalysisRunRef')));
 });
 
+test('refresh freshness is reconstructed from exactly one captured publication pointer', async () => {
+  const fixture = catalystRows();
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+  const freshness = await repository.getRefreshStatus();
+  assert.equal(freshness.currentRunGroup.RunGroupID, 'RUN-GROUP-DEMO-1');
+  assert.equal(app.zcqlCalls.filter(query => query.includes('INT_PublicationState WHERE PublicationStateID')).length, 1);
+});
+
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {
   const fixture = catalystRows();
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });

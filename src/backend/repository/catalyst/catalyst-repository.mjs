@@ -326,18 +326,20 @@ export class CatalystIntelligenceRepository {
     }
   }
 
+  #groupFromPointer(pointer) {
+    if (!pointer?.CurrentRunGroupID) return undefined;
+    const runs = parseJson(pointer.CurrentRunsJSON, []);
+    if (!Array.isArray(runs) || runs.length !== 7) fail('DATA_NOT_READY', 'Publication pointer is invalid.');
+    return {
+      RunGroupID: pointer.CurrentRunGroupID, PublishedAt: pointer.PublishedAt,
+      PublicationGeneration: Number(pointer.PublicationGeneration), PointerVersion: Number(pointer.PointerVersion),
+      runs,
+    };
+  }
+
   async #current() {
     const [pointer] = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
-    if (pointer) {
-      const runs = parseJson(pointer.CurrentRunsJSON, []);
-      if (!Array.isArray(runs) || runs.length !== 7) fail('DATA_NOT_READY', 'Publication pointer is invalid.');
-      return {
-        RunGroupID: pointer.CurrentRunGroupID, PublishedAt: pointer.PublishedAt,
-        PublicationGeneration: Number(pointer.PublicationGeneration), PointerVersion: Number(pointer.PointerVersion),
-        runs,
-      };
-    }
-    return undefined;
+    return this.#groupFromPointer(pointer);
   }
 
   async #currentRunRef(type, group) {
@@ -526,36 +528,45 @@ export class CatalystIntelligenceRepository {
     return rows[0];
   }
 
-  async #advancePublication({ runGroup, publishedAt }) {
+  async #annotatePublicationGeneration(rows, generation) {
+    for (const row of rows) await this.#update(TABLES.runs, { ...row, PublicationGeneration: generation });
+  }
+
+  async #advancePublication({ runGroup, rows, publishedAt, attemptSequence }) {
     for (let attempt = 0; attempt < 8; attempt += 1) {
       let pointer = await this.#publicationPointer();
       if (!pointer) {
         try {
           await this.#insert(TABLES.publicationState, {
-            PublicationStateID: 'CURRENT', PublicationGeneration: 1,
-            CurrentRunGroupID: runGroup.RunGroupID, CurrentRunsJSON: JSON.stringify(runGroup.runs),
-            PointerVersion: 1, PublishedAt: publishedAt, LatestAttemptStatus: 'COMPLETED',
-            LatestAttemptRunGroupID: runGroup.RunGroupID, LatestAttemptAt: publishedAt, SyntheticData: true,
+            PublicationStateID: 'CURRENT', PublicationGeneration: 0, CurrentRunsJSON: '[]',
+            PointerVersion: 1, LastReservedAttemptSequence: Number(attemptSequence),
+            LatestAttemptSequence: 0, LatestAttemptStatus: 'NONE', SyntheticData: true,
           });
-          return 1;
         } catch (error) {
           if (error.code !== 'UNIQUE_CONFLICT') throw error;
-          continue;
         }
+        continue;
+      }
+      if (Number(attemptSequence) < Number(pointer.LatestAttemptSequence ?? 0)
+        && pointer.CurrentRunGroupID !== runGroup.RunGroupID) {
+        fail('VERSION_CONFLICT', 'A newer intelligence refresh attempt has already completed.');
       }
       if (pointer.CurrentRunGroupID === runGroup.RunGroupID) {
         const pointedRuns = parseJson(pointer.CurrentRunsJSON, []);
         const pointedIds = pointedRuns.map(run => run.AnalysisRunID).sort();
         const candidateIds = runGroup.runs.map(run => run.AnalysisRunID).sort();
         if (JSON.stringify(pointedIds) === JSON.stringify(candidateIds)) {
-          return Number(pointer.PublicationGeneration);
+          const generation = Number(pointer.PublicationGeneration);
+          await this.#annotatePublicationGeneration(rows, generation);
+          return generation;
         }
       }
       const rowId = String(pointer.ROWID);
       if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
       const nextVersion = Number(pointer.PointerVersion) + 1;
       const nextGeneration = Number(pointer.PublicationGeneration) + 1;
-      const query = `UPDATE INT_PublicationState SET PublicationGeneration = ${nextGeneration}, CurrentRunGroupID = '${zcqlText(runGroup.RunGroupID)}', CurrentRunsJSON = '${zcqlText(JSON.stringify(runGroup.runs))}', PointerVersion = ${nextVersion}, PublishedAt = '${catalystDateTime(publishedAt)}', LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '${zcqlText(runGroup.RunGroupID)}', LatestAttemptAt = '${catalystDateTime(publishedAt)}' WHERE ROWID = ${rowId} AND PointerVersion = ${Number(pointer.PointerVersion)}`;
+      await this.#annotatePublicationGeneration(rows, nextGeneration);
+      const query = `UPDATE INT_PublicationState SET PublicationGeneration = ${nextGeneration}, CurrentRunGroupID = '${zcqlText(runGroup.RunGroupID)}', CurrentRunsJSON = '${zcqlText(JSON.stringify(runGroup.runs.map(run => ({ ...run, PublicationGeneration: nextGeneration }))))}', PointerVersion = ${nextVersion}, PublishedAt = '${catalystDateTime(publishedAt)}', LastReservedAttemptSequence = ${Math.max(Number(pointer.LastReservedAttemptSequence ?? 0), Number(attemptSequence))}, LatestAttemptSequence = ${Number(attemptSequence)}, LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '${zcqlText(runGroup.RunGroupID)}', LatestAttemptAt = '${catalystDateTime(publishedAt)}' WHERE ROWID = ${rowId} AND PointerVersion = ${Number(pointer.PointerVersion)}`;
       let result;
       try { result = await this.#zcql.executeZCQLQuery(query); }
       catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_POINTER_COMPARE_AND_SWAP' }); }
@@ -570,15 +581,44 @@ export class CatalystIntelligenceRepository {
     fail('DATA_NOT_READY', 'Publication pointer contention exceeded retry budget.');
   }
 
-  async #updatePublicationAttempt({ status, runGroupId, at }) {
+  async reserveRefreshAttempt() {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      let pointer = await this.#publicationPointer();
+      if (!pointer) {
+        try {
+          await this.#insert(TABLES.publicationState, {
+            PublicationStateID: 'CURRENT', PublicationGeneration: 0, CurrentRunsJSON: '[]',
+            PointerVersion: 1, LastReservedAttemptSequence: 0, LatestAttemptSequence: 0,
+            LatestAttemptStatus: 'NONE', SyntheticData: true,
+          });
+        } catch (error) { if (error.code !== 'UNIQUE_CONFLICT') throw error; }
+        continue;
+      }
+      const rowId = String(pointer.ROWID);
+      if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
+      const currentVersion = Number(pointer.PointerVersion);
+      const sequence = Number(pointer.LastReservedAttemptSequence ?? 0) + 1;
+      const query = `UPDATE INT_PublicationState SET PointerVersion = ${currentVersion + 1}, LastReservedAttemptSequence = ${sequence} WHERE ROWID = ${rowId} AND PointerVersion = ${currentVersion}`;
+      let result;
+      try { result = await this.#zcql.executeZCQLQuery(query); }
+      catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_ATTEMPT_RESERVE' }); }
+      this.#invalidate(TABLES.publicationState);
+      const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+      if (affected === undefined || Number(affected) === 1) return sequence;
+    }
+    fail('DATA_NOT_READY', 'Publication attempt reservation contention exceeded retry budget.');
+  }
+
+  async #updatePublicationAttempt({ sequence, status, runGroupId, at }) {
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const pointer = await this.#publicationPointer();
       if (!pointer) return;
+      if (Number(sequence) < Number(pointer.LatestAttemptSequence ?? 0)) return;
       const rowId = String(pointer.ROWID);
       if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
       const currentVersion = Number(pointer.PointerVersion);
       const nextVersion = currentVersion + 1;
-      const query = `UPDATE INT_PublicationState SET PointerVersion = ${nextVersion}, LatestAttemptStatus = '${zcqlText(status)}', LatestAttemptRunGroupID = '${zcqlText(runGroupId)}', LatestAttemptAt = '${catalystDateTime(at)}' WHERE ROWID = ${rowId} AND PointerVersion = ${currentVersion}`;
+      const query = `UPDATE INT_PublicationState SET PointerVersion = ${nextVersion}, LatestAttemptSequence = ${Number(sequence)}, LatestAttemptStatus = '${zcqlText(status)}', LatestAttemptRunGroupID = '${zcqlText(runGroupId)}', LatestAttemptAt = '${catalystDateTime(at)}' WHERE ROWID = ${rowId} AND PointerVersion = ${currentVersion} AND LatestAttemptSequence <= ${Number(sequence)}`;
       let result;
       try { result = await this.#zcql.executeZCQLQuery(query); }
       catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_ATTEMPT_COMPARE_AND_SWAP' }); }
@@ -588,6 +628,7 @@ export class CatalystIntelligenceRepository {
         const committed = await this.#publicationPointer();
         if (committed?.LatestAttemptStatus === status
           && committed?.LatestAttemptRunGroupID === runGroupId
+          && Number(committed.LatestAttemptSequence) === Number(sequence)
           && Number(committed.PointerVersion) === nextVersion) return;
       }
     }
@@ -597,9 +638,10 @@ export class CatalystIntelligenceRepository {
   async getRefreshStatus() {
     const [pointer] = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
     if (pointer) return {
-      currentRunGroup: await this.getCurrentRunGroup(),
+      currentRunGroup: this.#groupFromPointer(pointer),
       publicationGeneration: Number(pointer.PublicationGeneration),
       latestAttempt: {
+        sequence: Number(pointer.LatestAttemptSequence ?? 0),
         status: pointer.LatestAttemptStatus, runGroupId: pointer.LatestAttemptRunGroupID ?? null,
         createdAt: pointer.LatestAttemptAt,
         completedAt: pointer.LatestAttemptStatus === 'COMPLETED' ? pointer.LatestAttemptAt : null,
@@ -1239,6 +1281,7 @@ export class CatalystIntelligenceRepository {
     const reconciliation = JSON.stringify(batch.Reconciliation);
     const rows = batch.RunGroup.runs.map(run => ({
       ...clone(run), Status: 'STAGING', BatchKey: batch.BatchKey, Operation: batch.Operation,
+      AttemptSequence: batch.AttemptSequence,
       ReconciliationJSON: reconciliation,
       MethodVersion: run.MethodVersion ?? run.EngineVersion,
       CompletedAt: run.CompletedAt ?? batch.CreatedAt,
@@ -1251,7 +1294,7 @@ export class CatalystIntelligenceRepository {
     await this.#stageRefreshFindings(batch, insertedRuns);
     for (const run of insertedRuns) await this.#update(TABLES.runs, { ...run, Status: 'COMPLETED' });
     await this.#updatePublicationAttempt({
-      status: 'STAGED', runGroupId: batch.RunGroup.RunGroupID, at: batch.CreatedAt,
+      sequence: batch.AttemptSequence, status: 'STAGED', runGroupId: batch.RunGroup.RunGroupID, at: batch.CreatedAt,
     });
     return this.getRefreshBatch(batch.BatchKey);
   }
@@ -1389,7 +1432,7 @@ export class CatalystIntelligenceRepository {
       });
     }
     if (changes.Status) await this.#updatePublicationAttempt({
-      status: changes.Status, runGroupId: rows[0].RunGroupID,
+      sequence: rows[0].AttemptSequence, status: changes.Status, runGroupId: rows[0].RunGroupID,
       at: changes.CompletedAt ?? rows[0].CompletedAt ?? rows[0].ObservationEnd,
     });
     return this.getRefreshBatch(batchKey);
@@ -1400,11 +1443,8 @@ export class CatalystIntelligenceRepository {
     if (!existing) return undefined;
     const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length !== 7) fail('DATA_NOT_READY', 'Refresh run group is incomplete.');
-    const persistedGenerations = [...new Set(rows.map(row => row.PublicationGeneration).filter(value => value !== null && value !== undefined))];
-    if (persistedGenerations.length === 1 && rows.every(row => row.PublicationGeneration !== null && row.PublicationGeneration !== undefined)) {
-      return existing;
-    }
-    if (persistedGenerations.length > 0) fail('DATA_NOT_READY', 'Refresh publication generation is incoherent.');
+    // Generation annotations are prepared before the pointer CAS. A retry must be
+    // allowed to reconcile a partially annotated group after an interrupted write.
     if (existing.Status !== 'COMPLETED') {
       for (const row of rows) {
         await this.#update(TABLES.runs, {
@@ -1416,15 +1456,14 @@ export class CatalystIntelligenceRepository {
     const completed = await this.getRefreshBatch(batchKey);
     if (completed?.Status !== 'COMPLETED') fail('DATA_NOT_READY', 'Refresh publication is incoherent.');
     const publishedRows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
-    const publicationGeneration = await this.#advancePublication({
+    await this.#advancePublication({
       runGroup: {
         RunGroupID: completed.RunGroup.RunGroupID,
         PublishedAt: completed.RunGroup.PublishedAt,
         runs: publishedRows.map(row => ({ ...stripRun(row), ROWID: String(row.ROWID) })),
       },
-      publishedAt,
+      rows: publishedRows, publishedAt, attemptSequence: rows[0].AttemptSequence,
     });
-    for (const row of publishedRows) await this.#update(TABLES.runs, { ...row, PublicationGeneration: publicationGeneration });
     return this.getRefreshBatch(batchKey);
   }
 }

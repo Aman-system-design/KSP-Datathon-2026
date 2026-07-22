@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { evaluateCatalystPreflight, readCatalystCliVersion } from '../../scripts/catalyst/preflight.mjs';
+
+const canonicalIntelligenceSchema = JSON.parse(await readFile(
+  new URL('../../schema/catalyst/intelligence-schema.json', import.meta.url), 'utf8',
+));
 
 const projectConfig = Object.freeze({
   projectId: '43492000000013049', projectName: 'KSPDatathon2026',
@@ -23,7 +28,8 @@ function input(overrides = {}) {
   return {
     projectConfig, catalystConfig,
     sourceSchema: { tables: Array.from({ length: 29 }, (_, i) => ({ name: `SRC_${i}` })) },
-    intelligenceSchema: { tables: Array.from({ length: 28 }, (_, i) => ({ name: `INT_${i}` })) },
+    intelligenceSchema: canonicalIntelligenceSchema,
+    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'VERIFIED', runtimeSelector: 'PUBLICATION_POINTER' },
     apiOperations: Array.from({ length: 42 }, (_, i) => ({ method: 'GET', path: `/v1/${i}` })),
     cliVersion: '1.27.0', gitStatus: '', branch: 'codex/intelligence-workspaces', remote: true,
     ...overrides,
@@ -35,7 +41,7 @@ test('preflight locks the approved Development project and inventories', () => {
   assert.equal(result.projectId, '43492000000013049');
   assert.equal(result.environment, 'Development');
   assert.equal(result.sourceTableCount, 29);
-  assert.equal(result.intelligenceTableCount, 28);
+  assert.equal(result.intelligenceTableCount, 32);
   assert.equal(result.apiOperationCount, 42);
   assert.equal(result.organizationId, 'ORG-KSP');
   assert.equal(result.syntheticOnly, true);
@@ -56,7 +62,7 @@ test('preflight rejects the wrong project or any non-Development environment', (
 
 test('preflight rejects unsafe provenance, inventories, CLI and branch state', () => {
   assert.throws(() => evaluateCatalystPreflight(input({ projectConfig: { ...projectConfig, syntheticOnly: false } })), /synthetic/i);
-  assert.throws(() => evaluateCatalystPreflight(input({ intelligenceSchema: { tables: [] } })), /28/);
+  assert.throws(() => evaluateCatalystPreflight(input({ intelligenceSchema: { tables: [] } })), /32|manifest/i);
   assert.throws(() => evaluateCatalystPreflight(input({ apiOperations: [] })), /42/);
   assert.throws(() => evaluateCatalystPreflight(input({ cliVersion: '1.26.9' })), /CLI/i);
   assert.throws(() => evaluateCatalystPreflight(input({ gitStatus: ' M unsafe.txt' })), /clean/i);
@@ -67,6 +73,17 @@ test('local preflight reports a dirty tree without authorizing remote mutation',
   const result = evaluateCatalystPreflight(input({ remote: false, gitStatus: ' M local.txt' }));
   assert.equal(result.git.clean, false);
   assert.equal(result.remoteMutationAuthorized, false);
+});
+
+test('remote preflight requires a verified publication-pointer migration', () => {
+  assert.throws(() => evaluateCatalystPreflight(input({
+    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'NOT_APPLIED', runtimeSelector: 'LEGACY_COMPLETE_GROUP' },
+  })), /migration/i);
+  const local = evaluateCatalystPreflight(input({
+    remote: false,
+    migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'NOT_APPLIED', runtimeSelector: 'LEGACY_COMPLETE_GROUP' },
+  }));
+  assert.equal(local.migrationReady, false);
 });
 
 test('Windows CLI version lookup uses cmd.exe for the Catalyst batch launcher', () => {

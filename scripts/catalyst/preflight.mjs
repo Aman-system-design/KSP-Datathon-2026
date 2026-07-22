@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { API_OPERATIONS } from '../../src/backend/http/api-contract.mjs';
+import { validateIntelligenceSchema } from '../schema/validate-intelligence-schema.mjs';
 
 function invariant(condition, message) {
   if (!condition) throw new Error(`Catalyst preflight failed: ${message}`);
@@ -26,7 +27,7 @@ function versionAtLeast(actual, minimum) {
 
 export function evaluateCatalystPreflight({
   projectConfig, catalystConfig, sourceSchema, intelligenceSchema, apiOperations,
-  cliVersion, gitStatus, branch, remote = false,
+  migrationState, cliVersion, gitStatus, branch, remote = false,
 }) {
   invariant(projectConfig?.environment === 'Development', 'only Development is allowed; Production is prohibited');
   invariant(projectConfig?.syntheticOnly === true, 'synthetic-only provenance is required');
@@ -45,12 +46,18 @@ export function evaluateCatalystPreflight({
   invariant(String(activeEnvironment?.id) === projectConfig.environmentId, 'active Catalyst environment ID does not match');
 
   invariant(sourceSchema?.tables?.length === 29, 'source schema must contain exactly 29 tables');
-  invariant(intelligenceSchema?.tables?.length === 28, 'intelligence schema must contain exactly 28 tables');
+  const intelligenceSchemaErrors = validateIntelligenceSchema(intelligenceSchema);
+  invariant(intelligenceSchemaErrors.length === 0,
+    `intelligence manifest is not canonical: ${intelligenceSchemaErrors[0] ?? 'unknown error'}`);
   invariant(apiOperations?.length === 42, 'API contract must contain exactly 42 operations');
   invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 42, 'API operations must be unique');
   invariant(versionAtLeast(cliVersion, projectConfig.cliMinimumVersion), `Catalyst CLI must be at least ${projectConfig.cliMinimumVersion}`);
 
   const clean = String(gitStatus ?? '').trim() === '';
+  const migrationReady = migrationState?.migrationId === '2026-07-22-publication-pointer-v1'
+    && migrationState?.status === 'VERIFIED'
+    && migrationState?.runtimeSelector === 'PUBLICATION_POINTER';
+  if (remote) invariant(migrationReady, 'publication-pointer migration must be VERIFIED before remote mutation');
   if (remote) invariant(clean, 'Git worktree must be clean before remote mutation');
 
   return Object.freeze({
@@ -62,6 +69,7 @@ export function evaluateCatalystPreflight({
     cliVersion: String(cliVersion).trim(),
     sourceTableCount: sourceSchema.tables.length,
     intelligenceTableCount: intelligenceSchema.tables.length,
+    migrationReady,
     apiOperationCount: apiOperations.length,
     syntheticOnly: true,
     permissionVersion: projectConfig.permissionVersion,
@@ -94,6 +102,7 @@ export async function runCatalystPreflight({ root = process.cwd(), remote = fals
     catalystConfig: await readJson(root, '.catalystrc'),
     sourceSchema: await readJson(root, 'schema/catalyst/source-schema.json'),
     intelligenceSchema: await readJson(root, 'schema/catalyst/intelligence-schema.json'),
+    migrationState: await readJson(root, 'schema/catalyst/migrations/2026-07-22-publication-pointer.state.json'),
     apiOperations: API_OPERATIONS,
     cliVersion, gitStatus, branch, remote,
   });

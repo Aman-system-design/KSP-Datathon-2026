@@ -6,7 +6,7 @@ import { buildDemoState } from '../../src/backend/repository/build-demo-state.mj
 import { assertRepository } from '../../src/backend/repository/contract.mjs';
 import { createCommandService } from '../../src/backend/workflow/command-service.mjs';
 
-function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) {
+function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable, failRunUpdateAt } = {}) {
   const tables = new Map(Object.entries({
     WF_Alert: [{ ROWID: '1001', AlertID: 'ALT-1', FindingType: 'PATTERN', FindingBusinessID: 'PAT-1', ScopeUnitID: 101, Status: 'GENERATED', AlertVersion: 0, LastCommandRef: null, Severity: 0.9, OriginalFindingJSON: '{}', MethodVersion: '1.0.0', CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true }],
     WF_Command: [], WF_Assignment: [], WF_AnalystConclusion: [], WF_Outcome: [], WF_AuditEvent: [],
@@ -15,6 +15,7 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
   const queries = [];
   let failureInjected = false;
   let rowId = 2000;
+  let runUpdateCount = 0;
   const table = name => ({
     async getPagedRows({ nextToken, maxRows }) {
       const rows = tables.get(name) ?? [];
@@ -56,6 +57,12 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
       return stored;
     },
     async updateRow(input) {
+      if (name === 'INT_AnalysisRun') {
+        runUpdateCount += 1;
+        if (runUpdateCount === failRunUpdateAt && !failureInjected) {
+          failureInjected = true; throw new Error('injected run annotation failure');
+        }
+      }
       const rows = tables.get(name) ?? [];
       const index = rows.findIndex(row => String(row.ROWID) === String(input.ROWID));
       if (index < 0) throw new Error('missing update row');
@@ -73,28 +80,37 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable } = {}) 
         .slice(Number(offset), Number(offset) + Number(limit))
         .map(row => ({ [tableName]: structuredClone(row) }));
     }
-    const pointer = query.match(/^UPDATE INT_PublicationState SET PublicationGeneration = (\d+), CurrentRunGroupID = '((?:''|[^'])*)', CurrentRunsJSON = '((?:''|[^'])*)', PointerVersion = (\d+), PublishedAt = '([^']+)', LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '((?:''|[^'])*)', LatestAttemptAt = '([^']+)' WHERE ROWID = (\d+) AND PointerVersion = (\d+)$/u);
+    const pointer = query.match(/^UPDATE INT_PublicationState SET PublicationGeneration = (\d+), CurrentRunGroupID = '((?:''|[^'])*)', CurrentRunsJSON = '((?:''|[^'])*)', PointerVersion = (\d+), PublishedAt = '([^']+)', LastReservedAttemptSequence = (\d+), LatestAttemptSequence = (\d+), LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '((?:''|[^'])*)', LatestAttemptAt = '([^']+)' WHERE ROWID = (\d+) AND PointerVersion = (\d+)$/u);
     if (pointer) {
-      const [, generation, groupId, runsJson, version, publishedAt, latestGroup, latestAt, rowId, expectedVersion] = pointer;
+      const [, generation, groupId, runsJson, version, publishedAt, lastReserved, latestSequence, latestGroup, latestAt, rowId, expectedVersion] = pointer;
       const row = (tables.get('INT_PublicationState') ?? []).find(item => item.ROWID === rowId
         && item.PointerVersion === Number(expectedVersion));
       if (!row) return [{ affected_rows: 0 }];
       Object.assign(row, {
         PublicationGeneration: Number(generation), CurrentRunGroupID: groupId.replaceAll("''", "'"),
         CurrentRunsJSON: runsJson.replaceAll("''", "'"), PointerVersion: Number(version),
-        PublishedAt: publishedAt, LatestAttemptStatus: 'COMPLETED',
+        PublishedAt: publishedAt, LastReservedAttemptSequence: Number(lastReserved),
+        LatestAttemptSequence: Number(latestSequence), LatestAttemptStatus: 'COMPLETED',
         LatestAttemptRunGroupID: latestGroup.replaceAll("''", "'"), LatestAttemptAt: latestAt,
       });
       return [{ affected_rows: 1 }];
     }
-    const attempt = query.match(/^UPDATE INT_PublicationState SET PointerVersion = (\d+), LatestAttemptStatus = '([^']+)', LatestAttemptRunGroupID = '([^']+)', LatestAttemptAt = '([^']+)' WHERE ROWID = (\d+) AND PointerVersion = (\d+)$/u);
+    const reserve = query.match(/^UPDATE INT_PublicationState SET PointerVersion = (\d+), LastReservedAttemptSequence = (\d+) WHERE ROWID = (\d+) AND PointerVersion = (\d+)$/u);
+    if (reserve) {
+      const [, version, sequence, rowId, expectedVersion] = reserve;
+      const row = (tables.get('INT_PublicationState') ?? []).find(item => item.ROWID === rowId && item.PointerVersion === Number(expectedVersion));
+      if (!row) return [{ affected_rows: 0 }];
+      Object.assign(row, { PointerVersion: Number(version), LastReservedAttemptSequence: Number(sequence) });
+      return [{ affected_rows: 1 }];
+    }
+    const attempt = query.match(/^UPDATE INT_PublicationState SET PointerVersion = (\d+), LatestAttemptSequence = (\d+), LatestAttemptStatus = '([^']+)', LatestAttemptRunGroupID = '([^']+)', LatestAttemptAt = '([^']+)' WHERE ROWID = (\d+) AND PointerVersion = (\d+) AND LatestAttemptSequence <= (\d+)$/u);
     if (attempt) {
-      const [, version, status, groupId, at, rowId, expectedVersion] = attempt;
+      const [, version, sequence, status, groupId, at, rowId, expectedVersion, maximumSequence] = attempt;
       const row = (tables.get('INT_PublicationState') ?? []).find(item => item.ROWID === rowId
-        && item.PointerVersion === Number(expectedVersion));
+        && item.PointerVersion === Number(expectedVersion) && Number(item.LatestAttemptSequence ?? 0) <= Number(maximumSequence));
       if (!row) return [{ affected_rows: 0 }];
       Object.assign(row, {
-        PointerVersion: Number(version), LatestAttemptStatus: status,
+        PointerVersion: Number(version), LatestAttemptSequence: Number(sequence), LatestAttemptStatus: status,
         LatestAttemptRunGroupID: groupId, LatestAttemptAt: at,
       });
       return [{ affected_rows: 1 }];
@@ -196,14 +212,14 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
   const types = ['FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK', 'IDENTITY_RESOLUTION'];
   const runs = types.map((AnalysisType, index) => ({
     AnalysisRunID: `RUN-${index}`, RunGroupID: 'GROUP-1', AnalysisType,
-    RequestHash: 'b'.repeat(64),
+    RequestHash: 'b'.repeat(64), AttemptSequence: 1,
     RunTypeKey: `GROUP-1:${AnalysisType}`, Status: 'COMPLETED', PublishStatus: 'STAGED',
     InputManifestHash: 'a'.repeat(64), ObservationStart: '2026-06-01T00:00:00Z',
     ObservationEnd: '2026-07-01T00:00:00Z', EngineVersion: '1.0.0', MethodVersion: '1.0.0',
     CompletedAt: '2026-07-20T12:00:00Z', PublishedAt: null, SyntheticData: true,
   }));
   const batch = {
-    BatchKey: 'KSP-DEMO-20260720-V1', Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: 'b'.repeat(64), Status: 'STAGED',
+    BatchKey: 'KSP-DEMO-20260720-V1', Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: 'b'.repeat(64), AttemptSequence: 1, Status: 'STAGED',
     Reconciliation: { sourceRows: 200, acceptedRows: 200, rejectedRows: 0, balanced: true },
     Findings: {}, PublishedFindings: (() => {
       const state = buildDemoState();
@@ -242,16 +258,47 @@ test('partial refresh staging stays invisible and a retry converges without dupl
   const types = ['FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK', 'IDENTITY_RESOLUTION'];
   const runs = types.map((AnalysisType, index) => ({
     AnalysisRunID: `RETRY-RUN-${index}`, RunGroupID: 'RETRY-GROUP', AnalysisType,
-    RunTypeKey: `RETRY-GROUP:${AnalysisType}`, Status: 'COMPLETED', PublishStatus: 'STAGED',
+    RunTypeKey: `RETRY-GROUP:${AnalysisType}`, AttemptSequence: 1, Status: 'COMPLETED', PublishStatus: 'STAGED',
     InputManifestHash: 'b'.repeat(64), ObservationStart: '2026-06-01T00:00:00Z', ObservationEnd: '2026-07-01T00:00:00Z',
     EngineVersion: '1.0.0', MethodVersion: '1.0.0', CompletedAt: '2026-07-20T00:00:00Z', PublishedAt: null, SyntheticData: true,
   }));
   const feature = buildDemoState().features[0];
-  const batch = { BatchKey: 'RETRY-BATCH-1', Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: 'c'.repeat(64), Reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true }, PublishedFindings: { features: [feature] }, RunGroup: { RunGroupID: 'RETRY-GROUP', runs: runs.map(run => ({ ...run, RequestHash: 'c'.repeat(64) })) }, CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true };
+  const batch = { BatchKey: 'RETRY-BATCH-1', Operation: 'BOOTSTRAP_SYNTHETIC', RequestHash: 'c'.repeat(64), AttemptSequence: 1, Reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true }, PublishedFindings: { features: [feature] }, RunGroup: { RunGroupID: 'RETRY-GROUP', runs: runs.map(run => ({ ...run, RequestHash: 'c'.repeat(64) })) }, CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true };
   await assert.rejects(repository.createRefreshBatch(batch), { code: 'CATALYST_UNAVAILABLE' });
   assert.equal(await repository.getRefreshBatch(batch.BatchKey), undefined);
   await repository.createRefreshBatch(batch);
   assert.equal(fake.tables.get('TRN_CaseFeature').length, 1);
   const completed = await repository.publishRefreshBatch(batch.BatchKey, '2026-07-20T01:00:00Z');
   assert.equal(completed.Status, 'COMPLETED');
+});
+
+test('publication pointer remains uncommitted when any run generation annotation fails', async () => {
+  const types = ['FEATURE_BUILD', 'HOTSPOT', 'ANOMALY', 'PATTERN', 'AREA_RISK', 'NETWORK', 'IDENTITY_RESOLUTION'];
+  for (let annotation = 0; annotation < 7; annotation += 1) {
+    const fake = fakeApplication({ failRunUpdateAt: 15 + annotation });
+    const repository = new CatalystIntelligenceRepository({ application: fake.application });
+    const group = `ANNOTATION-GROUP-${annotation}`;
+    const runs = types.map((AnalysisType, index) => ({
+      AnalysisRunID: `${group}-${index}`, RunGroupID: group, AnalysisType,
+      RunTypeKey: `${group}:${AnalysisType}`, RequestHash: 'd'.repeat(64), AttemptSequence: 1,
+      Status: 'COMPLETED', PublishStatus: 'STAGED', InputManifestHash: 'e'.repeat(64),
+      ObservationStart: '2026-06-01T00:00:00Z', ObservationEnd: '2026-07-01T00:00:00Z',
+      EngineVersion: '1.0.0', MethodVersion: '1.0.0', CompletedAt: '2026-07-20T00:00:00Z',
+      PublishedAt: null, SyntheticData: true,
+    }));
+    await repository.createRefreshBatch({
+      BatchKey: `ANNOTATION-${annotation}`, Operation: 'BOOTSTRAP_SYNTHETIC',
+      RequestHash: 'd'.repeat(64), AttemptSequence: 1, Status: 'STAGED',
+      Reconciliation: { sourceRows: 1, acceptedRows: 1, rejectedRows: 0, balanced: true },
+      PublishedFindings: {}, RunGroup: { RunGroupID: group, runs },
+      CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true,
+    });
+    await assert.rejects(repository.publishRefreshBatch(`ANNOTATION-${annotation}`, '2026-07-20T01:00:00Z'), { code: 'CATALYST_UNAVAILABLE' });
+    const [pointer] = fake.tables.get('INT_PublicationState');
+    assert.equal(pointer.PublicationGeneration, 0);
+    assert.equal(pointer.CurrentRunGroupID, undefined);
+    const completed = await repository.publishRefreshBatch(`ANNOTATION-${annotation}`, '2026-07-20T01:00:00Z');
+    assert.equal(completed.Status, 'COMPLETED');
+    assert.equal(fake.tables.get('INT_AnalysisRun').every(row => row.PublicationGeneration === 1), true);
+  }
 });
