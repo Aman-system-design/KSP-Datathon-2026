@@ -63,10 +63,14 @@ export async function productionClosure(packages, roots = governedRoots, install
     }
     visited.add(lockPath);
 
-    for (const name of Object.keys(entry.dependencies ?? {}).sort()) {
+    const dependencyNames = new Set(Object.keys(entry.dependencies ?? {}));
+    const requiredPeerNames = Object.keys(entry.peerDependencies ?? {})
+      .filter(name => entry.peerDependenciesMeta?.[name]?.optional !== true);
+    const names = [...new Set([...dependencyNames, ...requiredPeerNames])].sort();
+    for (const name of names) {
       const dependencyPath = await resolveDependency(packages, lockPath, name, installed);
-      if (!dependencyPath) throw new Error(`Required production dependency is missing: ${lockPath} -> ${name}`);
-      queue.push(dependencyPath);
+      if (dependencyPath) queue.push(dependencyPath);
+      else if (dependencyNames.has(name)) throw new Error(`Required production dependency is missing: ${lockPath} -> ${name}`);
     }
   }
 
@@ -161,7 +165,7 @@ export async function generateGeospatialAttribution() {
     'Slate Geospatial Third-Party License Notices',
     '',
     'Generated from package-lock.json and installed production package LICENSE/NOTICE files.',
-    'Closure includes governed roots and required dependencies; optional/peer packages are re-evaluated when activated by production imports or bundles.',
+    'Closure includes governed roots, required dependencies, and installed non-optional peers; optional dependencies and peerOptional packages are re-evaluated when activated.',
     'Regenerate with: node scripts/licenses/geospatial-attribution.mjs',
     '',
     sections.join('\n\n================================================================================\n\n'),

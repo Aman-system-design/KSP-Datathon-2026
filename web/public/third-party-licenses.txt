@@ -1,12 +1,41 @@
 Slate Geospatial Third-Party License Notices
 
 Generated from package-lock.json and installed production package LICENSE/NOTICE files.
-Closure includes governed roots and required dependencies; optional/peer packages are re-evaluated when activated by production imports or bundles.
+Closure includes governed roots, required dependencies, and installed non-optional peers; optional dependencies and peerOptional packages are re-evaluated when activated.
 Regenerate with: node scripts/licenses/geospatial-attribution.mjs
 
 Package: @deck.gl/core
 Version: 9.3.7
 Source: https://registry.npmjs.org/@deck.gl/core/-/core-9.3.7.tgz
+License metadata: MIT
+
+----- BEGIN LICENSE -----
+Copyright Vis.gl contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+----- END LICENSE -----
+
+================================================================================
+
+Package: @deck.gl/extensions
+Version: 9.3.7
+Source: https://registry.npmjs.org/@deck.gl/extensions/-/extensions-9.3.7.tgz
 License metadata: MIT
 
 ----- BEGIN LICENSE -----
@@ -94,6 +123,35 @@ THE SOFTWARE.
 Package: @deck.gl/mapbox
 Version: 9.3.7
 Source: https://registry.npmjs.org/@deck.gl/mapbox/-/mapbox-9.3.7.tgz
+License metadata: MIT
+
+----- BEGIN LICENSE -----
+Copyright Vis.gl contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+----- END LICENSE -----
+
+================================================================================
+
+Package: @deck.gl/mesh-layers
+Version: 9.3.7
+Source: https://registry.npmjs.org/@deck.gl/mesh-layers/-/mesh-layers-9.3.7.tgz
 License metadata: MIT
 
 ----- BEGIN LICENSE -----

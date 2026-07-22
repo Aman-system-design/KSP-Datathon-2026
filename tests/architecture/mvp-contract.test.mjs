@@ -11,6 +11,7 @@ const webPackagePath = new URL('../../web/package.json', import.meta.url);
 const packageLockPath = new URL('../../package-lock.json', import.meta.url);
 const noticesPath = new URL('../../THIRD_PARTY_NOTICES.md', import.meta.url);
 const attributionScriptPath = new URL('../../scripts/licenses/geospatial-attribution.mjs', import.meta.url);
+const attributionPath = new URL('../../web/public/third-party-licenses.txt', import.meta.url);
 
 test('the authoritative MVP contract locks challenge, users, routes, and APIs', async () => {
   const contract = await readFile(contractPath, 'utf8');
@@ -97,23 +98,29 @@ test('the web runtime declares approved geospatial dependencies and licenses', a
 
   const output = execFileSync(process.execPath, [fileURLToPath(attributionScriptPath), '--check'], { encoding: 'utf8' });
   assert.match(output, /PASS: geospatial attribution artifact is current/);
+
+  const attribution = await readFile(attributionPath, 'utf8');
+  assert.match(attribution, /^Package: @deck\.gl\/extensions$/m);
+  assert.match(attribution, /^Package: @deck\.gl\/mesh-layers$/m);
 });
 
-test('geospatial attribution excludes optional-only packages and rejects missing legal text', async () => {
+test('geospatial attribution includes required peers, excludes optional peers, and rejects missing legal text', async () => {
   const { productionClosure, readPackageLicenseFiles } = await import(attributionScriptPath);
   const packages = {
     'node_modules/root': {
       dependencies: { required: '1.0.0' },
       optionalDependencies: { optional: '1.0.0' },
-      peerDependencies: { peer: '1.0.0' },
+      peerDependencies: { peer: '1.0.0', peerOptional: '1.0.0' },
+      peerDependenciesMeta: { peerOptional: { optional: true } },
     },
     'node_modules/required': { version: '1.0.0' },
     'node_modules/optional': { version: '1.0.0', optional: true },
     'node_modules/peer': { version: '1.0.0', peer: true },
+    'node_modules/peerOptional': { version: '1.0.0', optional: true, peer: true },
   };
 
   const closure = await productionClosure(packages, ['root'], async () => true);
-  assert.deepEqual(closure.sort(), ['node_modules/required', 'node_modules/root']);
+  assert.deepEqual(closure.sort(), ['node_modules/peer', 'node_modules/required', 'node_modules/root']);
 
   const emptyPackage = await mkdtemp(join(tmpdir(), 'ksp-license-test-'));
   try {
