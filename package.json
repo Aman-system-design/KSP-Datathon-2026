@@ -32,6 +32,7 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@ksp/geospatial-core": "file:packages/geospatial-core",
     "@ksp/intelligence-core": "file:packages/intelligence-core"
   }
 }
