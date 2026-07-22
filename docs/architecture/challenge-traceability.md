@@ -78,6 +78,12 @@ The final implementation plan must assign every row above:
 
 No challenge requirement may be considered complete solely because a screen or label exists.
 
+## Development implementation evidence — 22 July 2026
+
+The deployed Development vertical slice now includes role-aware workspaces, alert workflow surfaces, governed reports and dashboards, geospatial execution and saved map views, anomaly/hotspot/area-risk/pattern/network read paths, versioned intelligence publication, and Catalyst-native authentication integration. These capabilities are backed by the 42-operation API contract and persisted Catalyst schemas rather than UI-only fixtures.
+
+The exact release evidence and the remaining Catalyst Authentication CORS console gate are recorded in [`../evidence/2026-07-22-catalyst-development-release.md`](../evidence/2026-07-22-catalyst-development-release.md). No authenticated persona is marked live-smoke-complete until that gate is configured and the signed-in request reaches the backend authorization boundary.
+
 ## Scope guard for future operational signals
 
 CCTV alerts, public/social signals, major-event priorities, Command Centre presentation mode, case-ageing summaries, and expanded field-device experiences are permitted future extensions. They are not substitutes for any CH02 requirement and cannot be used as proof that hotspot, anomaly, network, repeat-offender, correlation, area-risk, or pattern-detection behavior works.

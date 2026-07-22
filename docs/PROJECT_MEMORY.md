@@ -2,6 +2,17 @@
 
 This document is the shared memory for Datathon 2026 Challenge 02. Keep it updated as decisions, assumptions, data sources, and platform ideas evolve.
 
+## Current Development Release — 22 July 2026
+
+- Live Catalyst Slate URL: `https://aiksp.onslate.in`
+- Catalyst project: `KSPDatathon2026` (`43492000000013049`), Development environment only
+- Live API health and readiness: verified HTTP 200
+- Schema deployment: 29 source tables and 32 intelligence tables; publication pointer migration verified
+- Frontend authentication: Catalyst Web SDK 4.6.1 `generateAuthToken()` with an ephemeral `Authorization` token
+- Release verification: 358 backend/contract tests and 144 frontend tests with zero failures; production build, Function bundle inspection, bundle budgets, and both schema validators passed
+- Remaining founder console action: whitelist `https://aiksp.onslate.in` in Catalyst Authentication → Authorized Domains → CORS, then perform signed-in persona smoke tests
+- Detailed evidence: [`docs/evidence/2026-07-22-catalyst-development-release.md`](evidence/2026-07-22-catalyst-development-release.md)
+
 ## Challenge
 
 **Challenge 02: AI-Driven Crime Analytics & Visualization Platform**
