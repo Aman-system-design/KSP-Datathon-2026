@@ -9,13 +9,13 @@ const dataset = (overrides = {}) => ({
   labelFields: ['id'], access: { actions: ['READ_HOTSPOT'] }, ...overrides,
 });
 
-const execution = (runGroupId, featureId = 'HOT-1') => ({
+const execution = (runGroupId, featureId = 'HOT-1', properties = { id: featureId, magnitude: 4 }) => ({
   data: {
     type: 'FeatureCollection',
     features: [{
       type: 'Feature', id: featureId,
       geometry: { type: 'Point', coordinates: [77.59, 12.97] },
-      properties: { id: featureId, magnitude: 4 },
+      properties,
     }],
   },
   meta: {
@@ -32,12 +32,14 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function apiHarness({ datasets = [dataset()], views = [] } = {}) {
+function apiHarness({
+  datasets = [dataset()], views = [], viewLoader = () => Promise.resolve({ data: { items: views } }),
+} = {}) {
   const executions = [];
   const api = {
     get: vi.fn(path => {
       if (path === '/v1/geospatial/datasets') return Promise.resolve({ data: { items: datasets } });
-      if (path === '/v1/geospatial/views') return Promise.resolve({ data: { items: views } });
+      if (path === '/v1/geospatial/views') return viewLoader();
       if (path === '/v1/geospatial/freshness') return Promise.resolve({ data: { layers: [] } });
       throw new Error(`unexpected GET ${path}`);
     }),
@@ -112,6 +114,27 @@ describe('useGeospatialWorkspace', () => {
     expect(executions[0].body.layer.tooltipFields).toEqual(['displayEvidence']);
   });
 
+  test('projects visible table properties through dataset display permissions', async () => {
+    const governed = dataset({ fields: {
+      displayEvidence: { type: 'string', uses: ['display'] },
+      rendererWeight: { type: 'number', uses: ['weight'] },
+      rendererColor: { type: 'number', uses: ['color'] },
+    } });
+    const { api, executions } = apiHarness({ datasets: [governed] });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    await act(async () => {
+      executions[0].resolve(execution('RUN-DISPLAY', 'HOT-1', {
+        displayEvidence: 'Visible detail', rendererWeight: 19, rendererColor: 0.8,
+      }));
+      await executions[0].promise;
+    });
+    expect(result.current.visibleFeatures[0].properties).toMatchObject({ rendererWeight: 19, rendererColor: 0.8 });
+    expect(result.current.visibleFeatures[0].displayProperties).toEqual({ displayEvidence: 'Visible detail' });
+  });
+
   test('applies the global time window only to datasets declaring a time field', async () => {
     const timed = dataset({
       id: 'timed', name: 'Timed intelligence', timeField: 'observedAt',
@@ -177,6 +200,24 @@ describe('useGeospatialWorkspace', () => {
     expect(result.current.layers[0].meta.runGroupId).toBe('RUN-NEW');
   });
 
+  test('ignores an in-flight response from the previous view even when layer IDs are reused', async () => {
+    const { api, executions } = apiHarness();
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    const reusedId = result.current.layers[0].id;
+
+    act(() => result.current.loadView({ definition: {
+      layers: [{ id: reusedId, datasetId: 'hotspots', renderer: 'POINT', visible: true, order: 0 }],
+    } }));
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => { executions[1].resolve(execution('RUN-NEW-VIEW', 'NEW')); await executions[1].promise; });
+    await act(async () => { executions[0].resolve(execution('RUN-OLD-VIEW', 'OLD')); await executions[0].promise; });
+    expect(result.current.layers[0].meta.runGroupId).toBe('RUN-NEW-VIEW');
+    expect(result.current.visibleFeatures[0].id).toBe('NEW');
+  });
+
   test('retains last verified features and marks the layer stale after a transient refresh failure', async () => {
     const { api, executions } = apiHarness();
     const { result } = renderHook(() => useGeospatialWorkspace({ api }));
@@ -201,6 +242,57 @@ describe('useGeospatialWorkspace', () => {
     act(() => result.current.reportLayerError(new Error('renderer rejected feature'), { id: result.current.layers[0].id }));
     expect(result.current.layers[0].state).toBe('STALE');
     expect(result.current.layers[0].error).toMatch(/renderer rejected/i);
+  });
+
+  test('purges retained evidence and closes selection when a refresh loses authorization', async () => {
+    const { api, executions } = apiHarness();
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    await act(async () => { executions[0].resolve(execution('RUN-1')); await executions[0].promise; });
+    act(() => result.current.selectFeature({
+      layerId: result.current.layers[0].id, id: 'HOT-1', properties: { id: 'HOT-1' },
+    }));
+
+    act(() => { void result.current.retryLayer(result.current.layers[0].id); });
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => {
+      executions[1].reject(Object.assign(new Error('revoked'), { status: 403 }));
+      await executions[1].promise.catch(() => undefined);
+    });
+    await waitFor(() => expect(result.current.layers[0].state).toBe('UNAUTHORIZED'));
+    expect(result.current.layers[0].featureCollection.features).toEqual([]);
+    expect(result.current.layers[0].meta).toBeNull();
+    expect(result.current.layers[0].pendingUpdate).toBeNull();
+    expect(result.current.visibleFeatures).toEqual([]);
+    expect(result.current.selectedFeature).toBeNull();
+  });
+
+  test('keeps old stale evidence labelled stale while a newer run awaits acceptance', async () => {
+    const { api, executions } = apiHarness();
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+    await act(async () => { executions[0].resolve(execution('RUN-1')); await executions[0].promise; });
+    act(() => { void result.current.retryLayer(result.current.layers[0].id); });
+    await waitFor(() => expect(executions).toHaveLength(2));
+    await act(async () => {
+      executions[1].reject(new Error('temporary outage'));
+      await executions[1].promise.catch(() => undefined);
+    });
+    await waitFor(() => expect(result.current.layers[0].state).toBe('STALE'));
+    act(() => result.current.selectFeature({
+      layerId: result.current.layers[0].id, id: 'HOT-1', properties: { id: 'HOT-1' },
+    }));
+
+    act(() => { void result.current.retryLayer(result.current.layers[0].id); });
+    await waitFor(() => expect(executions).toHaveLength(3));
+    await act(async () => { executions[2].resolve(execution('RUN-2', 'HOT-2')); await executions[2].promise; });
+    expect(result.current.layers[0].state).toBe('STALE');
+    expect(result.current.layers[0].pendingUpdate.meta.runGroupId).toBe('RUN-2');
+    expect(result.current.visibleFeatures[0].id).toBe('HOT-1');
   });
 
   test('holds a new run while evidence is open and replaces it only after explicit acceptance', async () => {
@@ -244,6 +336,29 @@ describe('useGeospatialWorkspace', () => {
     act(() => document.dispatchEvent(new Event('visibilitychange')));
     await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
     expect(api.get.mock.calls.filter(([path]) => path === '/v1/geospatial/freshness')).toHaveLength(visibleCalls);
+  });
+
+  test('keeps datasets usable when saved views fail and recovers views independently', async () => {
+    let viewAttempt = 0;
+    const view = { id: 'MAP-RECOVERED', name: 'Recovered view', definition: { layers: [] } };
+    const viewLoader = vi.fn(() => {
+      viewAttempt += 1;
+      return viewAttempt === 1
+        ? Promise.reject(new Error('saved views unavailable'))
+        : Promise.resolve({ data: { items: [view] } });
+    });
+    const { api, executions } = apiHarness({ viewLoader });
+    const { result } = renderHook(() => useGeospatialWorkspace({ api }));
+    await waitFor(() => expect(result.current.catalogStatus).toBe('READY'));
+    await waitFor(() => expect(result.current.viewsStatus).toBe('FAILED'));
+    expect(result.current.datasets).toHaveLength(1);
+    act(() => result.current.addDataset('hotspots'));
+    await waitFor(() => expect(executions).toHaveLength(1));
+
+    await act(async () => { await result.current.retryViews(); });
+    expect(result.current.viewsStatus).toBe('READY');
+    expect(result.current.viewsError).toBeNull();
+    expect(result.current.savedViews).toEqual([view]);
   });
 
   test('exports the complete explicit layer state vocabulary', () => {

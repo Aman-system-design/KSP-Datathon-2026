@@ -14,9 +14,9 @@ export function VisibleFeatureTable({ features, onSelect }) {
         <thead><tr><th>Feature</th><th>Layer</th><th>Details</th><th>Evidence</th></tr></thead>
         <tbody>{features.map(feature => <tr key={`${feature.layerId}:${feature.id}`}>
           <td>{feature.id}</td><td>{feature.layerName ?? feature.layerId}</td>
-          <td>{Object.entries(feature.properties ?? {}).slice(0, 3).map(([key, item]) => `${key}: ${item}`).join(' · ') || 'No display fields'}</td>
+          <td>{Object.entries(feature.displayProperties ?? {}).slice(0, 3).map(([key, item]) => `${key}: ${item}`).join(' · ') || 'No display fields'}</td>
           <td><button type="button" aria-label={`Open evidence for ${feature.id}`} onClick={() => onSelect({
-            layerId: feature.layerId, id: feature.id, properties: feature.properties,
+            layerId: feature.layerId, id: feature.id, properties: feature.displayProperties ?? {},
           })}>Open</button></td>
         </tr>)}</tbody>
       </table>

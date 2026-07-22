@@ -35,11 +35,20 @@ function safeActions(metadata) {
   if (!Array.isArray(metadata?.contributingRecords)) return [];
   return metadata.contributingRecords.flatMap(record => {
     if (record?.authorized !== true || !Array.isArray(record.actions)) return [];
-    return record.actions.flatMap(action => (
-      typeof action?.label === 'string' && typeof action?.href === 'string'
-      && action.href.startsWith('/') && !action.href.startsWith('//')
-        ? [{ recordId: record.id, label: action.label, href: action.href }] : []
-    ));
+    return record.actions.flatMap(action => {
+      if (typeof action?.label !== 'string' || typeof action?.href !== 'string'
+        || /[\\\u0000-\u001f\u007f]/u.test(action.href)) return [];
+      try {
+        const parsed = new URL(action.href, window.location.origin);
+        const decodedPath = decodeURIComponent(parsed.pathname);
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== window.location.origin
+          || parsed.username || parsed.password || /[\\\u0000-\u001f\u007f]/u.test(decodedPath)) return [];
+        return [{
+          recordId: record.id, label: action.label,
+          href: `${parsed.pathname}${parsed.search}${parsed.hash}`,
+        }];
+      } catch { return []; }
+    });
   });
 }
 

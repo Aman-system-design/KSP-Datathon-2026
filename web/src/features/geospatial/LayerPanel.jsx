@@ -11,6 +11,7 @@ function LayerState({ layer }) {
 
 export function LayerPanel({
   datasets, savedViews, layers, catalogStatus, catalogError,
+  viewsStatus = 'READY', viewsError, onRetryViews,
   onAddDataset, onOpenView, onToggle, onMove, onConfigure, onRetry, onRemove,
   query: controlledQuery, onQueryChange,
 }) {
@@ -26,14 +27,19 @@ export function LayerPanel({
   return <aside className="geospatial-panel geospatial-layer-panel" aria-label="Map configuration">
     <section className="geospatial-panel-section">
       <div className="geospatial-section-heading"><h2>Saved views</h2></div>
-      {savedViews.length === 0
+      {viewsStatus === 'LOADING' ? <p className="geospatial-muted" role="status">Loading saved views…</p> : null}
+      {viewsStatus === 'FAILED' ? <div className="geospatial-view-error" role="alert">
+        <p className="geospatial-layer-message">{viewsError}</p>
+        <button className="geospatial-text-button" type="button" onClick={onRetryViews}>Retry saved views</button>
+      </div> : null}
+      {viewsStatus === 'READY' && savedViews.length === 0
         ? <p className="geospatial-muted">No saved views in your authorized workspace.</p>
-        : <ul className="geospatial-view-list">{savedViews.filter(view => (
+        : viewsStatus === 'READY' ? <ul className="geospatial-view-list">{savedViews.filter(view => (
           !normalizedQuery || view.name.toLocaleLowerCase().includes(normalizedQuery)
         )).map(view => <li key={view.id}>
           <button type="button" onClick={() => onOpenView(view)}>{view.name}</button>
           <span>{view.visibility}</span>
-        </li>)}</ul>}
+        </li>)}</ul> : null}
     </section>
 
     <section className="geospatial-panel-section">

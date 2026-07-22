@@ -22,15 +22,20 @@ function rendererFor(dataset) {
 }
 
 function displayFieldsFor(dataset) {
-  const fields = dataset.fields ?? {};
+  const fields = dataset?.fields ?? {};
   const declared = Object.entries(fields)
     .filter(([, definition]) => Array.isArray(definition?.uses) && definition.uses.includes('display'))
     .map(([field]) => field)
     .sort();
   const preferred = [
-    ...(dataset.labelFields ?? []), dataset.weightField, dataset.severityField,
+    ...(dataset?.labelFields ?? []), dataset?.weightField, dataset?.severityField,
   ].filter(field => field && fields[field]?.uses?.includes('display'));
   return [...new Set([...preferred, ...declared])].slice(0, MAX_DISPLAY_FIELDS);
+}
+
+function displayPropertiesFor(dataset, properties) {
+  const allowed = new Set(displayFieldsFor(dataset));
+  return Object.fromEntries(Object.entries(properties ?? {}).filter(([field]) => allowed.has(field)));
 }
 
 function layerDefinition(layer) {
@@ -58,6 +63,8 @@ export function useGeospatialWorkspace({
   const [savedViews, setSavedViews] = useState([]);
   const [catalogStatus, setCatalogStatus] = useState('LOADING');
   const [catalogError, setCatalogError] = useState(null);
+  const [viewsStatus, setViewsStatus] = useState('LOADING');
+  const [viewsError, setViewsError] = useState(null);
   const [layers, setLayers] = useState([]);
   const initialViewportRef = useRef(structuredClone(initialViewport));
   const [viewport, setViewportState] = useState(() => structuredClone(initialViewportRef.current));
@@ -71,38 +78,61 @@ export function useGeospatialWorkspace({
   const viewportRef = useRef(viewport);
   const timeWindowRef = useRef(timeWindow);
   const generations = useRef(new Map());
+  const workspaceEpoch = useRef(0);
+  const viewsRequestToken = useRef(0);
   const layerSequence = useRef(0);
   layersRef.current = layers;
   selectedFeatureRef.current = selectedFeature;
   viewportRef.current = viewport;
   timeWindowRef.current = timeWindow;
 
+  const retryViews = useCallback(async () => {
+    const token = viewsRequestToken.current + 1;
+    viewsRequestToken.current = token;
+    setViewsStatus('LOADING');
+    setViewsError(null);
+    try {
+      const response = await api.get('/v1/geospatial/views');
+      if (viewsRequestToken.current !== token) return;
+      setSavedViews(Array.isArray(response?.data?.items) ? response.data.items : []);
+      setViewsStatus('READY');
+    } catch (error) {
+      if (viewsRequestToken.current !== token) return;
+      setViewsStatus('FAILED');
+      setViewsError(messageOf(error));
+    }
+  }, [api]);
+
   useEffect(() => {
     let live = true;
-    Promise.all([
-      api.get('/v1/geospatial/datasets'),
-      api.get('/v1/geospatial/views'),
-    ]).then(([datasetResponse, viewResponse]) => {
+    setCatalogStatus('LOADING');
+    setCatalogError(null);
+    api.get('/v1/geospatial/datasets').then(response => {
       if (!live) return;
-      setDatasets(Array.isArray(datasetResponse?.data?.items) ? datasetResponse.data.items : []);
-      setSavedViews(Array.isArray(viewResponse?.data?.items) ? viewResponse.data.items : []);
+      setDatasets(Array.isArray(response?.data?.items) ? response.data.items : []);
       setCatalogStatus('READY');
-      setCatalogError(null);
     }).catch(error => {
       if (!live) return;
       setCatalogStatus('FAILED');
       setCatalogError(messageOf(error));
     });
-    return () => { live = false; };
-  }, [api]);
+    void retryViews();
+    return () => {
+      live = false;
+      viewsRequestToken.current += 1;
+    };
+  }, [api, retryViews]);
 
   const executeLayer = useCallback(async layerId => {
     const current = layersRef.current.find(item => item.id === layerId);
     if (!current || !current.visible || current.spatialStatus !== 'AVAILABLE') return;
     const generation = (generations.current.get(layerId) ?? 0) + 1;
+    const epoch = workspaceEpoch.current;
     generations.current.set(layerId, generation);
     setLayers(previous => previous.map(item => item.id === layerId ? {
-      ...item, state: 'LOADING', error: null,
+      ...item,
+      refreshBaseState: item.state === 'LOADING' ? item.refreshBaseState : item.state,
+      state: 'LOADING', error: null,
     } : item));
     try {
       const response = await api.post('/v1/geospatial/layers/execute', {
@@ -112,7 +142,7 @@ export function useGeospatialWorkspace({
           ['timeWindow', current.dataset?.timeField ? timeWindowRef.current : null],
         ].filter(([, value]) => value !== null && value !== undefined)),
       });
-      if (generations.current.get(layerId) !== generation) return;
+      if (workspaceEpoch.current !== epoch || generations.current.get(layerId) !== generation) return;
       const featureCollection = response?.data;
       if (featureCollection?.type !== 'FeatureCollection' || !Array.isArray(featureCollection.features)) {
         throw new Error('The geospatial service returned an invalid feature collection.');
@@ -120,23 +150,35 @@ export function useGeospatialWorkspace({
       const result = { featureCollection, meta: response?.meta ?? {} };
       setLayers(previous => previous.map(item => {
         if (item.id !== layerId) return item;
+        const { refreshBaseState, ...stableItem } = item;
         const oldRun = item.meta?.runGroupId;
         const newRun = result.meta?.runGroupId;
         const evidenceOpen = selectedFeatureRef.current?.layerId === layerId;
         if (evidenceOpen && oldRun && newRun && oldRun !== newRun) {
-          return { ...item, pendingUpdate: result, state: item.state === 'STALE' ? 'STALE' : nextStateFor(item.featureCollection) };
+          return {
+            ...stableItem, pendingUpdate: result,
+            state: refreshBaseState === 'STALE' ? 'STALE' : nextStateFor(item.featureCollection),
+          };
         }
-        return { ...item, ...result, pendingUpdate: null, state: nextStateFor(featureCollection), error: null };
+        return { ...stableItem, ...result, pendingUpdate: null, state: nextStateFor(featureCollection), error: null };
       }));
     } catch (error) {
-      if (generations.current.get(layerId) !== generation) return;
+      if (workspaceEpoch.current !== epoch || generations.current.get(layerId) !== generation) return;
+      const unauthorized = UNAUTHORIZED_CODES.has(error?.code) || error?.status === 401 || error?.status === 403;
+      if (unauthorized) {
+        setSelectedFeature(currentSelection => currentSelection?.layerId === layerId ? null : currentSelection);
+      }
       setLayers(previous => previous.map(item => {
         if (item.id !== layerId) return item;
-        if (UNAUTHORIZED_CODES.has(error?.code) || error?.status === 401 || error?.status === 403) {
-          return { ...item, state: 'UNAUTHORIZED', error: 'You are not authorized to view this layer.' };
+        const { refreshBaseState, ...stableItem } = item;
+        if (unauthorized) {
+          return {
+            ...stableItem, state: 'UNAUTHORIZED', error: 'You are not authorized to view this layer.',
+            featureCollection: EMPTY_COLLECTION, meta: null, pendingUpdate: null,
+          };
         }
         return {
-          ...item,
+          ...stableItem,
           state: item.featureCollection?.features?.length >= 0 && item.meta ? 'STALE' : 'FAILED',
           error: messageOf(error),
         };
@@ -286,7 +328,7 @@ export function useGeospatialWorkspace({
         error: dataset ? null : 'This view references a dataset that is not available to the current user.',
       };
     });
-    generations.current.clear();
+    workspaceEpoch.current += 1;
     layerSequence.current = loaded.length;
     setLayers(loaded);
     setViewportState(structuredClone(definition.viewport ?? initialViewportRef.current));
@@ -320,16 +362,22 @@ export function useGeospatialWorkspace({
     ))
     .sort((a, b) => a.order - b.order)
     .map(layer => ({ layer: layerDefinition(layer), featureCollection: layer.featureCollection })), [layers]);
-  const visibleFeatures = useMemo(() => renderLayers.flatMap(input => input.featureCollection.features
-    .map(feature => ({ ...feature, layerId: input.layer.id, layerName: layers.find(layer => layer.id === input.layer.id)?.name }))), [layers, renderLayers]);
+  const visibleFeatures = useMemo(() => renderLayers.flatMap(input => {
+    const sourceLayer = layers.find(layer => layer.id === input.layer.id);
+    return input.featureCollection.features.map(feature => ({
+      ...feature, layerId: input.layer.id, layerName: sourceLayer?.name,
+      displayProperties: displayPropertiesFor(sourceLayer?.dataset, feature.properties),
+    }));
+  }), [layers, renderLayers]);
   const selectedLayer = layers.find(layer => layer.id === selectedLayerId) ?? null;
 
   return {
-    datasets, savedViews, catalogStatus, catalogError, layers, renderLayers, visibleFeatures,
+    datasets, savedViews, catalogStatus, catalogError, viewsStatus, viewsError,
+    layers, renderLayers, visibleFeatures,
     viewport, timeWindow, selectedLayerId, selectedLayer, selectedFeature, freshnessError, mapError,
     addDataset, setLayerVisibility, moveLayer, updateLayer, removeLayer, reportLayerError,
     setSelectedLayerId, loadView, saveView,
     selectFeature, setViewport, setTimeWindow, acceptLayerUpdate,
-    retryLayer: executeLayer, retryFreshness: refreshFreshness,
+    retryLayer: executeLayer, retryFreshness: refreshFreshness, retryViews,
   };
 }

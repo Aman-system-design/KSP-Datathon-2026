@@ -37,3 +37,28 @@ test('evidence exposes only feature properties explicitly authorized for display
     expect(within(evidence).queryByText(hidden)).not.toBeInTheDocument();
   }
 });
+
+test('contributing actions accept only canonical same-origin paths', () => {
+  render(<EvidenceDrawer
+    selection={{ id: 'FEATURE-1', properties: {} }}
+    layer={{
+      id: 'layer-1', dataset: { name: 'Evidence', fields: {} }, state: 'READY',
+      meta: { contributingRecords: [{
+        id: 'CASE-1', authorized: true,
+        actions: [
+          { label: 'Open safe case', href: '/cases/CASE-1?tab=evidence' },
+          { label: 'Backslash path', href: '/cases\\CASE-2' },
+          { label: 'Control path', href: '/cases/CASE-3\nnext' },
+          { label: 'Encoded backslash', href: '/cases%5CCASE-4' },
+          { label: 'Encoded control', href: '/cases/CASE-5%0Anext' },
+          { label: 'External path', href: 'https://evil.example/case' },
+          { label: 'Protocol relative', href: '//evil.example/case' },
+          { label: 'Script path', href: 'javascript:alert(1)' },
+        ],
+      }] },
+    }}
+    onClose={vi.fn()} onAcceptUpdate={vi.fn()}
+  />);
+  expect(screen.getByRole('link', { name: 'Open safe case' })).toHaveAttribute('href', '/cases/CASE-1?tab=evidence');
+  expect(screen.getAllByRole('link')).toHaveLength(1);
+});

@@ -151,6 +151,7 @@ export function GeospatialStudio({
       <LayerPanel
         datasets={workspace.datasets} savedViews={workspace.savedViews} layers={workspace.layers}
         catalogStatus={workspace.catalogStatus} catalogError={workspace.catalogError}
+        viewsStatus={workspace.viewsStatus} viewsError={workspace.viewsError} onRetryViews={workspace.retryViews}
         query={workspaceSearch} onQueryChange={setWorkspaceSearch}
         onAddDataset={workspace.addDataset} onOpenView={workspace.loadView}
         onToggle={workspace.setLayerVisibility} onMove={workspace.moveLayer}
