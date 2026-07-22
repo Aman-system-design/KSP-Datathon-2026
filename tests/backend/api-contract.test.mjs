@@ -101,6 +101,31 @@ test('map-view reads and writes use correlated resource audit events', async () 
   assert.equal(seen.at(-1).access.organizationId, 'ORG-KSP');
 });
 
+test('resource audit details are allowlisted, persisted and removed from the public response', async () => {
+  const dispatch = harness({ resourceServicesOverride: {
+    async createMapView({ requestId }) {
+      return {
+        data: { id: 'MAP-1' }, meta: { requestId },
+        auditDetails: {
+          MapViewID: 'MAP-1', Version: 2, DefinitionHash: 'a'.repeat(64),
+          Name: 'must-not-audit', definition: { layers: ['must-not-audit'] },
+        },
+      };
+    },
+  } });
+  const response = await dispatch({ request: {
+    method: 'POST', path: '/v1/geospatial/views', query: {}, headers: {}, body: {}, requestId: 'REQ-API',
+  }, currentUser: user('CAT-DISTRICT') });
+  assert.equal(response.status, 200);
+  assert.equal('auditDetails' in response.body, false);
+  const event = (await dispatch.repository.listAuditEvents()).at(-1);
+  const payload = JSON.parse(event.EventPayloadJSON);
+  assert.equal(event.ActorEmployeeID, 9001);
+  assert.equal(payload.requestId, 'REQ-API');
+  assert.deepEqual(payload.resource, { DefinitionHash: 'a'.repeat(64), MapViewID: 'MAP-1', Version: 2 });
+  assert.doesNotMatch(event.EventPayloadJSON, /must-not-audit|layers/u);
+});
+
 test('all eight reads dispatch through authenticated, scoped services', async () => {
   const dispatch = harness();
   const requests = [

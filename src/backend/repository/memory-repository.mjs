@@ -118,6 +118,9 @@ export class MemoryIntelligenceRepository {
     this.#state.mapViewVersions.push(clone(nextVersion));
     view.CurrentVersion = nextVersion.Version;
     view.UpdatedAt = nextVersion.CreatedAt;
+    const definition = JSON.parse(nextVersion.DefinitionJSON);
+    view.Name = definition.name ?? view.Name;
+    view.Visibility = definition.visibility ?? view.Visibility;
     return clone(view);
   }
   async listReports() { return clone(this.#state.reports); }

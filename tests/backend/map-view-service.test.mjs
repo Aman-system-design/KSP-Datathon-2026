@@ -32,6 +32,9 @@ class MapViewRepository {
   }
 
   async createMapView({ mapView, version }) {
+    if (this.views.some(row => row.MapViewID === mapView.MapViewID)) {
+      const error = new Error('duplicate'); error.code = 'UNIQUE_CONFLICT'; throw error;
+    }
     this.views.push(structuredClone(mapView));
     this.versions.push(structuredClone(version));
     return structuredClone(mapView);
@@ -180,6 +183,55 @@ test('only owners with edit-own or administrators can update private and shared 
     access: access({ employeeId: 9002, actions: ['READ_HOTSPOT', 'MANAGE_MAP_VIEWS'] }),
     params: { mapViewId: 'MAP-1' }, body: update,
   })).data.version, 2);
+});
+
+test('private PATCH is indistinguishable from missing for non-managers while managers may update', async () => {
+  const { repository, service } = harness();
+  await service.createMapView({ access: access(), body: {
+    name: 'Verified hotspots', visibility: 'PRIVATE', definition: definition(),
+  } });
+  const body = {
+    expectedVersion: 1, name: 'Managed hotspots', visibility: 'PRIVATE',
+    definition: definition({ name: 'Managed hotspots', version: 2 }),
+  };
+  const nonOwner = access({ employeeId: 9002 });
+  const errors = [];
+  for (const mapViewId of ['MAP-1', 'MAP-MISSING']) {
+    try { await service.updateMapView({ access: nonOwner, params: { mapViewId }, body }); }
+    catch (error) { errors.push({ code: error.code, message: error.message }); }
+  }
+  assert.deepEqual(errors, [
+    { code: 'NOT_FOUND', message: 'NOT_FOUND' }, { code: 'NOT_FOUND', message: 'NOT_FOUND' },
+  ]);
+  const readVersion = repository.getMapViewVersion;
+  repository.getMapViewVersion = async () => { throw new Error('private version must remain unread'); };
+  await assert.rejects(service.updateMapView({
+    access: nonOwner, params: { mapViewId: 'MAP-1' }, body,
+  }), { code: 'NOT_FOUND' });
+  repository.getMapViewVersion = readVersion;
+  const managed = await service.updateMapView({
+    access: access({ employeeId: 9002, actions: ['READ_HOTSPOT', 'MANAGE_MAP_VIEWS'] }),
+    params: { mapViewId: 'MAP-1' }, body,
+  });
+  assert.equal(managed.data.version, 2);
+});
+
+test('duplicate creates return a stable public conflict', async () => {
+  const { service } = harness();
+  const body = { name: 'Verified hotspots', visibility: 'PRIVATE', definition: definition() };
+  await service.createMapView({ access: access(), body });
+  await assert.rejects(service.createMapView({ access: access(), body }), { code: 'INVALID_STATE' });
+});
+
+test('stored definition contract corruption returns DATA_NOT_READY', async () => {
+  const { repository, service } = harness();
+  await service.createMapView({ access: access(), body: {
+    name: 'Verified hotspots', visibility: 'PRIVATE', definition: definition(),
+  } });
+  const corrupt = '{"id":"MAP-1","name":"Verified hotspots","version":1,"visibility":"PRIVATE"}';
+  repository.versions[0].DefinitionJSON = corrupt;
+  repository.versions[0].DefinitionHash = (await import('node:crypto')).createHash('sha256').update(corrupt).digest('hex');
+  await assert.rejects(service.getMapView({ access: access(), params: { mapViewId: 'MAP-1' } }), { code: 'DATA_NOT_READY' });
 });
 
 test('canonical normalized definitions produce deterministic exact-byte hashes', async () => {

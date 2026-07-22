@@ -74,25 +74,29 @@ function visibleTo(row, definition, access) {
   return definition.visibility !== 'PRIVATE' || String(row.OwnerEmployeeID) === String(access.employeeId);
 }
 
-function response(row, definition, requestId) {
+function response(row, definition, requestId, auditDetails) {
   return deepFreeze({
     data: {
       id: row.MapViewID, organizationId: row.OrganizationID, ownerEmployeeId: row.OwnerEmployeeID,
       name: definition.name, visibility: definition.visibility, version: definition.version, definition,
     },
     meta: { requestId },
+    ...(auditDetails ? { auditDetails } : {}),
   });
 }
 
-async function currentDefinition(repository, row, access) {
-  const version = await repository.getMapViewVersion(row.MapViewID, row.CurrentVersion, access.organizationId);
+async function currentDefinition(repository, row, organizationId) {
+  const version = await repository.getMapViewVersion(row.MapViewID, row.CurrentVersion, organizationId);
   if (!version || typeof version.DefinitionJSON !== 'string'
     || sha256(version.DefinitionJSON) !== version.DefinitionHash) fail('DATA_NOT_READY');
   let parsed;
   try { parsed = JSON.parse(version.DefinitionJSON); } catch { fail('DATA_NOT_READY'); }
-  const normalized = normalizeDefinition({
-    name: parsed.name, visibility: parsed.visibility, definition: parsed,
-  }, row.CurrentVersion);
+  let normalized;
+  try {
+    normalized = normalizeDefinition({
+      name: parsed.name, visibility: parsed.visibility, definition: parsed,
+    }, row.CurrentVersion);
+  } catch { fail('DATA_NOT_READY'); }
   if (canonicalStringify(normalized) !== version.DefinitionJSON) fail('DATA_NOT_READY');
   return normalized;
 }
@@ -108,7 +112,9 @@ export function createMapViewService({ repository, clock }) {
     if (!ID_PATTERN.test(params?.mapViewId ?? '')) fail('INVALID_REQUEST');
     const row = await repository.getMapView(params.mapViewId, access.organizationId);
     if (!row) fail('NOT_FOUND');
-    const definition = await currentDefinition(repository, row, access);
+    if (hidePrivate && row.Visibility === 'PRIVATE'
+      && String(row.OwnerEmployeeID) !== String(access.employeeId)) fail('NOT_FOUND');
+    const definition = await currentDefinition(repository, row, access.organizationId);
     if (hidePrivate && !visibleTo(row, definition, access)) fail('NOT_FOUND');
     requireDatasetActions(access, definition);
     return response(row, definition, requestId);
@@ -124,7 +130,7 @@ export function createMapViewService({ repository, clock }) {
       const items = [];
       for (const row of page.data ?? []) {
         try {
-          const definition = await currentDefinition(repository, row, access);
+          const definition = await currentDefinition(repository, row, access.organizationId);
           if (visibleTo(row, definition, access)) {
             requireDatasetActions(access, definition);
             items.push(response(row, definition).data);
@@ -153,23 +159,30 @@ export function createMapViewService({ repository, clock }) {
         Status: 'ACTIVE', CreatedAt: timestamp, UpdatedAt: timestamp,
         SyntheticData: access.syntheticData === true,
       };
-      await repository.createMapView({ mapView, version: {
-        MapViewVersionKey: `${definition.id}:1`, MapViewID: definition.id,
-        OrganizationID: access.organizationId, Version: 1, DefinitionJSON: json, DefinitionHash: hash,
-        ...(PUBLISHED.has(definition.visibility) ? { PublishedAt: timestamp } : {}),
-        CreatedByEmployeeID: access.employeeId, CreatedAt: timestamp,
-        SyntheticData: access.syntheticData === true,
-      } });
-      return response(mapView, definition, requestId);
+      try {
+        await repository.createMapView({ mapView, version: {
+          MapViewVersionKey: `${definition.id}:1`, MapViewID: definition.id,
+          OrganizationID: access.organizationId, Version: 1, DefinitionJSON: json, DefinitionHash: hash,
+          ...(PUBLISHED.has(definition.visibility) ? { PublishedAt: timestamp } : {}),
+          CreatedByEmployeeID: access.employeeId, CreatedAt: timestamp,
+          SyntheticData: access.syntheticData === true,
+        } });
+      } catch (error) {
+        if (error?.code === 'UNIQUE_CONFLICT') fail('INVALID_STATE');
+        throw error;
+      }
+      return response(mapView, definition, requestId, {
+        MapViewID: definition.id, Version: 1, DefinitionHash: hash,
+      });
     },
 
     async updateMapView({ access, params, body, requestId }) {
       requireActor(access);
       strictBody(body, UPDATE_KEYS);
       if (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1) fail('INVALID_REQUEST');
-      const existing = await get({ access, params, requestId, hidePrivate: false });
-      const owner = String(existing.data.ownerEmployeeId) === String(access.employeeId);
       const managed = hasAction(access, 'MANAGE_MAP_VIEWS');
+      const existing = await get({ access, params, requestId, hidePrivate: !managed });
+      const owner = String(existing.data.ownerEmployeeId) === String(access.employeeId);
       if ((!owner || !hasAction(access, 'EDIT_OWN_MAP_VIEW')) && !managed) fail('FORBIDDEN_ACTION');
       if ((PUBLISHED.has(existing.data.visibility) || PUBLISHED.has(body.visibility)) && !managed) fail('FORBIDDEN_ACTION');
       if (existing.data.version !== body.expectedVersion) fail('VERSION_CONFLICT');
@@ -191,7 +204,9 @@ export function createMapViewService({ repository, clock }) {
         },
       });
       if (!row) fail('NOT_FOUND');
-      return response(row, definition, requestId);
+      return response(row, definition, requestId, {
+        MapViewID: existing.data.id, Version: definition.version, DefinitionHash: hash,
+      });
     },
   });
 }

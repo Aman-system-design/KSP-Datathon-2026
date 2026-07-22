@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { CatalystIntelligenceRepository } from '../../functions/crime_intelligence_api/app/src/backend/repository/catalyst/catalyst-repository.mjs';
+import { CatalystIntelligenceRepository } from '../../src/backend/repository/catalyst/catalyst-repository.mjs';
 
-function fakeApplication({ failBeforeInsert, failAfterInsert, failBeforeCas = false, failAfterCas = false } = {}) {
+function fakeApplication({
+  failBeforeInsert, failAfterInsert, failBeforeCas = false, failAfterCas = false,
+  advanceAfterCas = false, ambiguousCas = false,
+} = {}) {
   const tables = new Map();
   let nextRowId = 1000;
   const failed = new Set();
@@ -36,14 +39,18 @@ function fakeApplication({ failBeforeInsert, failAfterInsert, failBeforeCas = fa
   const zcql = () => ({
     async executeZCQLQuery(query) {
       if (failBeforeCas && injected('before:cas')) throw unavailable();
-      const match = query.match(/^UPDATE CFG_MapView SET CurrentVersion = (\d+), UpdatedAt = '([^']+)' WHERE ROWID = (\d+) AND CurrentVersion = (\d+)$/u);
+      const match = query.match(/^UPDATE CFG_MapView SET Name = '((?:''|[^'])*)', Visibility = '([^']+)', CurrentVersion = (\d+), UpdatedAt = '([^']+)' WHERE ROWID = (\d+) AND CurrentVersion = (\d+)$/u);
       if (!match) throw new Error(`unexpected ZCQL: ${query}`);
-      const [, currentVersion, updatedAt, rowId, expectedVersion] = match;
+      const [, escapedName, visibility, currentVersion, updatedAt, rowId, expectedVersion] = match;
       const rows = tables.get('CFG_MapView') ?? [];
       const row = rows.find(item => item.ROWID === rowId && item.CurrentVersion === Number(expectedVersion));
-      if (row) { row.CurrentVersion = Number(currentVersion); row.UpdatedAt = updatedAt; }
+      if (row) {
+        row.Name = escapedName.replaceAll("''", "'"); row.Visibility = visibility;
+        row.CurrentVersion = Number(currentVersion); row.UpdatedAt = updatedAt;
+      }
       if (failAfterCas && injected('after:cas')) throw unavailable();
-      return [{ affected_rows: row ? 1 : 0 }];
+      if (row && advanceAfterCas) row.CurrentVersion += 1;
+      return [ambiguousCas ? {} : { affected_rows: row ? 1 : 0 }];
     },
   });
   return { application: { datastore: () => ({ table }), zcql }, tables };
@@ -119,6 +126,44 @@ test('inserts an immutable version before CAS and advances only the current poin
   assert.equal(updated.CurrentVersion, 2);
   assert.equal(fake.tables.get('CFG_MapViewVersion')[0].DefinitionHash, sha256('{"version":1}'));
   assert.equal(fake.tables.get('CFG_MapViewVersion').length, 2);
+});
+
+test('atomically updates root summaries with escaped name and visibility', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  const definition = JSON.stringify({ name: "Leader's view", version: 2, visibility: 'SHARED' });
+  const updated = await repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+    nextVersion: version(2, { DefinitionJSON: definition, CreatedAt: '2026-07-22T11:00:00Z' }),
+  });
+  assert.equal(updated.Name, "Leader's view");
+  assert.equal(updated.Visibility, 'SHARED');
+  assert.equal(fake.tables.get('CFG_MapView')[0].Name, "Leader's view");
+  assert.equal(fake.tables.get('CFG_MapView')[0].Visibility, 'SHARED');
+});
+
+test('affected_rows one is definitive even when a next update commits before observation', async () => {
+  const fake = fakeApplication({ advanceAfterCas: true });
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  const updated = await repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+    nextVersion: version(2, { CreatedAt: '2026-07-22T11:00:00Z' }),
+  });
+  assert.equal(updated.CurrentVersion, 2);
+  assert.equal(fake.tables.get('CFG_MapView')[0].CurrentVersion, 3);
+});
+
+test('ambiguous CAS responses reconcile through scoped root reads', async () => {
+  const fake = fakeApplication({ ambiguousCas: true });
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  const updated = await repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+    nextVersion: version(2, { CreatedAt: '2026-07-22T11:00:00Z' }),
+  });
+  assert.equal(updated.CurrentVersion, 2);
 });
 
 test('reports stale updates and never advances the pointer when CAS loses', async () => {

@@ -121,12 +121,34 @@ test('API composition persists and reads an audited organization-scoped map view
   const created = await application({ method: 'POST', url: '/v1/geospatial/views', headers: {}, body });
   assert.equal(created.status, 200);
   assert.equal(created.body.data.organizationId, 'ORG-KSP');
+  const duplicate = await application({ method: 'POST', url: '/v1/geospatial/views', headers: {}, body });
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.error.code, 'INVALID_STATE');
+  const updated = await application({ method: 'PATCH', url: '/v1/geospatial/views/MAP-1', headers: {}, body: {
+    expectedVersion: 1, name: 'Updated hotspots', visibility: 'SHARED',
+    definition: {
+      id: 'MAP-1', name: 'Updated hotspots', version: 2, visibility: 'SHARED',
+      layers: [{ id: 'hotspots-1', datasetId: 'hotspots', renderer: 'POINT' }],
+    },
+  } });
+  assert.equal(updated.status, 200);
   const loaded = await application({ method: 'GET', url: '/v1/geospatial/views/MAP-1', headers: {}, body: null });
   assert.equal(loaded.status, 200);
   assert.equal(loaded.body.data.ownerEmployeeId, 9001);
+  assert.equal(loaded.body.data.version, 2);
   const events = await repository.listAuditEvents();
-  assert.equal(events.at(-2).EventType, 'CONFIGURATION_CHANGED');
+  const changes = events.filter(event => event.EventType === 'CONFIGURATION_CHANGED');
+  assert.equal(changes.length, 2);
   assert.equal(events.at(-1).EventType, 'SENSITIVE_READ');
+  for (const [index, change] of changes.entries()) {
+    const payload = JSON.parse(change.EventPayloadJSON);
+    assert.equal(payload.requestId, [created, updated][index].body.meta.requestId);
+    assert.deepEqual(Object.keys(payload.resource).sort(), ['DefinitionHash', 'MapViewID', 'Version']);
+    assert.equal(payload.resource.MapViewID, 'MAP-1');
+    assert.equal(payload.resource.Version, index + 1);
+    assert.match(payload.resource.DefinitionHash, /^[a-f0-9]{64}$/u);
+    assert.doesNotMatch(change.EventPayloadJSON, /Updated hotspots|Verified hotspots|DefinitionJSON|"layers"/u);
+  }
 });
 
 test('API composition fails closed for missing identity, undeclared route and malformed URL', async () => {

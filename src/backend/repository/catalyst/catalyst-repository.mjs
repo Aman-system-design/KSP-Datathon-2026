@@ -90,6 +90,16 @@ const decimalId = (value, name) => {
   if (typeof value === 'string' && /^(0|[1-9]\d*)$/u.test(value)) return value;
   throw new TypeError(`${name} must be a canonical unsigned decimal ID.`);
 };
+const MAP_VIEW_VISIBILITIES = new Set(['PRIVATE', 'SHARED', 'ROLE_DEFAULT', 'ORGANIZATION_GLOBAL']);
+const mapViewSummary = (version, current) => {
+  const definition = JSON.parse(version.DefinitionJSON);
+  const name = definition.name ?? current.Name;
+  const visibility = definition.visibility ?? current.Visibility;
+  if (typeof name !== 'string' || name.length < 1 || name.length > 128) throw new TypeError('Map view name is invalid.');
+  if (!MAP_VIEW_VISIBILITIES.has(visibility)) throw new TypeError('Map view visibility is invalid.');
+  return { name, visibility };
+};
+const zcqlText = value => value.replaceAll("'", "''");
 const normalizeMapVersion = (version) => {
   if (!version || typeof version !== 'object') throw new TypeError('Map view version is required.');
   safeId(version.MapViewID, 'MapViewID', 64);
@@ -558,7 +568,12 @@ export class CatalystIntelligenceRepository {
       }
     }
     const updatedAt = catalystDateTime(intendedVersion.CreatedAt);
-    const query = `UPDATE CFG_MapView SET CurrentVersion = ${expectedVersion + 1}, UpdatedAt = '${updatedAt}' WHERE ROWID = ${rowId} AND CurrentVersion = ${expectedVersion}`;
+    const summary = mapViewSummary(intendedVersion, row);
+    const query = `UPDATE CFG_MapView SET Name = '${zcqlText(summary.name)}', Visibility = '${summary.visibility}', CurrentVersion = ${expectedVersion + 1}, UpdatedAt = '${updatedAt}' WHERE ROWID = ${rowId} AND CurrentVersion = ${expectedVersion}`;
+    const committed = () => this.#mapView({
+      ...row, Name: summary.name, Visibility: summary.visibility,
+      CurrentVersion: expectedVersion + 1, UpdatedAt: updatedAt,
+    });
     let result;
     try { result = await this.#zcql.executeZCQLQuery(query); }
     catch (error) {
@@ -568,15 +583,18 @@ export class CatalystIntelligenceRepository {
         this.getMapViewVersion(mapViewId, intendedVersion.Version, organizationId),
       ]);
       const sameVersion = sameMapVersion(stored, prepareCatalystRow(TABLES.mapViewVersions, intendedVersion));
-      if (sameVersion && current?.CurrentVersion === expectedVersion + 1 && current?.UpdatedAt === updatedAt) return current;
+      if (sameVersion && current?.CurrentVersion === expectedVersion + 1 && current?.UpdatedAt === updatedAt
+        && current?.Name === summary.name && current?.Visibility === summary.visibility) return current;
       if (!sameVersion || current?.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
       throw sanitizeCatalystSdkError(error, { operation: 'MAP_VIEW_COMPARE_AND_SWAP' });
     }
     this.#invalidate(TABLES.mapViews);
     const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
     if (affected !== undefined && Number(affected) === 0) fail('VERSION_CONFLICT', 'Map view version changed.');
+    if (affected !== undefined && Number(affected) === 1) return committed();
     const updated = await this.getMapView(mapViewId, organizationId);
-    if (updated?.CurrentVersion !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt) {
+    if (updated?.CurrentVersion !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt
+      || updated?.Name !== summary.name || updated?.Visibility !== summary.visibility) {
       fail('VERSION_CONFLICT', 'Map view version changed.');
     }
     return updated;
