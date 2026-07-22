@@ -1,8 +1,8 @@
 {
   "migrationId": "2026-07-22-publication-pointer-v1",
-  "status": "NOT_APPLIED",
-  "lastVerifiedAt": null,
-  "inventoryDigest": null,
-  "unknownLegacyIdentityCount": null,
-  "deploymentBundle": "PREVIOUS_VERIFIED"
+  "status": "VERIFIED",
+  "lastVerifiedAt": "2026-07-22T20:24:28.5856307+05:30",
+  "inventoryDigest": "ccb5b99989e4dd417961097bf73c40fb7c05f5a1a6fbf7e0bd265dc2d3fe5a00",
+  "unknownLegacyIdentityCount": 7,
+  "deploymentBundle": "PUBLICATION_POINTER"
 }
