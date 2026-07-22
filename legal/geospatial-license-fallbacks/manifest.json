@@ -1,0 +1,27 @@
+{
+  "@nodable/entities@3.0.0": {
+    "file": "entities-3.0.0-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/nodable/val-parsers/d2070d76a8ba07e6c7fa142caeb51ffd756e47eb/LICENSE",
+    "sha256": "750cb3fb6362804957ef52caaf9b5c824015be44d494637330d7cd8834d31d40"
+  },
+  "draco3d@1.5.7": {
+    "file": "draco3d-1.5.7-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/google/draco/8786740086a9f4d83f44aa83badfbea4dce7a1b5/LICENSE",
+    "sha256": "8b4f88812b532b7f0dbb6090d0b28ccb941ae659a6c59e3deb7f9cd2dc9cf86a"
+  },
+  "isarray@1.0.0": {
+    "file": "isarray-1.0.0-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/juliangruber/isarray/2a23a281f369e9ae06394c0fb4d2381355a6ba33/README.md",
+    "sha256": "c355429bbdca68ca754a209b3064045b0844244de96768eb6596af8f2b850c40"
+  },
+  "murmurhash-js@1.0.0": {
+    "file": "murmurhash-js-1.0.0-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/mikolalysenko/murmurhash-js/72aabce3f52cb8f16245692a69fd35951e165af0/README.md",
+    "sha256": "a24f19e201627eb16f32fda7f2a65d948a176ac334b3ce422668f4d61210a7b9"
+  },
+  "pmtiles@4.4.1": {
+    "file": "pmtiles-4.4.1-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/protomaps/PMTiles/0cebcaeade40034b86facb6e7da4ec726b9053fb/LICENSE",
+    "sha256": "cfde195a6df9da83a7c21be5d4dd43668f81464ad524e421951216a5961d6fa6"
+  }
+}
