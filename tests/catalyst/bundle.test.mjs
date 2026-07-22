@@ -47,6 +47,7 @@ test('Catalyst Slate configuration is portable and builds the reviewed Vite app'
   assert.match(slateConfig, /framework = "react-vite"/u);
   assert.match(slateConfig, /build_command = "npm run build"/u);
   assert.match(slateConfig, /build_path = "dist"/u);
+  assert.match(readFileSync(path.join(repositoryRoot, 'web/index.html'), 'utf8'), /catalyst\/sdk\/js\/4\.6\.1\/catalystWebSDK\.js/u);
 });
 
 test('Function manifests lock the approved name, runtime, type and entry', () => {
