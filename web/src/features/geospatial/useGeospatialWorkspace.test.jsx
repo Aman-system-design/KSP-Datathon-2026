@@ -57,6 +57,19 @@ afterEach(() => {
 });
 
 describe('useGeospatialWorkspace', () => {
+  test('uses a neutral viewport unless organization configuration supplies one', async () => {
+    const first = apiHarness();
+    const neutral = renderHook(() => useGeospatialWorkspace({ api: first.api }));
+    expect(neutral.result.current.viewport).toEqual({ center: [0, 0], zoom: 1.3 });
+    neutral.unmount();
+
+    const configured = apiHarness();
+    const custom = renderHook(() => useGeospatialWorkspace({
+      api: configured.api, initialViewport: { center: [10, 20], zoom: 5 },
+    }));
+    expect(custom.result.current.viewport).toEqual({ center: [10, 20], zoom: 5 });
+  });
+
   test('loads governed datasets and saved views, then executes only a visible spatial layer', async () => {
     const unavailable = dataset({ id: 'alerts', name: 'Alerts', spatialStatus: 'GEOMETRY_NOT_AVAILABLE' });
     const view = { id: 'MAP-1', name: 'Operations', definition: { layers: [] } };

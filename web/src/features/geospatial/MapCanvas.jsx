@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { createDeckLayers } from './layer-adapters.js';
 import { OPENFREEMAP_ATTRIBUTION, OPENFREEMAP_STYLE_URL } from './map-style.js';
 
-const DEFAULT_CENTER = [77.5946, 12.9716];
+const DEFAULT_CENTER = [0, 0];
 const CAMERA_TOLERANCE = 1e-7;
 const PMTILES_STATE_KEY = Symbol.for('ksp.geospatial.pmtiles-protocol');
 
@@ -133,7 +133,7 @@ export function MapCanvas({
       container: containerRef.current,
       style: OPENFREEMAP_STYLE_URL,
       center: initialViewport?.center ?? DEFAULT_CENTER,
-      zoom: initialViewport?.zoom ?? 6,
+      zoom: initialViewport?.zoom ?? 1.3,
       attributionControl: { compact: false, customAttribution: OPENFREEMAP_ATTRIBUTION },
     };
     if (initialViewport?.bounds) {

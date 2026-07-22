@@ -8,11 +8,14 @@ afterEach(cleanup);
 const datasets = [
   {
     id: 'hotspots', name: 'Crime hotspots', description: 'Verified cluster centroids',
-    spatialStatus: 'AVAILABLE', geometryType: 'POINT', labelFields: ['id'],
+    spatialStatus: 'AVAILABLE', geometryType: 'POINT', labelFields: ['id'], sensitivity: 'RESTRICTED',
+    owner: 'Crime Analysis Wing', provenance: 'Verified intelligence analytics',
+    geometry: { longitudeField: 'longitude', latitudeField: 'latitude' }, timeField: 'observedAt',
     fields: {
       id: { type: 'string', uses: ['display', 'label'] },
       magnitude: { type: 'number', uses: ['display', 'weight', 'size'] },
       method: { type: 'string', uses: ['display'] },
+      observedAt: { type: 'datetime', uses: ['time'] },
     },
   },
   {
@@ -33,14 +36,20 @@ function featureResponse(datasetId) {
     data: {
       type: 'FeatureCollection', features: [{
         type: 'Feature', id, geometry: { type: 'Point', coordinates: [77.59, 12.97] },
-        properties: { id, magnitude: 8, method: 'DBSCAN' },
+      properties: { id, magnitude: 8, method: 'DBSCAN', confidence: 0.91, measure: 8, units: 'cases' },
       }],
     },
     meta: {
       requestId: `REQ-${id}`, runGroupId: 'RUN-VERIFIED-1', generatedAt: '2026-07-22T10:00:00.000Z',
       observationWindow: { from: '2026-07-01T00:00:00.000Z', to: '2026-07-22T00:00:00.000Z' },
       recordMethodVersion: 'DBSCAN-1.0', sourceRecordCount: 18,
+      publishedAt: '2026-07-22T09:55:00.000Z', modelOrMethod: 'DBSCAN',
+      parameterSet: { epsilonMetres: 500, minimumPoints: 4 }, qualityMetrics: { silhouette: 0.73 },
       limitations: ['REQUIRES_HUMAN_REVIEW'],
+      contributingRecords: [
+        { id: 'CASE-1', authorized: true, actions: [{ label: 'Open case', href: '/cases/CASE-1' }] },
+        { id: 'CASE-HIDDEN', authorized: false, actions: [{ label: 'Open hidden case', href: '/cases/CASE-HIDDEN' }] },
+      ],
     },
   };
 }
@@ -62,12 +71,13 @@ function harness() {
   return api;
 }
 
-function FakeMap({ layers, onFeatureSelect }) {
+function FakeMap({ layers, viewport, onFeatureSelect }) {
   return <section aria-label="Test map">
     <output data-testid="map-layers">{layers.map(input => `${input.layer.id}:${input.layer.renderer}`).join('|')}</output>
-    {layers.flatMap(input => input.featureCollection.features).map(feature => (
-      <button key={feature.id} type="button" onClick={() => onFeatureSelect({ id: feature.id, properties: feature.properties })}>
-        Select {feature.id}
+    <output data-testid="map-viewport">{JSON.stringify(viewport)}</output>
+    {layers.flatMap(input => input.featureCollection.features.map(feature => ({ input, feature }))).map(({ input, feature }) => (
+      <button key={`${input.layer.id}:${feature.id}`} type="button" onClick={() => onFeatureSelect({ layerId: input.layer.id, id: feature.id, properties: { id: feature.id } })}>
+        Select {input.layer.id} feature {feature.id}
       </button>
     ))}
   </section>;
@@ -118,28 +128,49 @@ test('visibility and keyboard ordering control renderer input', async () => {
 test('inspector applies a compatible renderer only after confirmation', async () => {
   await addDataset('Crime hotspots');
   await waitFor(() => expect(screen.getByTestId('map-layers')).toHaveTextContent('POINT'));
-  fireEvent.click(screen.getByRole('button', { name: 'Configure Crime hotspots' }));
+  const trigger = screen.getByRole('button', { name: 'Configure Crime hotspots' });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const inspector = screen.getByRole('dialog', { name: 'Configure Crime hotspots' });
+  expect(within(inspector).getByText('Verified intelligence analytics')).toBeInTheDocument();
+  expect(within(inspector).getByText('Crime Analysis Wing')).toBeInTheDocument();
+  expect(within(inspector).getByText('RESTRICTED')).toBeInTheDocument();
+  expect(within(inspector).getByRole('heading', { name: 'Geometry' })).toBeInTheDocument();
+  expect(within(inspector).getByRole('heading', { name: 'Interaction' })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('combobox', { name: 'Renderer' }), { target: { value: 'HEATMAP' } });
   expect(screen.getByTestId('map-layers')).toHaveTextContent('POINT');
   expect(screen.queryByRole('option', { name: 'PATH' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Apply layer configuration' }));
   await waitFor(() => expect(screen.getByTestId('map-layers')).toHaveTextContent('HEATMAP'));
+  fireEvent.keyDown(inspector, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Configure Crime hotspots' })).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
 });
 
 test('feature selection opens titled evidence and the accessible table contains the same authorized feature', async () => {
   await addDataset('Crime hotspots');
-  fireEvent.click(await screen.findByRole('button', { name: 'Select HOT-1' }));
+  const featureTrigger = await screen.findByRole('button', { name: 'Select hotspots-1 feature HOT-1' });
+  featureTrigger.focus();
+  fireEvent.click(featureTrigger);
 
-  const evidence = screen.getByRole('complementary', { name: 'Evidence for HOT-1' });
+  const evidence = screen.getByRole('dialog', { name: 'Evidence for HOT-1' });
   expect(within(evidence).getByRole('heading', { name: 'Evidence for HOT-1' })).toBeInTheDocument();
   expect(within(evidence).getByText('RUN-VERIFIED-1')).toBeInTheDocument();
   expect(within(evidence).getByText('DBSCAN-1.0')).toBeInTheDocument();
   expect(within(evidence).getByText('REQUIRES_HUMAN_REVIEW')).toBeInTheDocument();
   expect(within(evidence).getAllByText(/22 Jul 2026/i).length).toBeGreaterThan(0);
+  expect(within(evidence).getAllByText('8').length).toBeGreaterThan(0);
+  expect(within(evidence).getAllByText('cases').length).toBeGreaterThan(0);
+  expect(within(evidence).getByText('Verified intelligence analytics')).toBeInTheDocument();
+  expect(within(evidence).getByRole('link', { name: 'Open case' })).toHaveAttribute('href', '/cases/CASE-1');
+  expect(within(evidence).queryByText('CASE-HIDDEN')).not.toBeInTheDocument();
 
   const table = screen.getByRole('table', { name: 'Visible authorized map features' });
   expect(within(table).getByRole('cell', { name: 'HOT-1' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Close evidence' })).toBeInTheDocument();
+  fireEvent.keyDown(evidence, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Evidence for HOT-1' })).not.toBeInTheDocument();
+  expect(featureTrigger).toHaveFocus();
 });
 
 test('saves a normalized view definition without client supplied organization or role authority', async () => {
@@ -169,4 +200,58 @@ test('provides an accessible layer-panel toggle for constrained workspaces', asy
   fireEvent.click(toggle);
   expect(studio).not.toHaveClass('is-layer-panel-open');
   expect(toggle).toHaveAccessibleName('Show map configuration');
+});
+
+test('uses tenant configuration, functional workspace search and time range without KSP defaults', async () => {
+  const api = harness();
+  render(<GeospatialStudio
+    api={api} MapComponent={FakeMap}
+    organizationConfig={{
+      defaultViewport: { center: [10, 20], zoom: 5 }, jurisdictionLabel: 'Northern Region',
+      locale: 'en-GB', timezone: 'Europe/London',
+    }}
+    clock={() => new Date('2026-07-22T12:00:00.000Z')}
+  />);
+  await screen.findByRole('heading', { name: 'Datasets' });
+  expect(screen.getByTestId('map-viewport')).toHaveTextContent('"center":[10,20]');
+  expect(screen.getByRole('combobox', { name: 'Jurisdiction' })).toBeDisabled();
+  expect(screen.getByRole('option', { name: 'Northern Region' })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search workspace' }), { target: { value: 'patrol' } });
+  expect(screen.getByText('Patrol observations')).toBeInTheDocument();
+  expect(screen.queryByText('Crime hotspots')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search workspace' }), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add Crime hotspots' }));
+  await waitFor(() => expect(screen.getByTestId('map-layers')).toHaveTextContent('hotspots-1'));
+  const timeRange = screen.getByRole('combobox', { name: 'Time range' });
+  expect(timeRange).toBeEnabled();
+  fireEvent.change(timeRange, { target: { value: 'LAST_30_DAYS' } });
+  await waitFor(() => {
+    const executions = api.post.mock.calls.filter(([path]) => path === '/v1/geospatial/layers/execute');
+    expect(executions.at(-1)[1].runtime.timeWindow).toEqual({
+      from: '2026-06-22T12:00:00.000Z', to: '2026-07-22T12:00:00.000Z',
+    });
+  });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Map view name' }), { target: { value: 'Timed view' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save map view' }));
+  await screen.findByText('Map view saved.');
+  const [, saved] = api.post.mock.calls.find(([path]) => path === '/v1/geospatial/views');
+  expect(saved.definition.timeWindow).toEqual({
+    from: '2026-06-22T12:00:00.000Z', to: '2026-07-22T12:00:00.000Z',
+  });
+});
+
+test('desktop panel separators resize with keyboard and pointer within declared bounds', async () => {
+  render(<GeospatialStudio api={harness()} MapComponent={FakeMap} />);
+  await screen.findByRole('heading', { name: 'Datasets' });
+  const left = screen.getByRole('separator', { name: 'Resize layer panel' });
+  const before = Number(left.getAttribute('aria-valuenow'));
+  fireEvent.keyDown(left, { key: 'ArrowRight' });
+  expect(Number(left.getAttribute('aria-valuenow'))).toBe(before + 10);
+  fireEvent.keyDown(left, { key: 'Home' });
+  expect(left).toHaveAttribute('aria-valuenow', '260');
+  fireEvent.pointerDown(left, { clientX: 100, pointerId: 1 });
+  fireEvent.pointerMove(left, { clientX: 130, pointerId: 1 });
+  fireEvent.pointerUp(left, { pointerId: 1 });
+  expect(left).toHaveAttribute('aria-valuenow', '290');
 });

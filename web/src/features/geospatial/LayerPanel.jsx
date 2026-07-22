@@ -12,8 +12,11 @@ function LayerState({ layer }) {
 export function LayerPanel({
   datasets, savedViews, layers, catalogStatus, catalogError,
   onAddDataset, onOpenView, onToggle, onMove, onConfigure, onRetry, onRemove,
+  query: controlledQuery, onQueryChange,
 }) {
-  const [query, setQuery] = useState('');
+  const [localQuery, setLocalQuery] = useState('');
+  const query = controlledQuery ?? localQuery;
+  const setQuery = onQueryChange ?? setLocalQuery;
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matchingDatasets = useMemo(() => datasets.filter(dataset => (
     !normalizedQuery || `${dataset.name} ${dataset.description ?? ''}`.toLocaleLowerCase().includes(normalizedQuery)
@@ -25,7 +28,9 @@ export function LayerPanel({
       <div className="geospatial-section-heading"><h2>Saved views</h2></div>
       {savedViews.length === 0
         ? <p className="geospatial-muted">No saved views in your authorized workspace.</p>
-        : <ul className="geospatial-view-list">{savedViews.map(view => <li key={view.id}>
+        : <ul className="geospatial-view-list">{savedViews.filter(view => (
+          !normalizedQuery || view.name.toLocaleLowerCase().includes(normalizedQuery)
+        )).map(view => <li key={view.id}>
           <button type="button" onClick={() => onOpenView(view)}>{view.name}</button>
           <span>{view.visibility}</span>
         </li>)}</ul>}

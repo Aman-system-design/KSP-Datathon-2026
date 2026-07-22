@@ -8,6 +8,7 @@ export const LAYER_STATES = Object.freeze([
 const EMPTY_COLLECTION = Object.freeze({ type: 'FeatureCollection', features: Object.freeze([]) });
 const UNAUTHORIZED_CODES = new Set(['FORBIDDEN_ACTION', 'UNAUTHENTICATED', 'UNAUTHORIZED']);
 const defaultIdFactory = () => `MAP-${crypto.randomUUID()}`;
+const NEUTRAL_VIEWPORT = Object.freeze({ center: Object.freeze([0, 0]), zoom: 1.3 });
 
 function messageOf(error) {
   return typeof error?.message === 'string' && error.message ? error.message : 'The layer could not be refreshed.';
@@ -35,7 +36,7 @@ function nextStateFor(collection) {
 }
 
 export function useGeospatialWorkspace({
-  api, pollIntervalMs = 60_000, idFactory = defaultIdFactory,
+  api, pollIntervalMs = 60_000, idFactory = defaultIdFactory, initialViewport = NEUTRAL_VIEWPORT,
 } = {}) {
   if (!api || typeof api.get !== 'function' || typeof api.post !== 'function') {
     throw new TypeError('A geospatial API client is required');
@@ -45,7 +46,8 @@ export function useGeospatialWorkspace({
   const [catalogStatus, setCatalogStatus] = useState('LOADING');
   const [catalogError, setCatalogError] = useState(null);
   const [layers, setLayers] = useState([]);
-  const [viewport, setViewportState] = useState({ center: [77.5946, 12.9716], zoom: 6 });
+  const initialViewportRef = useRef(structuredClone(initialViewport));
+  const [viewport, setViewportState] = useState(() => structuredClone(initialViewportRef.current));
   const [timeWindow, setTimeWindow] = useState(null);
   const [selectedLayerId, setSelectedLayerId] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -270,7 +272,7 @@ export function useGeospatialWorkspace({
     generations.current.clear();
     layerSequence.current = loaded.length;
     setLayers(loaded);
-    setViewportState(definition.viewport ?? { center: [77.5946, 12.9716], zoom: 6 });
+    setViewportState(structuredClone(definition.viewport ?? initialViewportRef.current));
     setTimeWindow(definition.timeWindow ?? null);
     setSelectedLayerId(loaded[0]?.id ?? null);
     setSelectedFeature(null);

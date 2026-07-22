@@ -160,7 +160,7 @@ test('uses current callbacks without recreating map subscriptions', () => {
   pointLayer.onClick({ object: featureCollection().features[0] });
 
   expect(first).not.toHaveBeenCalled();
-  expect(second).toHaveBeenCalledWith({ id: 'HOT-1', properties: {} });
+  expect(second).toHaveBeenCalledWith({ layerId: 'hotspots', id: 'HOT-1', properties: { area: 'Central' } });
   expect(map.on).toHaveBeenCalledTimes(3);
 });
 

@@ -26,19 +26,18 @@ function pointPosition(feature) {
   return [longitude, latitude];
 }
 
-function safeSelection(feature, tooltipFields = []) {
+function safeSelection(feature, layerId) {
   if (!feature) return null;
   const id = feature.id ?? feature.properties?.id;
   if (id === undefined || id === null) return null;
-  const properties = Object.fromEntries(tooltipFields
-    .filter(field => Object.hasOwn(feature.properties ?? {}, field))
-    .map(field => [field, feature.properties[field]]));
-  return { id, properties };
+  const properties = feature.properties && typeof feature.properties === 'object'
+    ? structuredClone(feature.properties) : {};
+  return { layerId, id, properties };
 }
 
-function clickHandler(onFeatureSelect, tooltipFields) {
+function clickHandler(onFeatureSelect, layerId) {
   return ({ object } = {}) => {
-    const selection = safeSelection(object, tooltipFields);
+    const selection = safeSelection(object, layerId);
     if (selection && typeof onFeatureSelect === 'function') onFeatureSelect(selection);
   };
 }
@@ -48,7 +47,7 @@ function weightAccessor(field) {
   return feature => Number.isFinite(feature?.properties?.[field]) ? feature.properties[field] : 0;
 }
 
-function pointSpec(layer, data, onFeatureSelect) {
+function pointSpec(layer, data, onFeatureSelect, selectionLayerId = layer.id) {
   return {
     kind: 'ScatterplotLayer',
     id: `${layer.id}:points`,
@@ -60,7 +59,7 @@ function pointSpec(layer, data, onFeatureSelect) {
       : 6,
     radiusMinPixels: 3,
     getFillColor: POINT_COLOR,
-    onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
+    onClick: clickHandler(onFeatureSelect, selectionLayerId),
   };
 }
 
@@ -149,7 +148,7 @@ function clusterSpecs(layer, data, viewport, onFeatureSelect) {
     return aggregate;
   });
   const labels = clusters.filter(feature => aggregateFeatures.has(feature));
-  const scatter = pointSpec({ ...layer, id: `${layer.id}:cluster` }, clusters, onFeatureSelect);
+  const scatter = pointSpec({ ...layer, id: `${layer.id}:cluster` }, clusters, onFeatureSelect, layer.id);
   scatter.id = `${layer.id}:cluster-points`;
   const selectLeaf = scatter.onClick;
   scatter.onClick = info => {
@@ -181,7 +180,7 @@ function h3Spec(layer, data, onFeatureSelect) {
     getHexagon,
     getFillColor: POLYGON_COLOR,
     getElevation: weightAccessor(layer.weightField),
-    onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
+    onClick: clickHandler(onFeatureSelect, layer.id),
   };
 }
 
@@ -225,7 +224,7 @@ function choroplethSpec(layer, data, onFeatureSelect) {
     stroked: true,
     getFillColor: POLYGON_COLOR,
     getLineColor: [16, 78, 139, 255],
-    onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
+    onClick: clickHandler(onFeatureSelect, layer.id),
   };
 }
 
@@ -246,7 +245,7 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
       getPosition: pointPosition,
       getWeight: weightAccessor(layer.weightField),
       pickable: true,
-      onClick: clickHandler(onFeatureSelect, layer.tooltipFields),
+      onClick: clickHandler(onFeatureSelect, layer.id),
     }];
   }
   if (layer.renderer === 'H3') return [h3Spec(layer, features, onFeatureSelect)];

@@ -11,7 +11,7 @@ const point = (id, longitude, latitude, properties = {}) => ({
 
 const collection = (...features) => ({ type: 'FeatureCollection', features });
 
-test('POINT uses GeoJSON longitude-latitude coordinates and emits a safe selection', () => {
+test('POINT emits layer-scoped selection with the full authorized server projection', () => {
   const onFeatureSelect = vi.fn();
   const feature = point('HOT-1', 77.5949, 12.9718, { area: 'Central', caseCount: 6 });
   const [spec] = buildDeckLayerSpecs({
@@ -25,8 +25,9 @@ test('POINT uses GeoJSON longitude-latitude coordinates and emits a safe selecti
   expect(spec.getPosition(feature)).toEqual([77.5949, 12.9718]);
   spec.onClick({ object: feature });
   expect(onFeatureSelect).toHaveBeenCalledWith({
+    layerId: 'hotspots',
     id: 'HOT-1',
-    properties: { area: 'Central' },
+    properties: { area: 'Central', caseCount: 6 },
   });
   expect(onFeatureSelect.mock.calls[0][0]).not.toHaveProperty('geometry');
 });
@@ -133,7 +134,7 @@ test('CLUSTER aggregate marks are not evidence selections while leaf points rema
     onFeatureSelect,
   }).find(spec => spec.kind === 'ScatterplotLayer');
   leaf.onClick({ object: leaf.data[0] });
-  expect(onFeatureSelect).toHaveBeenCalledWith({ id: 'A', properties: { label: 'A' } });
+  expect(onFeatureSelect).toHaveBeenCalledWith({ layerId: 'clustered', id: 'A', properties: { label: 'A' } });
 });
 
 test('CLUSTER isolates Supercluster metadata from colliding leaf properties', () => {
@@ -143,7 +144,7 @@ test('CLUSTER isolates Supercluster metadata from colliding leaf properties', ()
     cluster_id: 999,
     point_count: 42,
     label: 'Source leaf',
-    secret: 'not approved',
+    evidenceCode: 'AUTHORIZED-EVIDENCE',
   });
   const scatter = buildDeckLayerSpecs({
     layer: { id: 'clustered', renderer: 'CLUSTER', tooltipFields: ['cluster', 'label'] },
@@ -155,10 +156,10 @@ test('CLUSTER isolates Supercluster metadata from colliding leaf properties', ()
   scatter.onClick({ object: scatter.data[0] });
 
   expect(onFeatureSelect).toHaveBeenCalledWith({
+    layerId: 'clustered',
     id: 'LEAF-1',
-    properties: { cluster: true, label: 'Source leaf' },
+    properties: { cluster: true, cluster_id: 999, point_count: 42, label: 'Source leaf', evidenceCode: 'AUTHORIZED-EVIDENCE' },
   });
-  expect(onFeatureSelect.mock.calls[0][0].properties).not.toHaveProperty('secret');
 });
 
 test('CLUSTER derives a bounded non-world query for a single point', () => {
