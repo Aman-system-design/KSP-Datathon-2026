@@ -967,7 +967,7 @@ Expected: exact match for all required tables, columns, types, indexes, and look
 
 - [ ] **Step 5: Deploy Functions and Slate to Development**
 
-Deploy only the verified build to project `43492000000013049`. Keep Production untouched. Smoke test authenticated dataset catalog, hotspot layer execution, private view create/update, Studio loading, evidence drawer, report/dashboard embedding, persona denial, and refresh/freshness behavior on the `akspci.onslate.in` Development deployment.
+Deploy only the verified build to project `43492000000013049`. Keep Production untouched. Smoke test authenticated dataset catalog, hotspot layer execution, private view create/update, Studio loading, evidence drawer, report/dashboard embedding, persona denial, and refresh/freshness behavior on the `aiksp.onslate.in` Development deployment.
 
 - [ ] **Step 6: Record reproducible evidence**
 

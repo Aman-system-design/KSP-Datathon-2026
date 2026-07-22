@@ -38,3 +38,35 @@ test('workspace with unavailable governed results renders an honest partial stat
   expect(screen.getByText(/some intelligence services are unavailable/i)).toBeInTheDocument();
   expect(screen.queryByText(/0 alerts/i)).not.toBeInTheDocument();
 });
+
+test('district leadership receives a jurisdiction decision flow, not the generic platform home', () => {
+  render(<MemoryRouter><PersonaWorkspace role="DISTRICT_LEADERSHIP" data={data} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Jurisdiction Intelligence Pulse' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'What changed' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Operational ownership' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open district map' })).toHaveAttribute('href', '/geospatial');
+});
+
+test('station operations receives local action and hotspot context', () => {
+  render(<MemoryRouter><PersonaWorkspace role="STATION_OPERATIONS" data={data} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Local attention queue' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Station hotspot context' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open local alerts' })).toHaveAttribute('href', '/alerts');
+});
+
+test('investigator receives an assignment-first verification workspace', () => {
+  render(<MemoryRouter><PersonaWorkspace role="INVESTIGATOR" data={data} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Assigned verification' })).toBeInTheDocument();
+  expect(screen.getByText(/system signal/i)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Review assigned evidence' })).toHaveAttribute('href', '/alerts');
+});
+
+test('governance roles expose their real governed destinations', () => {
+  const { rerender } = render(<MemoryRouter><PersonaWorkspace role="PLATFORM_ADMIN" data={{}} /></MemoryRouter>);
+  expect(screen.getByRole('link', { name: 'Inspect intelligence runs' })).toHaveAttribute('href', '/admin/intelligence-runs');
+  expect(screen.getByRole('link', { name: 'Review persona workspaces' })).toHaveAttribute('href', '/admin/personas');
+
+  rerender(<MemoryRouter><PersonaWorkspace role="AUDITOR" data={{}} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Audit Console' })).toBeInTheDocument();
+  expect(screen.getByText(/read-only traceability/i)).toBeInTheDocument();
+});

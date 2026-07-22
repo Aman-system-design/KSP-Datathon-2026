@@ -9,5 +9,5 @@
   "permissionVersion": "1.0.0",
   "apiFunction": "crime_intelligence_api",
   "refreshFunction": "intelligence_refresh",
-  "deploymentBranch": "codex/intelligence-workspaces"
+  "deploymentBranch": "codex/geospatial-studio-core"
 }

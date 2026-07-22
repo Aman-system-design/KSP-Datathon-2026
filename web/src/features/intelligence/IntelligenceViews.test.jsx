@@ -19,4 +19,7 @@ test('leadership workspace prioritizes explainable crime intelligence over gener
   expect(screen.getByText(/6 contributing cases/i)).toBeInTheDocument();
   expect(screen.queryByText('18 linked cases')).not.toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /inspect evidence/i }).length).toBeGreaterThan(0);
+  expect(screen.getByRole('heading', { name: 'Prioritized developments' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Why this needs attention' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Ownership and action' })).toBeInTheDocument();
 });

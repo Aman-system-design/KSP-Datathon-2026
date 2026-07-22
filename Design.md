@@ -34,7 +34,7 @@ Never rely on color alone. Pair state colors with labels, icons, shapes, or patt
 
 ## Typography and Shape
 
-- Primary family: `Inter`, with system sans-serif fallback.
+- Primary family: self-hosted `Roboto`, with system sans-serif fallback. This matches the approved Government of Karnataka / enterprise application reference without relying on a runtime font CDN.
 - Kannada fallback: `Noto Sans Kannada`.
 - Use tabular numerals for counts, dates, percentages, and scores.
 - Page title: 28/34px, 650 weight; section title: 20/28px, 650; body: 14/21px; metadata: 12/18px.
