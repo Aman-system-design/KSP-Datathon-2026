@@ -11,7 +11,7 @@ const schema = JSON.parse(await readFile(
 
 const expectedTables = [
   'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
-  'CFG_ContentShare', 'CFG_UserPreference',
+  'CFG_ContentShare', 'CFG_UserPreference', 'CFG_MapView', 'CFG_MapViewVersion',
   'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
@@ -20,9 +20,40 @@ const expectedTables = [
   'WF_Outcome', 'WF_AuditEvent', 'WF_AlertNote', 'WF_Escalation',
 ];
 
-test('manifest defines the exact production-shaped 29-table backend boundary', () => {
+test('manifest defines the exact production-shaped 31-table backend boundary', () => {
   assert.deepEqual(schema.tables.map(({ name }) => name), expectedTables);
   assert.deepEqual(validateIntelligenceSchema(schema), []);
+});
+
+test('map views have scoped identity and immutable version storage', () => {
+  const assertTable = (tableName, required) => {
+    const table = schema.tables.find(({ name }) => name === tableName);
+    assert.ok(table, `${tableName} missing`);
+    for (const field of required) {
+      assert.ok(table.columns.some(({ name }) => name === field), `${tableName} missing ${field}`);
+    }
+    return table;
+  };
+  const mapView = assertTable('CFG_MapView', [
+    'MapViewID', 'OrganizationID', 'Name', 'OwnerEmployeeID', 'Visibility',
+    'CurrentVersion', 'Status', 'CreatedAt', 'UpdatedAt',
+  ]);
+  const version = assertTable('CFG_MapViewVersion', [
+    'MapViewVersionKey', 'MapViewRef', 'MapViewID', 'OrganizationID', 'Version',
+    'DefinitionJSON', 'DefinitionHash', 'PublishedAt', 'CreatedByEmployeeID', 'CreatedAt',
+  ]);
+  assert.equal(mapView.columns.find(({ name }) => name === 'MapViewID').unique, true);
+  assert.equal(mapView.columns.find(({ name }) => name === 'OrganizationID').indexed, true);
+  assert.equal(mapView.columns.find(({ name }) => name === 'OwnerEmployeeID').indexed, true);
+  assert.equal(mapView.columns.find(({ name }) => name === 'Visibility').indexed, true);
+  assert.equal(version.columns.find(({ name }) => name === 'MapViewVersionKey').unique, true);
+  assert.deepEqual(
+    version.columns.find(({ name }) => name === 'MapViewRef'),
+    { name: 'MapViewRef', origin: 'SYSTEM', type: 'foreign_key', parentTable: 'CFG_MapView', mandatory: true, onDelete: 'NULL' },
+  );
+  assert.equal(version.columns.find(({ name }) => name === 'DefinitionJSON').type, 'text');
+  assert.equal(version.columns.find(({ name }) => name === 'DefinitionHash').maxLength, 64);
+  assert.equal(version.columns.find(({ name }) => name === 'PublishedAt').mandatory, false);
 });
 
 test('run requests preserve durable job identity, status and safe failure details', () => {

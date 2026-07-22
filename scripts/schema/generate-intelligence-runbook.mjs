@@ -70,7 +70,7 @@ export function generateIntelligenceRunbook(schema) {
     '',
     '## Post-creation verification checklist',
     '',
-    '- [ ] Confirm all 19 application tables exist in Catalyst Development.',
+    `- [ ] Confirm all ${tables.length} application tables exist in Catalyst Development.`,
     '- [ ] Confirm each native column matches type, length, Mandatory, Unique, Search index, and PII/ePHI settings above.',
     '- [ ] Confirm every Foreign Key points to parent `ROWID` with On Delete = Null.',
     '- [ ] Confirm `INT_AreaRisk` contains no person, accused, or offender field.',

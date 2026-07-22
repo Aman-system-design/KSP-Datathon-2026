@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 
 const expectedTables = [
   'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
-  'CFG_ContentShare', 'CFG_UserPreference',
+  'CFG_ContentShare', 'CFG_UserPreference', 'CFG_MapView', 'CFG_MapViewVersion',
   'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
@@ -23,7 +23,7 @@ export function validateIntelligenceSchema(schema) {
   const known = new Set(names);
 
   if (JSON.stringify(names) !== JSON.stringify(expectedTables)) {
-    errors.push('manifest must define the exact ordered 29-table backend boundary');
+    errors.push('manifest must define the exact ordered 31-table backend boundary');
   }
 
   for (const duplicate of new Set(names.filter((name, index) => names.indexOf(name) !== index))) {
@@ -115,6 +115,29 @@ export function validateIntelligenceSchema(schema) {
     errors.push('CFG_UserAccess.CatalystUserID must be unique');
   }
 
+  const mapViewColumns = requireColumns('CFG_MapView', [
+    'MapViewID', 'OrganizationID', 'Name', 'OwnerEmployeeID', 'Visibility',
+    'CurrentVersion', 'Status', 'CreatedAt', 'UpdatedAt', 'SyntheticData',
+  ]);
+  for (const name of ['OrganizationID', 'OwnerEmployeeID', 'Visibility']) {
+    if (mapViewColumns.find(column => column.name === name)?.indexed !== true) {
+      errors.push(`CFG_MapView.${name} must be indexed`);
+    }
+  }
+  const mapVersionColumns = requireColumns('CFG_MapViewVersion', [
+    'MapViewVersionKey', 'MapViewRef', 'MapViewID', 'OrganizationID', 'Version',
+    'DefinitionJSON', 'DefinitionHash', 'PublishedAt', 'CreatedByEmployeeID',
+    'CreatedAt', 'SyntheticData',
+  ]);
+  const mapViewRef = mapVersionColumns.find(({ name }) => name === 'MapViewRef');
+  if (mapViewRef && (mapViewRef.parentTable !== 'CFG_MapView' || mapViewRef.mandatory !== true)) {
+    errors.push('CFG_MapViewVersion.MapViewRef must be a mandatory CFG_MapView lookup');
+  }
+  const definitionHash = mapVersionColumns.find(({ name }) => name === 'DefinitionHash');
+  if (definitionHash && (definitionHash.type !== 'varchar' || definitionHash.maxLength !== 64)) {
+    errors.push('CFG_MapViewVersion.DefinitionHash must be a 64-character varchar');
+  }
+
   requireColumns('WF_Command', [
     'CommandID', 'IdempotencyKeyHash', 'RequestHash', 'AlertRef',
     'ActorCatalystUserID', 'EffectiveRole', 'CommandType', 'ExpectedAlertState',
@@ -173,7 +196,7 @@ async function runCli() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS: 29 Catalyst backend tables are valid.');
+  console.log('PASS: 31 Catalyst backend tables are valid.');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
