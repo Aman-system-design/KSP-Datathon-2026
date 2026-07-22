@@ -134,12 +134,19 @@ test('API composition persists and reads an audited organization-scoped map view
   assert.equal(updated.status, 200);
   const loaded = await application({ method: 'GET', url: '/v1/geospatial/views/MAP-1', headers: {}, body: null });
   assert.equal(loaded.status, 200);
+  assert.equal('auditDetails' in loaded.body, false);
   assert.equal(loaded.body.data.ownerEmployeeId, 9001);
   assert.equal(loaded.body.data.version, 2);
   const events = await repository.listAuditEvents();
   const changes = events.filter(event => event.EventType === 'CONFIGURATION_CHANGED');
   assert.equal(changes.length, 2);
   assert.equal(events.at(-1).EventType, 'SENSITIVE_READ');
+  const readPayload = JSON.parse(events.at(-1).EventPayloadJSON);
+  assert.equal(readPayload.requestId, loaded.body.meta.requestId);
+  assert.equal(readPayload.resource.MapViewID, 'MAP-1');
+  assert.equal(readPayload.resource.Version, 2);
+  assert.match(readPayload.resource.DefinitionHash, /^[a-f0-9]{64}$/u);
+  assert.doesNotMatch(events.at(-1).EventPayloadJSON, /Updated hotspots|DefinitionJSON|"layers"/u);
   for (const [index, change] of changes.entries()) {
     const payload = JSON.parse(change.EventPayloadJSON);
     assert.equal(payload.requestId, [created, updated][index].body.meta.requestId);

@@ -117,7 +117,10 @@ export function createMapViewService({ repository, clock }) {
     const definition = await currentDefinition(repository, row, access.organizationId);
     if (hidePrivate && !visibleTo(row, definition, access)) fail('NOT_FOUND');
     requireDatasetActions(access, definition);
-    return response(row, definition, requestId);
+    return response(row, definition, requestId, {
+      MapViewID: row.MapViewID, Version: definition.version,
+      DefinitionHash: serialized(definition).hash,
+    });
   };
 
   return Object.freeze({

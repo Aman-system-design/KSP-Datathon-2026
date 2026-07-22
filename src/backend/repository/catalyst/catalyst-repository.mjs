@@ -583,8 +583,7 @@ export class CatalystIntelligenceRepository {
         this.getMapViewVersion(mapViewId, intendedVersion.Version, organizationId),
       ]);
       const sameVersion = sameMapVersion(stored, prepareCatalystRow(TABLES.mapViewVersions, intendedVersion));
-      if (sameVersion && current?.CurrentVersion === expectedVersion + 1 && current?.UpdatedAt === updatedAt
-        && current?.Name === summary.name && current?.Visibility === summary.visibility) return current;
+      if (sameVersion && current?.CurrentVersion >= expectedVersion + 1) return committed();
       if (!sameVersion || current?.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
       throw sanitizeCatalystSdkError(error, { operation: 'MAP_VIEW_COMPARE_AND_SWAP' });
     }

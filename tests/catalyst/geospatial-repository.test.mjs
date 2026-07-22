@@ -6,7 +6,7 @@ import { CatalystIntelligenceRepository } from '../../src/backend/repository/cat
 
 function fakeApplication({
   failBeforeInsert, failAfterInsert, failBeforeCas = false, failAfterCas = false,
-  advanceAfterCas = false, ambiguousCas = false,
+  advanceAfterCas = false, advanceBeforeCasFailure = false, ambiguousCas = false,
 } = {}) {
   const tables = new Map();
   let nextRowId = 1000;
@@ -48,7 +48,10 @@ function fakeApplication({
         row.Name = escapedName.replaceAll("''", "'"); row.Visibility = visibility;
         row.CurrentVersion = Number(currentVersion); row.UpdatedAt = updatedAt;
       }
-      if (failAfterCas && injected('after:cas')) throw unavailable();
+      if (failAfterCas && injected('after:cas')) {
+        if (row && advanceBeforeCasFailure) row.CurrentVersion += 1;
+        throw unavailable();
+      }
       if (row && advanceAfterCas) row.CurrentVersion += 1;
       return [ambiguousCas ? {} : { affected_rows: row ? 1 : 0 }];
     },
@@ -314,6 +317,18 @@ test('reconciles CAS commit-then-throw and allows retry after pre-commit failure
   assert.equal((await retryableRepository.updateMapView({
     mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1, nextVersion: next,
   })).CurrentVersion, 2);
+});
+
+test('commit-then-throw reconciles exact v2 after a concurrent v3 advance', async () => {
+  const fake = fakeApplication({ failAfterCas: true, advanceBeforeCasFailure: true });
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createMapView({ mapView: mapView(), version: version() });
+  const result = await repository.updateMapView({
+    mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 1,
+    nextVersion: version(2, { CreatedAt: '2026-07-22T11:00:00Z' }),
+  });
+  assert.equal(result.CurrentVersion, 2);
+  assert.equal(fake.tables.get('CFG_MapView')[0].CurrentVersion, 3);
 });
 
 test('compares canonical employee IDs without precision loss', async () => {
