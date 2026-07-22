@@ -74,6 +74,12 @@ const positiveVersion = (value, name) => {
   if (!Number.isSafeInteger(value) || value < 1) throw new TypeError(`${name} must be a positive safe integer.`);
   return value;
 };
+const expectedVersionNumber = value => {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError('expectedVersion must be a non-negative safe integer.');
+  }
+  return value;
+};
 const safeId = (value, name, maxLength = 128) => {
   if (typeof value !== 'string' || value.length > maxLength || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(value)) {
     throw new TypeError(`${name} is invalid.`);
@@ -483,7 +489,7 @@ export class CatalystIntelligenceRepository {
   async updateMapView({ mapViewId, organizationId, expectedVersion, nextVersion }) {
     safeId(mapViewId, 'mapViewId', 64);
     safeId(organizationId, 'organizationId', 64);
-    positiveVersion(expectedVersion, 'expectedVersion');
+    expectedVersionNumber(expectedVersion);
     const row = (await this.#read(TABLES.mapViews)).find(item => item.MapViewID === mapViewId
       && item.OrganizationID === organizationId);
     if (!row) return undefined;

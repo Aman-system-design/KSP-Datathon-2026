@@ -111,7 +111,7 @@ test('reports stale updates and never advances the pointer when CAS loses', asyn
   await repository.createMapView({ mapView: mapView(), version: version() });
   await assert.rejects(repository.updateMapView({
     mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: 0, nextVersion: version(2),
-  }), TypeError);
+  }), { code: 'VERSION_CONFLICT' });
   assert.equal(fake.tables.get('CFG_MapViewVersion').length, 1);
 
   fake.tables.get('CFG_MapView')[0].CurrentVersion = 2;
@@ -126,7 +126,7 @@ test('reports stale updates and never advances the pointer when CAS loses', asyn
 test('rejects invalid expected versions before constructing a CAS query', async () => {
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication().application });
   await repository.createMapView({ mapView: mapView(), version: version() });
-  for (const invalid of [-1, 0, 1.5, '1', Number.MAX_SAFE_INTEGER + 1]) {
+  for (const invalid of [-1, 1.5, '1', Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(repository.updateMapView({
       mapViewId: 'MAP-1', organizationId: 'ORG-KSP', expectedVersion: invalid,
       nextVersion: version(2),
