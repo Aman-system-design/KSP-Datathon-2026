@@ -33,9 +33,25 @@ test('compiles deterministic, deeply frozen execution input with required fields
     },
   };
   const first = compileLayerExecution(input);
-  const second = compileLayerExecution(structuredClone(input));
+  const second = compileLayerExecution({
+    runtime: {
+      limit: 9000,
+      timeWindow: { to: '2026-07-22T00:00:00.000Z', from: '2026-07-01T00:00:00.000Z' },
+      viewport: { bounds: [77, 12, 78, 13] },
+    },
+    layer: {
+      filter: { severity: { $gte: 2 } },
+      weightField: 'caseCount', renderer: 'HEATMAP', datasetId: 'hotspots', id: 'layer-1',
+    },
+    dataset: {
+      ...dataset,
+      fields: Object.fromEntries(Object.entries(dataset.fields).reverse()),
+      geometry: { latitudeField: 'latitude', longitudeField: 'longitude' },
+    },
+  });
 
   assert.deepEqual(first, second);
+  assert.equal(JSON.stringify(first), JSON.stringify(second));
   assert.deepEqual(first, {
     datasetId: 'hotspots',
     sourceReference: 'listHotspots',

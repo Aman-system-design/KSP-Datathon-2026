@@ -6,6 +6,7 @@ import {
   RENDERERS,
   SOURCE_TYPES,
   VISIBILITIES,
+  deepFreeze,
   normalizeDatasetDefinition,
   normalizeLayerDefinition,
   normalizeMapViewDefinition,
@@ -65,6 +66,31 @@ test('rejects non-plain inputs, unknown keys, invalid IDs, and unsafe source ref
     ...dataset,
     fields: { ...dataset.fields, constructor: { type: 'string', uses: ['display'] } },
   }), /constructor/);
+  const reservedNames = new Set([
+    ...Object.getOwnPropertyNames(Object.prototype),
+    'prototype', '__proto__', 'toString', 'valueOf', 'hasOwnProperty',
+  ]);
+  for (const reserved of reservedNames) {
+    assert.throws(
+      () => normalizeDatasetDefinition({ ...dataset, sourceReference: reserved }),
+      /sourceReference/,
+    );
+  }
+});
+
+test('deepFreeze traverses frozen parents and arbitrary nesting without recursion', () => {
+  const child = { value: 1 };
+  const frozenParent = Object.freeze({ child });
+  assert.equal(Object.isFrozen(child), false);
+  deepFreeze(frozenParent);
+  assert.equal(Object.isFrozen(child), true);
+
+  let leaf = { value: 1 };
+  let root = leaf;
+  for (let depth = 0; depth < 20_000; depth += 1) root = { child: root };
+  assert.doesNotThrow(() => deepFreeze(root));
+  assert.equal(Object.isFrozen(root), true);
+  assert.equal(Object.isFrozen(leaf), true);
 });
 
 test('requires dataset mappings to reference declared fields with an allowed use', () => {
@@ -135,6 +161,14 @@ test('normalizes a safe map view and rejects authority keys anywhere in filters'
       }],
     }, catalog), new RegExp(authorityKey));
   }
+});
+
+test('rejects duplicate normalized layer IDs', () => {
+  const duplicate = { id: 'same-layer', datasetId: 'hotspots', renderer: 'POINT' };
+  assert.throws(() => normalizeMapViewDefinition({
+    id: 'view-1', name: 'Duplicates', version: 1, visibility: 'PRIVATE',
+    layers: [duplicate, { ...duplicate }],
+  }, catalog), /duplicate layer ID.*same-layer/i);
 });
 
 test('rejects unsafe filters and unknown nested view keys', () => {

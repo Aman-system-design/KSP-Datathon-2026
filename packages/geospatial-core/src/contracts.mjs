@@ -10,6 +10,7 @@ const FIELD_TYPES = new Set(['string', 'number', 'boolean', 'date', 'datetime'])
 const FIELD_USES = new Set(['geometry', 'weight', 'color', 'size', 'label', 'display', 'filter', 'time', 'join']);
 const AUTHORITY_KEYS = new Set(['organizationId', 'role', 'authorizedUnitIds', 'permissions']);
 const POLLUTION_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const RESERVED_IDENTIFIERS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
 const FILTER_OPERATORS = new Set(['$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin']);
 const MAX_FILTER_DEPTH = 4;
 const MAX_FILTER_ITEMS = 100;
@@ -78,10 +79,18 @@ function boundedInteger(value, label, minimum, maximum) {
 }
 
 export function deepFreeze(value) {
-  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-    for (const child of Object.values(value)) deepFreeze(child);
-    Object.freeze(value);
+  if (!value || typeof value !== 'object') return value;
+  const pending = [value];
+  const visited = new Set();
+  const objects = [];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current || typeof current !== 'object' || visited.has(current)) continue;
+    visited.add(current);
+    objects.push(current);
+    for (const child of Object.values(current)) pending.push(child);
   }
+  for (let index = objects.length - 1; index >= 0; index -= 1) Object.freeze(objects[index]);
   return value;
 }
 
@@ -152,7 +161,8 @@ export function normalizeDatasetDefinition(value) {
   if (fieldEntries.length === 0) throw new Error('dataset.fields must not be empty');
   const fields = Object.fromEntries(fieldEntries);
   const geometryType = oneOf(value.geometryType, GEOMETRY_TYPES, 'dataset.geometryType');
-  if (typeof value.sourceReference !== 'string' || !SOURCE_REFERENCE_PATTERN.test(value.sourceReference)) {
+  if (typeof value.sourceReference !== 'string' || !SOURCE_REFERENCE_PATTERN.test(value.sourceReference)
+    || RESERVED_IDENTIFIERS.has(value.sourceReference)) {
     throw new Error('dataset.sourceReference must be an opaque server identifier');
   }
   const sourceReference = value.sourceReference;
@@ -378,6 +388,12 @@ export function normalizeMapViewDefinition(value, catalog) {
       return [datasetId, normalizeFilter(value.globalFilters[datasetId], resolveDataset(catalog, datasetId).fields, `mapView.globalFilters.${datasetId}`)];
     }),
   );
+  const layers = value.layers.map(layer => normalizeLayerDefinition(layer, catalog));
+  const layerIds = new Set();
+  for (const layer of layers) {
+    if (layerIds.has(layer.id)) throw new Error(`mapView has duplicate layer ID ${layer.id}`);
+    layerIds.add(layer.id);
+  }
   const normalized = definedEntries([
     ['id', id(value.id, 'mapView.id')],
     ['name', requiredString(value.name, 'mapView.name')],
@@ -387,7 +403,7 @@ export function normalizeMapViewDefinition(value, catalog) {
     ['viewport', value.viewport === undefined ? undefined : normalizeViewport(value.viewport)],
     ['timeWindow', value.timeWindow === undefined ? undefined : normalizeTimeWindow(value.timeWindow)],
     ['globalFilters', globalFilters],
-    ['layers', value.layers.map(layer => normalizeLayerDefinition(layer, catalog))],
+    ['layers', layers],
   ]);
   return deepFreeze(normalized);
 }
