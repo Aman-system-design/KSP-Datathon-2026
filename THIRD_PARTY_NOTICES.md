@@ -15,4 +15,6 @@ The web application directly uses the following geospatial software:
 
 ## External services
 
-OpenFreeMap is an external map tile and style service, not a bundled software dependency: https://openfreemap.org/
+| Service | Purpose | License / terms | Upstream |
+| --- | --- | --- | --- |
+| OpenFreeMap public instance | Hosted map tiles and styles | External service governed by the [OpenFreeMap Terms of Service](https://openfreemap.org/tos/); not an npm software license | https://openfreemap.org/ |
