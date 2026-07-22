@@ -55,7 +55,7 @@ function nextStateFor(collection) {
 
 export function useGeospatialWorkspace({
   api, pollIntervalMs = 60_000, idFactory = defaultIdFactory, initialViewport = NEUTRAL_VIEWPORT,
-  loadSavedViews = true,
+  loadSavedViews = true, executionDescriptors,
 } = {}) {
   if (!api || typeof api.get !== 'function' || typeof api.post !== 'function') {
     throw new TypeError('A geospatial API client is required');
@@ -83,10 +83,12 @@ export function useGeospatialWorkspace({
   const workspaceEpoch = useRef(0);
   const viewsRequestToken = useRef(0);
   const layerSequence = useRef(0);
+  const executionDescriptorsRef = useRef(executionDescriptors);
   layersRef.current = layers;
   selectedFeatureRef.current = selectedFeature;
   viewportRef.current = viewport;
   timeWindowRef.current = timeWindow;
+  executionDescriptorsRef.current = executionDescriptors;
 
   const retryViews = useCallback(async () => {
     const token = viewsRequestToken.current + 1;
@@ -137,13 +139,18 @@ export function useGeospatialWorkspace({
       state: 'LOADING', error: null,
     } : item));
     try {
-      const response = await api.post('/v1/geospatial/layers/execute', {
+      const descriptors = executionDescriptorsRef.current;
+      const descriptor = Array.isArray(descriptors)
+        ? descriptors.find(item => item?.layer?.id === current.id) : null;
+      if (Array.isArray(descriptors) && !descriptor) throw new Error('Authorized layer execution descriptor is unavailable.');
+      const request = descriptor ? structuredClone(descriptor) : {
         layer: layerDefinition(current),
         runtime: Object.fromEntries([
           ['viewport', viewportRef.current],
           ['timeWindow', current.dataset?.timeField ? timeWindowRef.current : null],
         ].filter(([, value]) => value !== null && value !== undefined)),
-      });
+      };
+      const response = await api.post('/v1/geospatial/layers/execute', request);
       if (workspaceEpoch.current !== epoch || generations.current.get(layerId) !== generation) return;
       const featureCollection = response?.data;
       if (featureCollection?.type !== 'FeatureCollection' || !Array.isArray(featureCollection.features)) {

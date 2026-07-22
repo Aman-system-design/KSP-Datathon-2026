@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 const LazyEmbeddedMapView = lazy(() => import('../geospatial/EmbeddedMapView.jsx'));
 
@@ -14,45 +14,106 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
   const [mapViews, setMapViews] = useState([]);
   const [mapViewId, setMapViewId] = useState('');
   const [mapPreview, setMapPreview] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const generation = useRef(0);
 
-  useEffect(() => { api.get('/v1/report-sources').then(({ data }) => {
-    const items = Array.isArray(data) ? data : [];
-    setSources(items); setSourceKey(items[0]?.key ?? '');
-  }).catch(() => setStatus('Report sources are unavailable.')); }, [api]);
   useEffect(() => {
+    let active = true;
+    api.get('/v1/report-sources').then(({ data }) => {
+      if (!active) return;
+      const items = Array.isArray(data) ? data : [];
+      setSources(items);
+      setSourceKey(items[0]?.key ?? '');
+      setVisualization(items[0]?.visualizations?.[0] ?? 'table');
+    }).catch(() => { if (active) setStatus('Report sources are unavailable.'); });
+    return () => { active = false; };
+  }, [api]);
+
+  useEffect(() => {
+    if (visualization !== 'map') return undefined;
     let active = true;
     api.get('/v1/geospatial/views').then(response => {
       if (!active) return;
       const items = Array.isArray(response?.data?.items) ? response.data.items : [];
       setMapViews(items);
       setMapViewId(current => items.some(item => item.id === current) ? current : (items[0]?.id ?? ''));
-    }).catch(() => { if (active) setMapViews([]); });
+    }).catch(() => {
+      if (!active) return;
+      setMapViews([]);
+      setMapViewId('');
+    });
     return () => { active = false; };
-  }, [api]);
+  }, [api, visualization]);
+
   const source = useMemo(() => sources.find(item => item.key === sourceKey), [sources, sourceKey]);
   const dimensions = Object.entries(source?.fields ?? {}).filter(([, value]) => value.dimension);
   const measures = Object.entries(source?.fields ?? {}).flatMap(([field, value]) =>
     (value.aggregates ?? []).map(aggregate => [`${field}:${aggregate}`, `${field} · ${aggregate}`]));
 
+  function invalidatePreview() {
+    generation.current += 1;
+    setPreview([]);
+    setMapPreview(null);
+    setStatus('');
+  }
+
+  function changeSource(nextSourceKey) {
+    const nextSource = sources.find(item => item.key === nextSourceKey);
+    invalidatePreview();
+    setSourceKey(nextSourceKey);
+    setDimension('');
+    setMeasure('');
+    setVisualization(nextSource?.visualizations?.[0] ?? 'table');
+    setMapViewId('');
+  }
+
+  function changeVisualization(nextVisualization) {
+    invalidatePreview();
+    setVisualization(nextVisualization);
+    if (nextVisualization === 'map') {
+      setDimension('');
+      setMeasure('');
+    } else {
+      setMapViewId('');
+    }
+  }
+
   async function save(event) {
-    event.preventDefault(); setStatus('Saving…');
+    event.preventDefault();
+    if (saving) return;
+    const requestGeneration = generation.current + 1;
+    generation.current = requestGeneration;
+    setSaving(true);
+    setStatus('Saving…');
     const [field, aggregate] = measure.split(':');
+    const isMap = visualization === 'map';
     try {
       const definition = {
-        name, sourceKey, dimensions: dimension ? [dimension] : [],
-        measures: field ? [{ field, aggregate }] : [],
-        visualization: visualization === 'map' ? { type: 'map', mapViewId } : { type: visualization }, limit: 100,
+        name,
+        sourceKey,
+        dimensions: !isMap && dimension ? [dimension] : [],
+        measures: !isMap && field ? [{ field, aggregate }] : [],
+        visualization: isMap ? { type: 'map', mapViewId } : { type: visualization },
+        limit: 100,
       };
       const saved = await api.post('/v1/reports', definition);
+      if (generation.current !== requestGeneration) return;
       const result = await api.post(`/v1/reports/${saved.data.id}/execute`, {});
+      if (generation.current !== requestGeneration) return;
       const data = result.data.result?.data;
-      if (visualization === 'map') {
-        setMapPreview(data ?? null); setPreview([]);
+      if (isMap) {
+        setMapPreview(data ?? null);
+        setPreview([]);
       } else {
-        setMapPreview(null); setPreview(data?.items ?? data ?? []);
+        setMapPreview(null);
+        setPreview(data?.items ?? data ?? []);
       }
       setStatus('Saved');
-    } catch (error) { setStatus(error.message ?? 'Report could not be saved.'); }
+    } catch (error) {
+      if (generation.current === requestGeneration) setStatus(error.message ?? 'Report could not be saved.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return <section className="feature-page">
@@ -60,18 +121,18 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView 
     <div className="builder-layout">
       <form className="panel report-form" onSubmit={save}>
         <label>Report name<input aria-label="Report name" value={name} onChange={event => setName(event.target.value)} required /></label>
-        <label>Intelligence source<select aria-label="Intelligence source" value={sourceKey} onChange={event => { setSourceKey(event.target.value); setDimension(''); setMeasure(''); }}>
+        <label>Intelligence source<select aria-label="Intelligence source" value={sourceKey} onChange={event => changeSource(event.target.value)}>
           {sources.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
         </select></label>
         <div className="form-row">
           <label>Group by<select aria-label="Group by" value={dimension} onChange={event => setDimension(event.target.value)}><option value="">No grouping</option>{dimensions.map(([key]) => <option key={key}>{key}</option>)}</select></label>
           <label>Measure<select aria-label="Measure" value={measure} onChange={event => setMeasure(event.target.value)}><option value="">Choose measure</option>{measures.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         </div>
-        <label>Visualization<select aria-label="Visualization" value={visualization} onChange={event => setVisualization(event.target.value)}>{(source?.visualizations ?? ['table']).map(type => <option key={type}>{type}</option>)}</select></label>
+        <label>Visualization<select aria-label="Visualization" value={visualization} onChange={event => changeVisualization(event.target.value)}>{(source?.visualizations ?? ['table']).map(type => <option key={type}>{type}</option>)}</select></label>
         {visualization === 'map' ? <label>Saved map view<select aria-label="Saved map view" value={mapViewId} onChange={event => setMapViewId(event.target.value)} required>
           {mapViews.length === 0 ? <option value="">No authorized map views</option> : mapViews.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}
         </select></label> : null}
-        <button className="primary-button" type="submit" disabled={visualization === 'map' && !mapViewId}>Save and preview</button>
+        <button className="primary-button" type="submit" disabled={saving || (visualization === 'map' && !mapViewId)}>{saving ? 'Saving…' : 'Save and preview'}</button>
         <output className="form-status">{status}</output>
       </form>
       <section className="panel preview-panel" aria-label="Report preview">

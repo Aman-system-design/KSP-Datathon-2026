@@ -84,6 +84,9 @@ export function normalizeReportDefinition(input, source) {
       throw new TypeError('Map visualization must reference exactly one governed map view');
     }
     normalizedVisualization = { type: 'map', mapViewId: visualization.mapViewId };
+    if (dimensions.length > 0 || normalizedMeasures.length > 0 || normalizedFilters.length > 0 || normalizedSort.length > 0) {
+      throw new TypeError('Map visualization cannot include report transforms');
+    }
   } else {
     if (visualizationKeys.length !== 1) throw new TypeError('Visualization contains unsupported fields');
     normalizedVisualization = { type: visualization.type };

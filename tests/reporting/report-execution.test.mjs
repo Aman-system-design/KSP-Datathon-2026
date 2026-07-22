@@ -34,6 +34,7 @@ test('map report projection returns a client-safe definition and bounded executi
     definition: {
       id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 3,
       viewport: { center: [77.59, 12.97], zoom: 9 },
+      globalFilters: { hotspots: { magnitude: { $gte: 5 } } },
       layers: [
         { id: 'L-2', datasetId: 'hotspots', renderer: 'HEATMAP', visible: false, order: 1, limit: 5000 },
         { id: 'L-1', datasetId: 'hotspots', renderer: 'CLUSTER', visible: true, order: 0, limit: 5000 },
@@ -42,7 +43,7 @@ test('map report projection returns a client-safe definition and bounded executi
   });
 
   assert.deepEqual(result.executions, [{
-    layer: { id: 'L-1', datasetId: 'hotspots', renderer: 'CLUSTER', visible: true, order: 0, limit: 5000 },
+    layer: { id: 'L-1', datasetId: 'hotspots', renderer: 'CLUSTER', visible: true, order: 0, limit: 5000, filter: { magnitude: { $gte: 5 } } },
     runtime: { viewport: { center: [77.59, 12.97], zoom: 9 }, limit: 5000 },
   }]);
   assert.equal(result.mapView.organizationId, undefined);
@@ -53,11 +54,29 @@ test('map report projection returns a client-safe definition and bounded executi
     definition: {
       id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 3,
       viewport: { center: [77.59, 12.97], zoom: 9 },
+      globalFilters: { hotspots: { magnitude: { $gte: 5 } } },
       layers: [
         { id: 'L-1', datasetId: 'hotspots', renderer: 'CLUSTER', visible: true, order: 0, limit: 5000 },
         { id: 'L-2', datasetId: 'hotspots', renderer: 'HEATMAP', visible: false, order: 1, limit: 5000 },
       ],
     },
+  });
+});
+
+test('map report descriptors combine global and layer filters deterministically', () => {
+  const result = projectMapReportExecution({
+    id: 'MAP-1', name: 'Filtered', visibility: 'SHARED', version: 1,
+    definition: {
+      id: 'MAP-1', name: 'Filtered', visibility: 'SHARED', version: 1,
+      globalFilters: { hotspots: { magnitude: { $gte: 5 } } },
+      layers: [{
+        id: 'L-1', datasetId: 'hotspots', renderer: 'POINT', visible: true,
+        filter: { method: 'DBSCAN' }, limit: 100,
+      }],
+    },
+  });
+  assert.deepEqual(result.executions[0].layer.filter, {
+    $and: [{ magnitude: { $gte: 5 } }, { method: 'DBSCAN' }],
   });
 });
 

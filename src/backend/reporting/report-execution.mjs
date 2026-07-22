@@ -46,12 +46,23 @@ function clientSafeMapDefinition(value) {
   return { ...structuredClone(value), layers };
 }
 
+function effectiveFilter(globalFilter, layerFilter) {
+  const hasGlobal = plain(globalFilter) && Object.keys(globalFilter).length > 0;
+  const hasLayer = plain(layerFilter) && Object.keys(layerFilter).length > 0;
+  if (hasGlobal && hasLayer) return { $and: [structuredClone(globalFilter), structuredClone(layerFilter)] };
+  if (hasGlobal) return structuredClone(globalFilter);
+  return hasLayer ? structuredClone(layerFilter) : {};
+}
+
 export function projectMapReportExecution(mapView) {
   if (!plain(mapView) || typeof mapView.id !== 'string' || typeof mapView.name !== 'string'
     || !Number.isInteger(mapView.version)) throw new TypeError('Invalid governed map view');
   const definition = clientSafeMapDefinition(mapView.definition);
   const executions = definition.layers.filter(layer => layer.visible !== false).map(layer => ({
-    layer: structuredClone(layer),
+    layer: {
+      ...structuredClone(layer),
+      filter: effectiveFilter(definition.globalFilters?.[layer.datasetId], layer.filter),
+    },
     runtime: Object.fromEntries([
       ['viewport', definition.viewport ? structuredClone(definition.viewport) : undefined],
       ['timeWindow', definition.timeWindow ? structuredClone(definition.timeWindow) : undefined],

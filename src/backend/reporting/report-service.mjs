@@ -13,6 +13,14 @@ const clientReport = report => Object.freeze({
   version: report.version, definition: structuredClone(report.definition),
 });
 
+function normalizedReport(input) {
+  try { return normalizeReportDefinition(input, getReportSource(input?.sourceKey)); }
+  catch (error) {
+    if (error?.code) throw error;
+    fail('INVALID_REQUEST');
+  }
+}
+
 export function createReportService({ repository, readServices, mapViewService, now, idFactory }) {
   async function visible(report, access) {
     if (!report) return false;
@@ -31,11 +39,20 @@ export function createReportService({ repository, readServices, mapViewService, 
     if (!owns(report, access) && !hasAction(access, 'MANAGE_GLOBAL_CONTENT')) fail('FORBIDDEN_ACTION');
     return report;
   }
+  async function authorizeMapReference(definition, access, requestId) {
+    if (definition.visualization.type !== 'map') return;
+    if (typeof mapViewService?.getMapView !== 'function') fail('DATA_NOT_READY');
+    const governed = await mapViewService.getMapView({
+      access, params: { mapViewId: definition.visualization.mapViewId }, requestId,
+    });
+    if (governed?.data?.id !== definition.visualization.mapViewId) fail('DATA_NOT_READY');
+  }
 
   return Object.freeze({
-    async create({ access, input }) {
+    async create({ access, input, requestId }) {
       if (!access?.actualUserId) fail('FORBIDDEN_ACTION');
-      const definition = normalizeReportDefinition(input, getReportSource(input?.sourceKey));
+      const definition = normalizedReport(input);
+      await authorizeMapReference(definition, access, requestId);
       const timestamp = now();
       return repository.createReport({
         id: idFactory(), ownerUserId: access.actualUserId, visibility: 'PRIVATE', version: 1,
@@ -50,9 +67,10 @@ export function createReportService({ repository, readServices, mapViewService, 
       for (const report of reports) if (await visible(report, access)) result.push(report);
       return result;
     },
-    async update({ access, reportId, expectedVersion, input }) {
+    async update({ access, reportId, expectedVersion, input, requestId }) {
       await requireOwner(reportId, access);
-      const definition = normalizeReportDefinition(input, getReportSource(input?.sourceKey));
+      const definition = normalizedReport(input);
+      await authorizeMapReference(definition, access, requestId);
       const updated = await repository.updateReport(reportId, expectedVersion, {
         definition: structuredClone(definition), name: definition.name, updatedAt: now(),
       });

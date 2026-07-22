@@ -116,3 +116,16 @@ test('map reports require exactly one governed map view reference', () => {
     }, source), /visualization|map view/i);
   }
 });
+
+test('map reports reject transforms that would be silently ignored', () => {
+  const source = getReportSource('hotspots');
+  for (const transform of [
+    { dimensions: ['unitId'] },
+    { measures: [{ field: 'caseCount', aggregate: 'sum' }] },
+    { filters: [{ field: 'unitId', operator: 'eq', value: 999 }] },
+    { sort: [{ field: 'unitId', direction: 'asc' }] },
+  ]) assert.throws(() => normalizeReportDefinition({
+    name: 'Misleading district map', sourceKey: 'hotspots',
+    visualization: { type: 'map', mapViewId: 'MAP-1' }, ...transform,
+  }, source), /map.*transform|visualization|sort/i);
+});

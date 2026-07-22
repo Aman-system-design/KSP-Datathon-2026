@@ -2,13 +2,18 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { EmbeddedMapView } from './EmbeddedMapView.jsx';
+import { createEmbeddedExecutionManager } from './embedded-execution-manager.js';
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const definition = {
   id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 2,
   viewport: { center: [77.59, 12.97], zoom: 9 },
   layers: [{ id: 'L-1', datasetId: 'hotspots', renderer: 'POINT', visible: true, order: 0, limit: 100 }],
+};
+const descriptor = {
+  layer: { ...definition.layers[0], filter: { magnitude: { $gte: 5 } } },
+  runtime: { viewport: definition.viewport, limit: 100 },
 };
 
 const dataset = {
@@ -38,7 +43,7 @@ test('read-only embedded map reuses governed layer execution and evidence', asyn
     }),
     post: vi.fn(async (path, body) => {
       expect(path).toBe('/v1/geospatial/layers/execute');
-      expect(body.layer).toEqual(definition.layers[0]);
+      expect(body).toEqual(descriptor);
       return {
         data: { type: 'FeatureCollection', features: [{
           type: 'Feature', id: 'HOT-1', geometry: { type: 'Point', coordinates: [77.59, 12.97] },
@@ -51,7 +56,7 @@ test('read-only embedded map reuses governed layer execution and evidence', asyn
 
   render(<EmbeddedMapView
     api={api} MapComponent={TestMap}
-    mapExecution={{ mapView: { id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 2, definition }, executions: [] }}
+    mapExecution={{ mapView: { id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 2, definition }, executions: [descriptor] }}
   />);
 
   expect(await screen.findByRole('region', { name: 'Embedded test map' })).toBeInTheDocument();
@@ -70,8 +75,39 @@ test('embedded map fails locally when its governed execution is unavailable', as
     post: vi.fn(async () => { throw new Error('Layer unavailable'); }),
   };
   render(<EmbeddedMapView api={api} MapComponent={TestMap} mapExecution={{
-    mapView: { id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 2, definition }, executions: [],
+    mapView: { id: 'MAP-1', name: 'Hotspot posture', visibility: 'SHARED', version: 2, definition }, executions: [descriptor],
   }} />);
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Layer unavailable');
+});
+
+test('24 embedded maps share one catalog, create no freshness timers and remain budgeted', async () => {
+  const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+  const api = {
+    get: vi.fn(async () => ({ data: { items: [dataset] } })),
+    post: vi.fn(async () => ({ data: { type: 'FeatureCollection', features: [] }, meta: {} })),
+  };
+  const executionManager = createEmbeddedExecutionManager(api, {
+    maxConcurrent: 4, maxLayers: 24, maxFeatures: 100,
+  });
+
+  render(<>{Array.from({ length: 24 }, (_, index) => {
+    const layer = { ...definition.layers[0], id: `L-${index}` };
+    const mapDefinition = { ...definition, id: `MAP-${index}`, layers: [layer] };
+    return <EmbeddedMapView
+      key={mapDefinition.id}
+      api={api}
+      MapComponent={TestMap}
+      executionManager={executionManager}
+      executionScope={`W-${index}`}
+      mapExecution={{
+        mapView: { id: mapDefinition.id, name: `Map ${index}`, version: 1, definition: mapDefinition },
+        executions: [{ layer, runtime: { viewport: definition.viewport, limit: 100 } }],
+      }}
+    />;
+  })}</>);
+
+  expect(intervalSpy).not.toHaveBeenCalled();
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(24));
+  expect(api.get).toHaveBeenCalledTimes(1);
 });

@@ -127,9 +127,9 @@ test('map report execution reauthorizes its saved view for the current viewer', 
 
   const result = await service.execute({ access: viewer, reportId: created.id, requestId: 'REQ-REPORT' });
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].access, viewer);
-  assert.deepEqual(calls[0].params, { mapViewId: 'MAP-1' });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].access, viewer);
+  assert.deepEqual(calls[1].params, { mapViewId: 'MAP-1' });
   assert.equal(result.definition.ownerUserId, undefined);
   assert.deepEqual(Object.keys(result.definition).sort(), ['definition', 'id', 'name', 'version', 'visibility']);
   assert.equal(result.result.data.mapView.organizationId, undefined);
@@ -139,13 +139,54 @@ test('map report execution reauthorizes its saved view for the current viewer', 
 
 test('map report execution fails closed when the saved view is no longer authorized', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
+  let authorized = true;
   const service = createReportService({
     repository, readServices: {},
-    mapViewService: { async getMapView() { const error = new Error('Not found'); error.code = 'NOT_FOUND'; throw error; } },
+    mapViewService: { async getMapView({ params }) {
+      if (authorized) return { data: { id: params.mapViewId } };
+      const error = new Error('Not found'); error.code = 'NOT_FOUND'; throw error;
+    } },
     now: () => '2026-07-21T00:00:00Z', idFactory: () => 'REPORT-MAP-2',
   });
   const owner = access('OWNER');
   const created = await service.create({ access: owner, input: mapDefinition });
+  authorized = false;
 
   await assert.rejects(service.execute({ access: owner, reportId: created.id }), { code: 'NOT_FOUND' });
+});
+
+test('invalid report source and shape become stable 400 service errors', async () => {
+  const { service } = harness();
+  for (const input of [
+    { name: 'Unknown', sourceKey: 'raw-table' },
+    { name: 'Bad', sourceKey: 'anomalies', dimensions: ['privateColumn'] },
+  ]) await assert.rejects(service.create({ access: access('OWNER'), input }), { code: 'INVALID_REQUEST', status: 400 });
+});
+
+test('map report create and update authorize the referenced view before persistence', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const calls = [];
+  const mapViewService = { async getMapView({ params }) {
+    calls.push(params.mapViewId);
+    if (params.mapViewId === 'MAP-HIDDEN') { const error = new Error(); error.code = 'NOT_FOUND'; throw error; }
+    return { data: { id: params.mapViewId } };
+  } };
+  let sequence = 0;
+  const service = createReportService({
+    repository, readServices: {}, mapViewService,
+    now: () => '2026-07-21T00:00:00Z', idFactory: () => `REPORT-AUTH-${++sequence}`,
+  });
+  const owner = access('OWNER');
+  await assert.rejects(service.create({ access: owner, input: {
+    ...mapDefinition, visualization: { type: 'map', mapViewId: 'MAP-HIDDEN' },
+  } }), { code: 'NOT_FOUND' });
+  assert.equal((await repository.listReports()).length, 0);
+
+  const created = await service.create({ access: owner, input: mapDefinition });
+  await assert.rejects(service.update({
+    access: owner, reportId: created.id, expectedVersion: 1,
+    input: { ...mapDefinition, visualization: { type: 'map', mapViewId: 'MAP-HIDDEN' } },
+  }), { code: 'NOT_FOUND' });
+  assert.equal((await repository.getReport(created.id)).version, 1);
+  assert.deepEqual(calls, ['MAP-HIDDEN', 'MAP-1', 'MAP-HIDDEN']);
 });

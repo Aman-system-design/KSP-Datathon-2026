@@ -64,3 +64,32 @@ test('map reports select only viewer-authorized saved views and submit the gover
     visualization: { type: 'map', mapViewId: 'MAP-AUTH' },
   }));
 });
+
+test('source capability changes reset map state and stale previews cannot overwrite the new configuration', async () => {
+  let resolveCreate;
+  const createPending = new Promise(resolve => { resolveCreate = resolve; });
+  const api = {
+    get: vi.fn(async path => path === '/v1/report-sources' ? { data: [
+      { key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'] },
+      { key: 'anomalies', label: 'Trend anomalies', fields: {}, visualizations: ['table'] },
+    ] } : { data: { items: [{ id: 'MAP-1', name: 'Hotspots', definition: { layers: [] } }] } }),
+    post: vi.fn(path => path === '/v1/reports' ? createPending : Promise.resolve({
+      data: { result: { data: { mapView: { id: 'MAP-1', definition: { layers: [] } }, executions: [] } },
+    } })),
+  };
+  function MapPreview() { return <div>Stale map preview</div>; }
+  render(<ReportBuilder api={api} EmbeddedMapComponent={MapPreview} />);
+  await screen.findByRole('option', { name: 'Crime hotspots' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Map' } });
+  fireEvent.change(screen.getByLabelText('Visualization'), { target: { value: 'map' } });
+  await screen.findByRole('option', { name: 'Hotspots' });
+  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
+  expect(screen.getByRole('button', { name: /saving/i })).toBeDisabled();
+
+  fireEvent.change(screen.getByLabelText('Intelligence source'), { target: { value: 'anomalies' } });
+  expect(screen.getByLabelText('Visualization')).toHaveValue('table');
+  expect(screen.queryByLabelText('Saved map view')).not.toBeInTheDocument();
+  resolveCreate({ data: { id: 'R-OLD' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
+  expect(screen.queryByText('Stale map preview')).not.toBeInTheDocument();
+});

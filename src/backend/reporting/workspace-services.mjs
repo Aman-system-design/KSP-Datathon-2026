@@ -15,11 +15,11 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       return envelope(Object.values(REPORT_SOURCES).map(source => structuredClone(source)));
     },
     async listReports({ access }) { return envelope(await reports.list({ access })); },
-    async createReport({ access, body }) { return envelope(await reports.create({ access, input: body })); },
+    async createReport({ access, body, requestId }) { return envelope(await reports.create({ access, input: body, requestId })); },
     async getReport({ access, params }) { return envelope(await reports.get({ access, reportId: params.reportId })); },
-    async updateReport({ access, params, body }) {
+    async updateReport({ access, params, body, requestId }) {
       return envelope(await reports.update({
-        access, reportId: params.reportId, expectedVersion: body?.expectedVersion, input: body?.definition,
+        access, reportId: params.reportId, expectedVersion: body?.expectedVersion, input: body?.definition, requestId,
       }));
     },
     async deleteReport({ access, params }) { return envelope(await reports.remove({ access, reportId: params.reportId })); },

@@ -1,12 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { EvidenceDrawer } from './EvidenceDrawer.jsx';
 import { MapCanvas } from './MapCanvas.jsx';
 import { VisibleFeatureTable } from './VisibleFeatureTable.jsx';
 import { useGeospatialWorkspace } from './useGeospatialWorkspace.js';
+import { createEmbeddedExecutionManager } from './embedded-execution-manager.js';
 
-export function EmbeddedMapView({ api, mapExecution, MapComponent = MapCanvas }) {
-  const workspace = useGeospatialWorkspace({ api, loadSavedViews: false });
+export function EmbeddedMapView({ api, mapExecution, MapComponent = MapCanvas, executionManager, executionScope }) {
+  const localManager = useMemo(() => executionManager ?? createEmbeddedExecutionManager(api), [api, executionManager]);
+  const scope = executionScope ?? mapExecution?.mapView?.id ?? 'embedded-map';
+  const embeddedApi = useMemo(() => localManager.client(scope), [localManager, scope]);
+  useEffect(() => () => localManager.release(scope), [localManager, scope]);
+  const workspace = useGeospatialWorkspace({
+    api: embeddedApi, loadSavedViews: false, pollIntervalMs: 0,
+    executionDescriptors: mapExecution?.executions,
+  });
   const loadedView = useRef(null);
   const mapView = mapExecution?.mapView;
   const viewKey = mapView ? `${mapView.id}:${mapView.version}` : null;
