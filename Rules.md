@@ -52,6 +52,9 @@ Detailed evidence remains under `docs/`. The approved MVP contract is [`docs/arc
 - Use Serverless Functions for backend logic, Data Store for relational data, Stratus for objects, Authentication for identity, API Gateway for protected routes, Job Scheduling/Cron for refresh, and Slate or Web Client Hosting for the React SPA.
 - Keep ingestion, validation, analytics, repositories, API adapters, security, workflow, and frontend features as clear modules.
 - Do not create one monolithic Function, service, React component, or global state container.
+- Give every frontend feature its own folder or named component file, colocated test, and narrow public props/API contract. Keep routing and shells as composition only.
+- Separate authentication, workspace selection, navigation, account controls, alerts, maps, networks, reports, dashboards, and each role home. A feature may not be added inline to `router.jsx` or `AppShell.jsx` merely for speed.
+- Split a file when it owns more than one independently testable user capability. Do not split simple code into speculative abstraction layers.
 - Reuse existing modules and dependencies. Add a library only when the platform or standard library cannot meet a present requirement.
 - Keep network, database, and Catalyst SDK calls behind adapters so core analytics remain deterministic and testable.
 - All writes must be idempotent where retries are possible.

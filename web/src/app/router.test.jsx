@@ -3,7 +3,12 @@ import { lazy } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { AlertsPage, Application, Failure, GeospatialPage } from './router.jsx';
+import { AlertsPage, Application, Failure, GeospatialPage, workspaceContractDiagnostic } from './router.jsx';
+
+test('failure state exposes a safe boundary code without requiring a server request id', () => {
+  render(<Failure error={{ code: 'AUTH_SESSION_FAILED' }} />);
+  expect(screen.getByText('Reference AUTH_SESSION_FAILED')).toBeInTheDocument();
+});
 
 vi.mock('../features/geospatial/MapCanvas.jsx', () => ({
   MapCanvas: () => <div role="region" aria-label="Geospatial intelligence map" />,
@@ -15,6 +20,12 @@ const analystWorkspace = {
   role: 'CRIME_ANALYST', scopeUnitId: 101, syntheticData: false,
   availableDashboards: [], alertSummary: { total: 0 },
 };
+
+test('reports only the safe shape of an invalid workspace response', () => {
+  expect(workspaceContractDiagnostic({ data: { role: 'STATE_LEADERSHIP' }, secret: 'do-not-log' })).toEqual({
+    kind: 'object', keys: ['data', 'secret'], nestedDataKeys: ['role'],
+  });
+});
 
 function LocationProbe() {
   const location = useLocation();
@@ -35,9 +46,13 @@ const geospatialApi = ({ datasets = [], datasetError } = {}) => ({
 });
 
 test('failure state never exposes an internal JavaScript error', () => {
-  render(<Failure error={new TypeError("Cannot read properties of undefined (reading 'items')")} />);
+  const error = Object.assign(new TypeError("Cannot read properties of undefined (reading 'items')"), {
+    code: 'INTERNAL_ERROR', requestId: 'REQ-SAFE-1',
+  });
+  render(<Failure error={error} />);
 
   expect(screen.getByText('The request could not be completed.')).toBeInTheDocument();
+  expect(screen.getByText('Reference REQ-SAFE-1 · INTERNAL_ERROR')).toBeInTheDocument();
   expect(screen.queryByText(/Cannot read properties/)).not.toBeInTheDocument();
 });
 
@@ -73,6 +88,12 @@ test('unauthenticated Catalyst session renders sign-in before requesting an API 
   expect(fetch).not.toHaveBeenCalled();
 });
 
+test('workspace transport failures identify their safe application boundary', async () => {
+  const api = { get: vi.fn(async () => { throw new TypeError('network detail'); }) };
+  render(<MemoryRouter><Application api={api} /></MemoryRouter>);
+  expect(await screen.findByText('Reference WORKSPACE_REQUEST_FAILED')).toBeInTheDocument();
+});
+
 test('missing workspace data fails closed instead of rendering a loading persona', async () => {
   const api = { get: vi.fn(async () => ({ data: null })) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
@@ -93,14 +114,20 @@ test('authenticated user without an access profile receives safe provisioning gu
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
 
-test('demo presenter lands on persona directory without requesting unauthorized intelligence', async () => {
+test('demo presenter chooses only from backend-authorized workspaces before entering the shell', async () => {
   const api = { get: vi.fn(async path => {
-    if (path === '/v1/workspace') return { data: { role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 } } };
+    if (path === '/v1/workspace') return { data: {
+      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
+    } };
     throw new Error(`Unexpected request: ${path}`);
   }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Persona Workspaces', level: 1 })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Choose a workspace', level: 2 })).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: 'State Leadership' })).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: 'Crime Analyst' })).toBeInTheDocument();
+  expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
   expect(api.get).toHaveBeenCalledTimes(1);
 });
 

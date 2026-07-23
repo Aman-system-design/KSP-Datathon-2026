@@ -121,6 +121,15 @@ web/                  React role workspaces, reports, dashboards, alerts and int
 
 The frontend is a separate feature-oriented React application and is not inside a Function bundle. No single module owns ingestion, analytics, authorization, workflow, and presentation.
 
+Frontend ownership follows capability boundaries:
+
+- `auth/`: Catalyst session UI, sign-in boundaries, access failures, and backend-governed workspace selection.
+- `app/`: composition-only router and shell plus separate header, sidebar, account menu, navigation policy, and runtime configuration modules.
+- `features/<capability>/`: alerts, geospatial, networks, reports, dashboards, administration, command centre, and role workspaces, each with colocated tests.
+- `components/ui/`: reusable shadcn primitives only; it contains no policing or authorization decisions.
+
+`router.jsx` selects routes and coordinates data loaders. `AppShell.jsx` composes the header, sidebar, and routed content. Neither file is a home for feature-specific UI or business logic.
+
 ## API Boundary
 
 Reads:

@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { createApiClient } from '../api/client.js';
 import { AccessNotProvisioned } from '../auth/AccessNotProvisioned.jsx';
@@ -15,9 +15,11 @@ import { NetworkView } from '../features/intelligence/NetworkView.jsx';
 import { ReportBuilder } from '../features/reports/ReportBuilder.jsx';
 import { PersonaWorkspace } from '../features/workspaces/PersonaWorkspace.jsx';
 import { AppShell } from './AppShell.jsx';
-import { governedAppLocation, readDemoPersona, readRuntime } from './runtime.js';
+import { governedAppLocation, personaSearch, readDemoPersona, readRuntime } from './runtime.js';
 
 const GeospatialStudio = lazy(() => import('../features/geospatial/GeospatialStudio.jsx'));
+const WorkspaceSelector = lazy(() => import('../auth/WorkspaceSelector.jsx')
+  .then(module => ({ default: module.WorkspaceSelector })));
 const KSP_GEOSPATIAL_CONFIG = Object.freeze({
   defaultViewport: Object.freeze({ center: Object.freeze([75.5, 15.2]), zoom: 5.6 }),
   jurisdictionLabel: 'Karnataka',
@@ -36,7 +38,15 @@ function useLoad(loader, dependencies = []) {
 }
 
 function Busy({ label = 'Loading authorized intelligence…' }) { return <div className="loading-state"><i /><strong>{label}</strong></div>; }
-export function Failure() { return <div className="failure-state"><strong>Intelligence is unavailable</strong><span>The request could not be completed.</span><button onClick={() => location.reload()}>Retry</button></div>; }
+export function Failure({ error }) {
+  const requestId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(error?.requestId ?? '') ? error.requestId : null;
+  const code = /^[A-Z][A-Z0-9_]{0,63}$/u.test(error?.code ?? '') ? error.code : null;
+  return <div className="failure-state">
+    <strong>Intelligence is unavailable</strong><span>The request could not be completed.</span>
+    {code ? <small>Reference {requestId ? `${requestId} · ` : ''}{code}</small> : null}
+    <button onClick={() => location.reload()}>Retry</button>
+  </div>;
+}
 
 function CommandPage({ api, role }) {
   const state = useLoad(async () => {
@@ -95,6 +105,17 @@ export class GeospatialRouteErrorBoundary extends Component {
 
 function validWorkspace(value) {
   return value && typeof value.role === 'string' && value.role !== 'LOADING';
+}
+
+export function workspaceContractDiagnostic(value) {
+  const objectValue = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  const nestedData = objectValue?.data && typeof objectValue.data === 'object' && !Array.isArray(objectValue.data)
+    ? objectValue.data : null;
+  return Object.freeze({
+    kind: Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value,
+    keys: objectValue ? Object.keys(objectValue).sort() : [],
+    nestedDataKeys: nestedData ? Object.keys(nestedData).sort() : [],
+  });
 }
 
 export function GeospatialPage({ api, Studio = GeospatialStudio, reload }) {
@@ -181,13 +202,26 @@ function RoutedDashboardPage({ api }) {
 
 function AuthorizedApplication({ api, auth }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
   if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
-  if (state.error) return <main className="application-gate"><Failure error={state.error} /></main>;
-  if (!validWorkspace(state.data)) return <main className="application-gate"><Failure /></main>;
+  if (state.error) return <main className="application-gate"><Failure error={{ ...state.error, code: state.error.code ?? 'WORKSPACE_REQUEST_FAILED' }} /></main>;
+  if (!validWorkspace(state.data)) {
+    console.error('workspace_contract_invalid', workspaceContractDiagnostic(state.data));
+    return <main className="application-gate"><Failure error={{ code: 'WORKSPACE_CONTRACT_INVALID', requestId: 'CLIENT-WORKSPACE' }} /></main>;
+  }
   const workspace = state.data;
+  if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {
+    return <Suspense fallback={<main className="application-gate"><Busy label="Loading authorized workspaces…" /></main>}>
+      <WorkspaceSelector
+        workspace={workspace}
+        onSelect={persona => navigate({ pathname: '/', search: personaSearch(location.search, persona) })}
+        onSignOut={() => auth.signOut()}
+      />
+    </Suspense>;
+  }
   if (location.pathname === '/command-centre') {
     if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" />;
     return <CommandCentrePage api={api} workspace={workspace} />;
