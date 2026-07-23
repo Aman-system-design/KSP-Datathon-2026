@@ -179,16 +179,8 @@ function RoutedDashboardPage({ api }) {
   return <DashboardPage api={api} dashboardId={dashboardId} />;
 }
 
-export function Application({ api: providedApi }) {
+function AuthorizedApplication({ api, auth }) {
   const location = useLocation();
-  const demoPersona = readDemoPersona(location.search);
-  const runtime = readRuntime();
-  const auth = useMemo(() => createCatalystAuth({ authOrigin: runtime.authOrigin }), [runtime.authOrigin]);
-  const api = useMemo(() => providedApi ?? createApiClient({
-    baseUrl: runtime.apiBase,
-    headers: demoPersona ? { 'X-Demo-Persona': demoPersona } : {},
-    tokenProvider: runtime.authOrigin ? () => auth.accessToken() : undefined,
-  }), [providedApi, demoPersona, runtime.apiBase, runtime.authOrigin, auth]);
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
@@ -218,6 +210,29 @@ export function Application({ api: providedApi }) {
     <Route path="/admin/personas" element={<PersonaDirectory role={workspace.role} />} />
     <Route path="*" element={<Failure error={{ message: 'The requested workspace does not exist.' }} />} />
   </Routes></AppShell>;
+}
+
+export function Application({ api: providedApi }) {
+  const location = useLocation();
+  const demoPersona = readDemoPersona(location.search);
+  const runtime = readRuntime();
+  const auth = useMemo(() => createCatalystAuth({ authOrigin: runtime.authOrigin }), [runtime.authOrigin]);
+  const api = useMemo(() => providedApi ?? createApiClient({
+    baseUrl: runtime.apiBase,
+    headers: demoPersona ? { 'X-Demo-Persona': demoPersona } : {},
+    tokenProvider: () => auth.accessToken(),
+  }), [providedApi, demoPersona, runtime.apiBase, auth]);
+  const session = useLoad(
+    () => providedApi ? Promise.resolve({ trustedTestApi: true }) : auth.currentUser(),
+    [providedApi, auth],
+  );
+
+  if (session.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity…" /></main>;
+  if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) {
+    return <SignInRequired auth={auth} />;
+  }
+  if (session.error) return <main className="application-gate"><Failure error={session.error} /></main>;
+  return <AuthorizedApplication api={api} auth={auth} />;
 }
 
 export function AppRouter() { return <BrowserRouter><Application /></BrowserRouter>; }

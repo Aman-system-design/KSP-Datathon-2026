@@ -61,6 +61,23 @@ test('unauthenticated workspace renders native Catalyst sign-in without protecte
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
 
+test('unauthenticated Catalyst session renders sign-in before requesting an API token', async () => {
+  const signIn = vi.fn();
+  const generateAuthToken = vi.fn();
+  const fetch = vi.fn();
+  vi.stubGlobal('fetch', fetch);
+  vi.stubGlobal('catalyst', { auth: {
+    signIn, generateAuthToken, isUserAuthenticated: vi.fn(async () => null),
+  } });
+
+  render(<MemoryRouter><Application /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument();
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+  expect(generateAuthToken).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
 test('missing workspace data fails closed instead of rendering a loading persona', async () => {
   const api = { get: vi.fn(async () => ({ data: null })) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
@@ -142,7 +159,8 @@ test('legacy maps route redirects to the canonical geospatial workspace', async 
 test('governed persona reaches workspace and Studio API requests through the same identity header', async () => {
   const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
   const generateAuthToken = vi.fn(async () => ({ access_token: 'TOKEN-1' }));
-  vi.stubGlobal('catalyst', { auth: { generateAuthToken } });
+  const isUserAuthenticated = vi.fn(async () => ({ content: { user_id: 'CAT-1' } }));
+  vi.stubGlobal('catalyst', { auth: { generateAuthToken, isUserAuthenticated } });
   const fetch = vi.fn(async (url, options) => {
     const path = String(url).slice(developmentApi.length);
     const data = path === '/v1/workspace' ? analystWorkspace
