@@ -75,3 +75,25 @@ test('workspace exposes only the server-authorized Development persona choices',
     allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
   });
 });
+
+test('presenter can load the persona chooser before assuming an operational role', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-1`,
+  });
+  const access = {
+    ...analyst, actualUserId: 'CAT-PRESENTER', employeeId: null,
+    actualRole: 'DEMO_PRESENTER', role: 'DEMO_PRESENTER', demoPersona: false,
+    personaSwitchAllowed: true, availablePersonas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
+    actions: [],
+  };
+
+  const workspace = await services.getWorkspace({ access });
+
+  assert.equal(workspace.data.role, 'DEMO_PRESENTER');
+  assert.equal(workspace.data.alertSummary.total, 0);
+  assert.deepEqual(workspace.data.personaSwitch, {
+    allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
+  });
+});

@@ -14,6 +14,8 @@ test('renders only personas returned by the backend', () => {
   expect(screen.getByRole('radio', { name: /State Leadership/i })).toBeVisible();
   expect(screen.getByRole('radio', { name: /Crime Analyst/i })).toBeVisible();
   expect(screen.queryByRole('radio', { name: /Station Operations/i })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Select workspace' })).toBeVisible();
+  expect(screen.queryByText(/changes the demonstration view/i)).not.toBeInTheDocument();
 });
 
 test('opens only the selected backend-authorized workspace', () => {
@@ -23,7 +25,7 @@ test('opens only the selected backend-authorized workspace', () => {
     personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
   } }} onSelect={onSelect} onSignOut={() => {}} />);
 
-  const open = screen.getByRole('button', { name: 'Open workspace' });
+  const open = screen.getByRole('button', { name: 'Continue' });
   expect(open).toBeDisabled();
   fireEvent.click(screen.getByRole('radio', { name: /Crime Analyst/i }));
   fireEvent.click(open);
@@ -35,5 +37,5 @@ test('fails closed when persona switching is not authorized', () => {
   render(<WorkspaceSelector workspace={{ personaSwitch: { allowed: false, personas: [] } }} onSelect={() => {}} onSignOut={() => {}} />);
 
   expect(screen.getByRole('alert')).toHaveTextContent('No demonstration workspace is authorized');
-  expect(screen.queryByRole('button', { name: 'Open workspace' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
 });

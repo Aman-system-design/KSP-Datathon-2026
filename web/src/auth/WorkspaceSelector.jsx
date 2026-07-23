@@ -1,11 +1,7 @@
 import { useState } from 'react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { getPersonaPresentation } from '../app/workspace-navigation.js';
 
 function authorizedPersonas(workspace) {
@@ -34,72 +30,41 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
   }
 
   return (
-    <main className="min-h-screen bg-muted/40 p-4 sm:p-8">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-xl border bg-background shadow-sm lg:grid-cols-[0.8fr_1.2fr]">
-        <section className="flex flex-col justify-between bg-primary p-8 text-primary-foreground sm:p-12">
-          <div>
-            <img className="mb-8 h-24 w-24 object-contain" src="/brand/karnataka-state-police.webp" alt="Karnataka State Police emblem" />
-            <p className="text-sm font-medium opacity-80">Karnataka State Police</p>
-            <h1 className="mt-3 max-w-md text-3xl font-semibold tracking-tight sm:text-4xl">Crime Decision Intelligence Platform</h1>
-            <p className="mt-4 max-w-md text-sm leading-6 opacity-80">Open a governed workspace to review crime intelligence within its authorized operational scope.</p>
-          </div>
-          <p className="mt-12 text-xs opacity-70">Authenticated through Catalyst</p>
-        </section>
-
-        <section className="flex flex-col p-6 sm:p-10">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Signed in</p>
-              <p className="font-medium">Demo Presenter</p>
-            </div>
-            <Avatar>
-              <AvatarImage src="/brand/ksp-logo.webp" alt="Karnataka State Police" />
-              <AvatarFallback>DP</AvatarFallback>
-            </Avatar>
-          </div>
-          <Separator className="my-6" />
-          <div>
-            <Badge variant="secondary">Authorized personas</Badge>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight">Choose a workspace</h2>
-            <p className="mt-2 text-sm text-muted-foreground">This selection changes the demonstration view. The backend still validates every role and data scope.</p>
-          </div>
-
-          <ToggleGroup
-            className="mt-7 grid w-full gap-3 sm:grid-cols-2"
-            type="single"
-            value={selectedRole}
-            onValueChange={value => value && setSelectedRole(value)}
-            aria-label="Authorized workspaces"
-          >
+    <main className="workspace-entry">
+      <header className="workspace-entry__brand">
+        <img src="/brand/karnataka-state-police.webp" alt="Karnataka State Police emblem" />
+        <div><strong>Karnataka State Police</strong><span>Crime Decision Intelligence</span></div>
+        <Button variant="ghost" onClick={onSignOut}>Sign out</Button>
+      </header>
+      <section className="workspace-entry__panel">
+        <header>
+          <span>Authorized access</span>
+          <h1>Select workspace</h1>
+          <p>Choose the operational view required for this session.</p>
+        </header>
+        <div className="workspace-entry__list" role="radiogroup" aria-label="Authorized workspaces">
             {personas.map(role => {
               const presentation = getPersonaPresentation(role);
               const selected = selectedRole === role;
               return (
-                <ToggleGroupItem
+                <button
+                  type="button"
                   key={role}
-                  value={role}
-                  variant="outline"
                   role="radio"
                   aria-checked={selected}
                   aria-label={presentation.label}
-                  className="h-auto min-h-28 w-full items-start justify-start rounded-lg p-4 text-left whitespace-normal data-[state=on]:border-primary data-[state=on]:bg-primary/5"
+                  className={selected ? 'selected' : ''}
+                  onClick={() => setSelectedRole(role)}
                 >
-                  <span>
-                    <span className="block font-semibold">{presentation.label}</span>
-                    <span className="mt-1 block text-sm text-muted-foreground">{presentation.workspace}</span>
-                    <span className="mt-3 block text-xs text-muted-foreground">{presentation.scope}</span>
-                  </span>
-                </ToggleGroupItem>
+                  <span className="workspace-entry__radio" aria-hidden="true" />
+                  <span><strong>{presentation.label}</strong><small>{presentation.workspace}</small></span>
+                  <span className="workspace-entry__scope">{presentation.scope}</span>
+                </button>
               );
             })}
-          </ToggleGroup>
-
-          <div className="mt-auto flex flex-col-reverse gap-3 pt-8 sm:flex-row sm:justify-between">
-            <Button variant="ghost" onClick={onSignOut}>Sign out</Button>
-            <Button disabled={!selectedRole} onClick={() => onSelect(selectedRole)}>Open workspace</Button>
-          </div>
-        </section>
-      </div>
+        </div>
+        <footer><span>Signed in as <strong>Demo Presenter</strong></span><Button disabled={!selectedRole} onClick={() => onSelect(selectedRole)}>Continue</Button></footer>
+      </section>
     </main>
   );
 }

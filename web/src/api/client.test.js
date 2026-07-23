@@ -1,6 +1,52 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { createApiClient } from './client.js';
+import { apiFailureDiagnostic, createApiClient } from './client.js';
+
+test('API diagnostics expose status and shape but never payload values', () => {
+  expect(apiFailureDiagnostic({ status: 502, payload: { status: 'failure', data: { secret: true } } })).toEqual({
+    status: 502, kind: 'response', payloadKeys: ['data', 'status'], errorKeys: [], dataKeys: ['secret'],
+  });
+});
+
+test('transport diagnostics are serialized and expose only safe token metadata', async () => {
+  const transportError = new TypeError('Failed to fetch');
+  vi.stubGlobal('fetch', vi.fn(async () => { throw transportError; }));
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const api = createApiClient({ baseUrl: '/api', tokenProvider: async () => 'TOKEN-1' });
+
+  await expect(api.get('/v1/workspace')).rejects.toMatchObject({ code: 'CATALYST_FUNCTION_UNREACHABLE' });
+
+  expect(log).toHaveBeenCalledOnce();
+  expect(log.mock.calls[0][0]).toBe('api_transport_failed');
+  expect(JSON.parse(log.mock.calls[0][1])).toEqual(expect.objectContaining({
+    kind: 'transport', errorName: 'TypeError', tokenPresent: true, tokenLength: 7, tokenHeaderSafe: true,
+  }));
+  expect(log.mock.calls[0][1]).not.toContain('TOKEN-1');
+  log.mockRestore();
+});
+
+test('transport failure without a generated backend token identifies the authentication boundary', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const api = createApiClient({ baseUrl: '/api', tokenProvider: async () => null });
+
+  await expect(api.get('/v1/workspace')).rejects.toMatchObject({ code: 'CATALYST_AUTH_TOKEN_UNAVAILABLE' });
+});
+
+test('workspace transport distinguishes an Authorization preflight failure from an unreachable Function', async () => {
+  const fetch = vi.fn()
+    .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    .mockResolvedValueOnce({ ok: false, status: 401 });
+  vi.stubGlobal('fetch', fetch);
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const api = createApiClient({ baseUrl: '/api', tokenProvider: async () => 'TOKEN-1' });
+
+  await expect(api.get('/v1/workspace')).rejects.toMatchObject({ code: 'CATALYST_AUTHORIZATION_REQUEST_BLOCKED' });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch.mock.calls[1][1]).toEqual(expect.objectContaining({
+    method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' },
+  }));
+});
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -17,7 +63,7 @@ test('Slate API client permits only the approved Catalyst Development Function b
   const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
   vi.stubGlobal('fetch', fetch);
   await createApiClient({ baseUrl }).get('/v1/workspace');
-  expect(fetch).toHaveBeenCalledWith(`${baseUrl}/v1/workspace`, expect.objectContaining({ credentials: 'include' }));
+  expect(fetch).toHaveBeenCalledWith(`${baseUrl}/v1/workspace`, expect.objectContaining({ credentials: 'omit' }));
   expect(() => createApiClient({ baseUrl: 'https://example.com/server/crime_intelligence_api' })).toThrow(TypeError);
 });
 

@@ -5,8 +5,8 @@ import { createReportService } from './report-service.mjs';
 
 const envelope = data => ({ data, syntheticData: true });
 
-export function createWorkspaceServices({ repository, readServices, now, idFactory }) {
-  const reports = createReportService({ repository, readServices, now, idFactory: () => idFactory('REPORT') });
+export function createWorkspaceServices({ repository, readServices, mapViewService, now, idFactory }) {
+  const reports = createReportService({ repository, readServices, mapViewService, now, idFactory: () => idFactory('REPORT') });
   const dashboards = createDashboardService({ repository, now, idFactory: () => idFactory('DASH') });
   const alerts = createAlertServices({ repository });
 
@@ -15,15 +15,17 @@ export function createWorkspaceServices({ repository, readServices, now, idFacto
       return envelope(Object.values(REPORT_SOURCES).map(source => structuredClone(source)));
     },
     async listReports({ access }) { return envelope(await reports.list({ access })); },
-    async createReport({ access, body }) { return envelope(await reports.create({ access, input: body })); },
+    async createReport({ access, body, requestId }) { return envelope(await reports.create({ access, input: body, requestId })); },
     async getReport({ access, params }) { return envelope(await reports.get({ access, reportId: params.reportId })); },
-    async updateReport({ access, params, body }) {
+    async updateReport({ access, params, body, requestId }) {
       return envelope(await reports.update({
-        access, reportId: params.reportId, expectedVersion: body?.expectedVersion, input: body?.definition,
+        access, reportId: params.reportId, expectedVersion: body?.expectedVersion, input: body?.definition, requestId,
       }));
     },
     async deleteReport({ access, params }) { return envelope(await reports.remove({ access, reportId: params.reportId })); },
-    async executeReport({ access, params }) { return envelope(await reports.execute({ access, reportId: params.reportId })); },
+    async executeReport({ access, params, requestId }) {
+      return envelope(await reports.execute({ access, reportId: params.reportId, requestId }));
+    },
 
     async listDashboards({ access }) { return envelope(await dashboards.list({ access })); },
     async createDashboard({ access, body }) { return envelope(await dashboards.create({ access, input: body })); },
@@ -51,9 +53,12 @@ export function createWorkspaceServices({ repository, readServices, now, idFacto
     async listAlerts(input) { return alerts.listAlerts(input); },
     async getAlertDetail(input) { return alerts.getAlertDetail(input); },
     async getWorkspace({ access }) {
+      const alertPromise = access.actions?.includes('READ_ALERT')
+        ? alerts.listAlerts({ access, query: {} })
+        : Promise.resolve({ data: { items: [] } });
       const [landingDashboard, availableDashboards, availableReports, alertResult] = await Promise.all([
         dashboards.resolveLanding({ access }), dashboards.list({ access }), reports.list({ access }),
-        alerts.listAlerts({ access, query: {} }),
+        alertPromise,
       ]);
       return envelope({
         role: access.role, scopeUnitId: access.scopeUnitId,

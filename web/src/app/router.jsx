@@ -48,7 +48,7 @@ function AuthorizedApplication({ api, auth }) {
   const location = useLocation();
   const navigate = useNavigate();
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
-  if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
+  if (state.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
   if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
   if (state.error) return <main className="application-gate"><Failure error={{ ...state.error, code: state.error.code ?? 'WORKSPACE_REQUEST_FAILED' }} /></main>;
@@ -58,7 +58,7 @@ function AuthorizedApplication({ api, auth }) {
   }
   const workspace = state.data;
   if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {
-    return <Suspense fallback={<main className="application-gate"><Busy label="Loading authorized workspaces…" /></main>}>
+    return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading authorized workspaces…" /></main>}>
       <WorkspaceSelector
         workspace={workspace}
         onSelect={persona => navigate({ pathname: '/', search: personaSearch(location.search, persona) })}
@@ -105,7 +105,7 @@ export function Application({ api: providedApi }) {
     [providedApi, auth],
   );
 
-  if (session.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity…" /></main>;
+  if (session.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity…" /></main>;
   if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) return <SignInRequired auth={auth} />;
   if (session.error) return <main className="application-gate"><Failure error={session.error} /></main>;
   return <AuthorizedApplication api={api} auth={auth} />;

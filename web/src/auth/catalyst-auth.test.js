@@ -26,14 +26,14 @@ test('reads session identity and signs out through the Catalyst Web SDK', async 
   auth.signOut();
 
   expect(isUserAuthenticated).toHaveBeenCalledOnce();
-  expect(signOut).toHaveBeenCalledWith('https://ksp.example/__catalyst/auth/login');
+  expect(signOut).toHaveBeenCalledWith('https://ksp.example/');
 });
 
-test('falls back to the hosted-login URL when the Web SDK is unavailable', () => {
+test('returns to the application root when the Web SDK is unavailable', () => {
   const assign = vi.fn();
   const auth = createCatalystAuth({ location: { origin: 'https://ksp.example', assign } });
   auth.signOut();
-  expect(assign).toHaveBeenCalledWith('/__catalyst/auth/login');
+  expect(assign).toHaveBeenCalledWith('/');
 });
 
 test('session failures are logged as serialized safe diagnostics', async () => {
@@ -64,22 +64,25 @@ test('returns no backend token until the Catalyst Web SDK session is available',
   await expect(auth.accessToken()).resolves.toBeNull();
 });
 
-test('opens the dedicated same-origin Catalyst sign-in page', () => {
-  const replace = vi.fn();
-  const auth = createCatalystAuth({ location: { origin: 'https://aiksp.onslate.in', replace } });
+test('mounts embedded Catalyst sign in with a root return URL', async () => {
+  const signIn = vi.fn();
+  const auth = createCatalystAuth({ catalyst: { auth: { signIn } } });
 
-  auth.openSignIn();
+  await auth.mountSignIn('catalystLogin', {
+    cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
+  });
 
-  expect(replace).toHaveBeenCalledWith('/ksp-sign-in-v3.html');
+  expect(signIn).toHaveBeenCalledWith('catalystLogin', {
+    css_url: '/auth/catalyst-sign-in-v4.css', service_url: '/',
+  });
 });
 
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
   const assign = vi.fn();
   const authOrigin = 'https://kspdatathon2026-60077844198.development.catalystserverless.in';
   const auth = createCatalystAuth({ authOrigin, location: { origin: 'https://aiksp.onslate.in', assign } });
-  expect(auth.loginUrl).toBe(`${authOrigin}/__catalyst/auth/login`);
   auth.signOut();
-  expect(assign).toHaveBeenCalledWith(`${authOrigin}/__catalyst/auth/login`);
+  expect(assign).toHaveBeenCalledWith('/');
 });
 
 test('web entry loads Catalyst v4 and same-origin initialization before the application module', () => {
@@ -93,47 +96,13 @@ test('web entry loads Catalyst v4 and same-origin initialization before the appl
   expect(application).toBeGreaterThan(init);
 });
 
-test('dedicated sign-in page invokes embedded Catalyst auth after its target exists', () => {
-  const html = readFileSync('public/ksp-sign-in-v3.html', 'utf8');
-  const sdk = html.indexOf('https://static.zohocdn.com/catalyst/sdk/js/4.6.2/catalystWebSDK.js');
-  const init = html.indexOf('/__catalyst/sdk/init.js');
-  const target = html.indexOf('id="loginDivElementId"');
-  const signIn = html.indexOf('catalyst.auth.signIn("loginDivElementId"');
+test('the application root owns sign in and no legacy login page is referenced', () => {
+  const html = readFileSync('index.html', 'utf8');
+  const auth = readFileSync('src/auth/SignInRequired.jsx', 'utf8');
 
-  expect(sdk).toBeGreaterThan(-1);
-  expect(init).toBeGreaterThan(sdk);
-  expect(target).toBeGreaterThan(init);
-  expect(signIn).toBeGreaterThan(target);
-  expect(html).toContain('css_url: "/auth/catalyst-sign-in-v4.css"');
-  expect(html).toContain('service_url: "/"');
-  expect(html).toContain('Karnataka State Police');
-  expect(html).not.toContain('type="password"');
-  expect(html).not.toContain('name="password"');
-});
-
-test('dedicated sign-in page uses the approved KSP identity in a compact single-viewport composition', () => {
-  const html = readFileSync('public/ksp-sign-in-v3.html', 'utf8');
-  const signInCss = readFileSync('public/auth/catalyst-sign-in-v4.css', 'utf8');
-  const tokens = readFileSync('src/styles/tokens.css', 'utf8');
-
-  expect(html).toContain('/brand/karnataka-state-police.webp');
-  expect(html).toContain('/fonts/roboto-latin-400-normal.woff2');
-  expect(html).toContain('/fonts/roboto-latin-500-normal.woff2');
-  expect(html).toContain('/fonts/roboto-latin-700-normal.woff2');
-  expect(html).not.toContain('authentication__heading');
-  expect(html).not.toContain('Access is invitation-only');
-  expect(html).not.toContain('Complete the Catalyst invitation');
-  expect(signInCss).toContain('max-width: 380px');
-  expect(html).toContain('Catalyst secure sign in');
-  expect(html).toContain('width: min(960px, 100%)');
-  expect(html).toContain('grid-template-columns: 320px minmax(0, 1fr)');
-  expect(html).toContain('width: min(380px, 100%)');
-  expect(html).toContain('class="authentication__stack"');
-  expect(html).toContain('class="security-note"');
-  expect(html).toContain('height: 300px');
-  expect(html).toContain('frame.scrolling = "no"');
-  expect(html).toContain('align-items: center');
-  expect(html).toContain('min-height: 100dvh');
-  expect(html).not.toContain('min-height: 700px');
-  expect(tokens).toMatch(/font-family:\s*Roboto,/u);
+  expect(html).toContain('id="root"');
+  expect(auth).toContain("serviceUrl: '/'");
+  expect(auth).toContain('/brand/karnataka-state-police.webp');
+  expect(auth).not.toContain('/login.html');
+  expect(auth).not.toContain('/ksp-sign-in');
 });

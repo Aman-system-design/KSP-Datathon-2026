@@ -107,6 +107,7 @@ export function createDispatcher({
     const requestId = typeof request?.requestId === 'string' ? request.requestId : 'REQ-UNAVAILABLE';
     let access;
     let route;
+    let phase = 'ROUTE_MATCH';
     try {
       const method = String(request?.method ?? '').toUpperCase();
       const path = request?.path;
@@ -114,22 +115,27 @@ export function createDispatcher({
       route = match(method, path);
       if (!route) { const error = new Error(); error.code = 'NOT_FOUND'; throw error; }
 
+      phase = 'ACCESS_PROFILE';
       const profile = currentUser?.user_id
         ? await profileRepository.getAccessProfile(currentUser.user_id) : undefined;
+      phase = 'ACCESS_INPUTS';
       const [units, rawAssignments] = await Promise.all([
         profileRepository.getUnits(),
         profile?.EmployeeID ? profileRepository.getAssignmentsForEmployee(profile.EmployeeID) : [],
       ]);
+      phase = 'ACCESS_RESOLUTION';
       access = await accessResolver({
         currentUser, profile, units,
         assignments: rawAssignments.map(assignmentGrant),
         requestedPersona: header(request.headers, 'X-Demo-Persona'), environment,
       });
       if (access.demoPersona) {
+        phase = 'DEMO_PERSONA_AUDIT';
         await auditService.record({ access, currentUser, eventType: 'DEMO_PERSONA_ASSUMED', requestId, route: route.operation.path, outcome: 'ALLOWED' });
       }
 
       if (route.operation.kind === 'resource') {
+        phase = 'RESOURCE_EXECUTION';
         const service = resourceServices[route.operation.service];
         if (typeof service !== 'function') throw new Error('unconfigured resource operation');
         const result = await service({
@@ -138,6 +144,7 @@ export function createDispatcher({
         });
         const { auditDetails, auditMode, ...body } = result;
         if (auditMode !== 'COALESCED_UNCHANGED') {
+          phase = 'RESOURCE_AUDIT';
           await auditService.record({
             access, currentUser,
             eventType: route.operation.auditEventType ?? (route.operation.method === 'GET' ? 'SENSITIVE_READ' : 'CONFIGURATION_CHANGED'),
@@ -148,13 +155,16 @@ export function createDispatcher({
       }
 
       if (route.operation.method === 'GET') {
+        phase = 'READ_EXECUTION';
         const service = readServices[route.operation.service];
         if (typeof service !== 'function') throw new Error('unconfigured read operation');
         const body = await service({ access, params: route.params, query: request.query ?? {} });
+        phase = 'READ_AUDIT';
         await auditService.record({ access, currentUser, eventType: 'SENSITIVE_READ', requestId, route: route.operation.path, outcome: 'ALLOWED' });
         return { status: 200, body };
       }
 
+      phase = 'WORKFLOW_EXECUTION';
       const body = workflowBody(request.body);
       const idempotencyKey = header(request.headers, 'Idempotency-Key');
       if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) {
@@ -173,7 +183,14 @@ export function createDispatcher({
           await auditService.record({ access, currentUser, eventType: 'SECURITY_DECISION_DENIED', requestId, route: route?.operation?.path ?? request?.path ?? 'UNKNOWN', outcome: 'DENIED', code: error.code });
         } catch { /* Preserve the original authorization failure; audit health is reconciled separately. */ }
       }
-      return safeError(error, requestId);
+      const response = safeError(error, requestId);
+      if (response.status >= 500) {
+        response.diagnostic = {
+          phase,
+          operation: typeof error?.operation === 'string' ? error.operation : 'UNCLASSIFIED',
+        };
+      }
+      return response;
     }
   };
 }

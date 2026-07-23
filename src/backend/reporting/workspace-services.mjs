@@ -53,9 +53,12 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
     async listAlerts(input) { return alerts.listAlerts(input); },
     async getAlertDetail(input) { return alerts.getAlertDetail(input); },
     async getWorkspace({ access }) {
+      const alertPromise = access.actions?.includes('READ_ALERT')
+        ? alerts.listAlerts({ access, query: {} })
+        : Promise.resolve({ data: { items: [] } });
       const [landingDashboard, availableDashboards, availableReports, alertResult] = await Promise.all([
         dashboards.resolveLanding({ access }), dashboards.list({ access }), reports.list({ access }),
-        alerts.listAlerts({ access, query: {} }),
+        alertPromise,
       ]);
       return envelope({
         role: access.role, scopeUnitId: access.scopeUnitId,

@@ -90,9 +90,9 @@ test('API entry exposes minimal health probes and production web builds omit sou
   assert.match(api, /api_boundary_failed/u);
   assert.doesNotMatch(api, /error\.stack|request\.body|request\.headers/u);
   assert.match(api, /https:\/\/aiksp\.onslate\.in/u);
-  assert.match(api, /Access-Control-Allow-Credentials/u);
-  assert.match(api, /Authorization/u);
-  assert.doesNotMatch(api, /Access-Control-Allow-Origin['"`\s,:]+\*/u);
+  assert.match(api, /Catalyst Authentication whitelisting is the CORS authority/u);
+  assert.doesNotMatch(api, /Access-Control-Allow-Origin/u);
+  assert.doesNotMatch(api, /Access-Control-Allow-Credentials/u);
 
   const vite = readFileSync(path.join(repositoryRoot, 'web/vite.config.js'), 'utf8');
   assert.doesNotMatch(vite, /sourcemap:\s*true/u);

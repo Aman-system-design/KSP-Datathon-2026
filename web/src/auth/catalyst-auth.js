@@ -1,5 +1,4 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
-const EMBEDDED_SIGN_IN_PATH = '/ksp-sign-in-v3.html';
 
 export function authFailureDiagnostic(error) {
   return Object.freeze({
@@ -30,7 +29,11 @@ export function createCatalystAuth({
 
   return Object.freeze({
     loginUrl,
-    openSignIn() { location.replace(EMBEDDED_SIGN_IN_PATH); },
+    async mountSignIn(elementId, { cssUrl, serviceUrl = '/' } = {}) {
+      const auth = await readyAuth();
+      if (typeof auth?.signIn !== 'function') throw new Error('Catalyst authentication is unavailable.');
+      return auth.signIn(elementId, { css_url: cssUrl, service_url: serviceUrl });
+    },
     async currentUser() {
       try {
         const result = await (await readyAuth())?.isUserAuthenticated?.();
@@ -52,10 +55,10 @@ export function createCatalystAuth({
     signOut() {
       const auth = sdk()?.auth;
       if (typeof auth?.signOut === 'function') {
-        auth.signOut(loginUrl.startsWith('http') ? loginUrl : `${location.origin}${loginUrl}`);
+        auth.signOut(`${location.origin}/`);
         return;
       }
-      location.assign(loginUrl);
+      location.assign('/');
     },
   });
 }

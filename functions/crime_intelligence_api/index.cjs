@@ -13,13 +13,8 @@ const slateOrigin = 'https://aiksp.onslate.in';
 app.use((request, response, next) => {
   const origin = request.get('Origin');
   if (origin && origin !== slateOrigin) return response.status(403).json({ error: { code: 'FORBIDDEN_ORIGIN', message: 'The request origin is not allowed.' } });
-  if (origin === slateOrigin) {
-    response.set('Access-Control-Allow-Origin', slateOrigin);
-    response.set('Access-Control-Allow-Credentials', 'true');
-    response.set('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, Idempotency-Key, X-Demo-Persona');
-    response.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    response.set('Vary', 'Origin');
-  }
+  // Catalyst Authentication whitelisting is the CORS authority. Duplicating its
+  // response headers here produces a comma-separated origin that browsers reject.
   if (request.method === 'OPTIONS') return response.status(204).end();
   return next();
 });

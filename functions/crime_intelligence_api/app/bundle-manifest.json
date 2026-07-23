@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "cd2d7401bb5797634c1f89ba93717ddc304ab1b13753254e7f6aa892f2e47959",
-      "bytes": 1561
+      "sha256": "4cc4d104cc4605e2368e4510ff013724f2f8534f70ea036e624af9558c379690",
+      "bytes": 1802
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -20,78 +20,88 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "49a665753811148f4e28a0bedf15decd3476d59bd43361f4034e66f4844b6c01",
-      "bytes": 6776
+      "sha256": "93492e68c86d44604e1b995df8d6d27d87439f6ae820b8cd93f753ada02c86f8",
+      "bytes": 8086
     },
     {
       "path": "src/backend/catalyst/job-scheduling-adapter.mjs",
-      "sha256": "6e6710b5bc1130c47c53c24da913b2e4f1df2bb1b9d3513882fa85e3348bb8d4",
-      "bytes": 1458
+      "sha256": "a517dcd9a339a4befb0b90fad8d7c4ef189294f661120f36e3abc8786d0a723a",
+      "bytes": 1494
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
-      "sha256": "40e620aa621da0acbf04e6fcc302a170864e11a174ce3b20aea6a0d562e4ff81",
-      "bytes": 1252
+      "sha256": "2c945a4ec1250329fdd09cdc2159f9deb8c865c19718cea0c2555456fd590d62",
+      "bytes": 1334
+    },
+    {
+      "path": "src/backend/geospatial/dataset-catalog.mjs",
+      "sha256": "b46d270e4374277f1faa6e33398d4f87fc414333583e09ce5b8bc4d364fbedd5",
+      "bytes": 2123
+    },
+    {
+      "path": "src/backend/geospatial/layer-service.mjs",
+      "sha256": "c32777d50b1b20c81be12f9002133816d8df7c0947ba4e5efed706d8f988d9d5",
+      "bytes": 13916
+    },
+    {
+      "path": "src/backend/geospatial/map-view-service.mjs",
+      "sha256": "8184e88cab7cc71ad2dc19dba019992e96976d0eedee7846fd9ff37652f3fc16",
+      "bytes": 10111
     },
     {
       "path": "src/backend/http/api-contract.mjs",
-      "sha256": "92f56efc0a38f3377bdfedf69f7d156ab9c29bc37b395544294cd4efe7a3a7a0",
-      "bytes": 3851
+      "sha256": "c503c98bdcdb2df1cc4bf99d479a261fc54ef3fafaaf77418c2a5f01a8f118e6",
+      "bytes": 4964
     },
     {
       "path": "src/backend/http/dispatch.mjs",
-      "sha256": "1f32cba671e050c002f4c690b6df4b9b4f2872f118d13ade6b69a966ebab2539",
-      "bytes": 7963
+      "sha256": "606d1de95f213aeae7e6e2bbb0eecee8aec425298fade0183069143b8422ab31",
+      "bytes": 8724
     },
     {
       "path": "src/backend/operations/intelligence-run-resources.mjs",
-      "sha256": "3fef962a764ff238421fe40ced30d9723b41051aa3bf570aaa4b597dd7ae55e2",
-      "bytes": 1015
+      "sha256": "b8f57b8aa74b79ddef35b9de6d5c67e0467b9764dec33615c5ccb12fec55484a",
+      "bytes": 1038
     },
     {
       "path": "src/backend/operations/intelligence-run-service.mjs",
-      "sha256": "ad60e72a84705f580cb2595d1ba0fc4931aee029bacb095fffb2d1b5e843268c",
-      "bytes": 3486
-    },
-    {
-      "path": "src/backend/refresh/run-groups.mjs",
-      "sha256": "2fdc1d835678f975e390840469fc65f2a114b61c57a8e63080ce73f946229b81",
-      "bytes": 1632
+      "sha256": "bb7b207d93b1a51dd625712bb33c52e0aa19c2e45904ecacd7e214cac6225ac1",
+      "bytes": 3573
     },
     {
       "path": "src/backend/reporting/dashboard-service.mjs",
-      "sha256": "6991aae75513f4d751f9b8da8b9d272b2661780f7133aee7cbe00a7060da392b",
-      "bytes": 7146
+      "sha256": "18b0b4042c38186d56998efa691f35d217c5486b702c8f00a630cf9c3f833e1a",
+      "bytes": 7285
     },
     {
       "path": "src/backend/reporting/report-definition.mjs",
-      "sha256": "3f986f0affc9e90b352a7f8a1712a2b061abe37b7fead278de89cf3ae71ea130",
-      "bytes": 4083
+      "sha256": "021e6fad979c52c453c1107d2cebc5ceff1e0bb8ae749c803da5c8b169f2d00a",
+      "bytes": 5113
     },
     {
       "path": "src/backend/reporting/report-execution.mjs",
-      "sha256": "0c51a560e1b518ba1b662a46b6028f21d17505c64b9539833dfc303173b7187d",
-      "bytes": 4539
+      "sha256": "e9bc5535b6e7197006d9d7e922718f51554fda30b3618230509e688e66058a01",
+      "bytes": 7525
     },
     {
       "path": "src/backend/reporting/report-service.mjs",
-      "sha256": "a23c7d30ca5b4b7309339748a7b9627d195ac2bbab1d910d936fdace0fcfe7af",
-      "bytes": 4753
+      "sha256": "3fe18bb40643dd12519eda73176277ee8707a37c65ab0cd21884707b73db161a",
+      "bytes": 6306
     },
     {
       "path": "src/backend/reporting/semantic-sources.mjs",
-      "sha256": "436d5bb296185d93d1808e4fb9166a258eea0910a357abae2e0fa322261169d1",
-      "bytes": 4053
+      "sha256": "a688c1d5005c88d48b52214be5aaaf4f289d15afcbf68621e1e794eb0053a8ea",
+      "bytes": 4145
     },
     {
       "path": "src/backend/reporting/workspace-services.mjs",
-      "sha256": "6bff3f14d4a0766d37f9ed5dcc90a9ab04410bf4db3810f654703e56196d045e",
-      "bytes": 4192
+      "sha256": "e8bbffa6f78ca17287480c01ef23678aedaa1a09d594dfaf84a83f344de524ea",
+      "bytes": 4506
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "63046fbaa985519d74f28196544d79267ace5d6ccb30810fe718c766481dd514",
-      "bytes": 53827
+      "sha256": "5d13921782799b2a9032fc55d5bf82d572affb354f8efc69e3f408196400818c",
+      "bytes": 79383
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
@@ -125,8 +135,8 @@
     },
     {
       "path": "src/backend/security/access-audit.mjs",
-      "sha256": "4d9c102f5cc840d06afde5de4648cdd761684cabce1924864fa2a4f9969ced9f",
-      "bytes": 1472
+      "sha256": "d77c4aaacc5382dcb7a95b6df941b264f3c27233312fcbfd6d0a6f360b558b68",
+      "bytes": 2020
     },
     {
       "path": "src/backend/security/disclosure.mjs",
@@ -135,33 +145,33 @@
     },
     {
       "path": "src/backend/security/identity.mjs",
-      "sha256": "2cd0efe7bc7081285d31b85369f26fbd24c67522c87064b2b9aaaa78ff14eec2",
-      "bytes": 2156
+      "sha256": "fc891b9f0e664d53ce6cf4bfba85ff58f3c09cd05986bd8e566482b3f95cc552",
+      "bytes": 2170
     },
     {
       "path": "src/backend/security/scope.mjs",
-      "sha256": "079f89cbd48db90b4dd0f4a1751b18eb57027ecc0ecd8ee1e44c533892519783",
-      "bytes": 1770
+      "sha256": "8524cc2e8ad2059d73af641090ee949256843f357cb6c39f76afe01ce20c1a96",
+      "bytes": 1784
     },
     {
       "path": "src/backend/services/alert-services.mjs",
-      "sha256": "1f3a508b195e4fa3b9f421d9475f896df6965c43dd02fcee3f4af515ca96b85f",
-      "bytes": 2481
+      "sha256": "6caa37a4a777147444fddfc9fa00dca5e99e6d1444bc17e7506f12016eae044d",
+      "bytes": 2537
     },
     {
       "path": "src/backend/services/envelope.mjs",
-      "sha256": "c2d334767fec8f181a4a80682ad06892822979c4950fbabdd1c1c8ff0540a4be",
-      "bytes": 625
+      "sha256": "c66deb617b61975ab0ae60ad93b4611da11c75ce8c008f326f229eb46461230b",
+      "bytes": 704
     },
     {
       "path": "src/backend/services/errors.mjs",
-      "sha256": "20ce8dc7458a4b9d4889c962a39010c3798d2685f3a6da7994ab817431fc8b96",
-      "bytes": 578
+      "sha256": "bf0296d4505a0fe32c32e98511e7b1912ad450542f21cb7593a413ab0450c927",
+      "bytes": 613
     },
     {
       "path": "src/backend/services/read-services.mjs",
-      "sha256": "d0c74c095d945cdf79d9c7c86b298413155333fb93265ed9f2e0e2bf1cf2fdf0",
-      "bytes": 4835
+      "sha256": "a7e89815fc0dad9f9243fa5e40fb4ce9079620c089a2dc82db8017c7d6c15344",
+      "bytes": 4914
     },
     {
       "path": "src/backend/workflow/audit.mjs",
@@ -175,18 +185,38 @@
     },
     {
       "path": "src/backend/workflow/command-service.mjs",
-      "sha256": "9761902832a3d25001b348d2a9a7eaa3ae56bdb4f9bf60add319cd696248de2e",
-      "bytes": 11898
+      "sha256": "f742e31131210bcf6c08a588248a68883128c90309a63cd738a7b4731b002a17",
+      "bytes": 11941
     },
     {
       "path": "src/backend/workflow/state-machine.mjs",
-      "sha256": "0727caba738c9335dd07da50a37b6db9e2126f5fbf924913d7fa53b212fdd7fe",
-      "bytes": 1489
+      "sha256": "0c00283c6e23baa5f6719aa1183653fe7239cca1e6fc8d36bd18d7817d9f410e",
+      "bytes": 1503
     },
     {
       "path": "src/ingestion/pdf-semantic-rules.mjs",
       "sha256": "85f9d0ed01b5b9a948c25d342051f63a16042768c595e73a8cc7303bc89ea863",
       "bytes": 12623
+    },
+    {
+      "path": "vendor/geospatial-core/index.mjs",
+      "sha256": "b7f7846254c9fc49cc14c7e85e931760b12d0e37e1104aaed91122a344b64254",
+      "bytes": 78
+    },
+    {
+      "path": "vendor/geospatial-core/package.json",
+      "sha256": "017663ed6fe7d1f7166df0179becba744179ecc8c1b58ccfc4ae5abb93558e5d",
+      "bytes": 214
+    },
+    {
+      "path": "vendor/geospatial-core/src/compile-layer.mjs",
+      "sha256": "d80435984018828f0800e2a7274ad2ffa930d6707b525a7060d5992f22db5839",
+      "bytes": 2695
+    },
+    {
+      "path": "vendor/geospatial-core/src/contracts.mjs",
+      "sha256": "463aa9f380e0f4de9e9a8c5a47a7ef1230bf7cb97d4c797b5993ad57baee5403",
+      "bytes": 21115
     }
   ]
 }

@@ -19,6 +19,7 @@ function harness({
   currentUser = { user_id: 'CAT-DISTRICT', status: 'ACTIVE' },
   logger = { info() {}, error() {} },
   repositoryFactory,
+  schedulerFactory = () => ({ submit: async () => ({ jobId: 'JOB-1' }) }),
 } = {}) {
   const calls = [];
   const repository = new MemoryIntelligenceRepository(buildDemoState());
@@ -33,7 +34,7 @@ function harness({
     sdk, config, policy, clock: () => '2026-07-20T15:00:00.000Z',
     idFactory: prefix => `${prefix ?? 'REQ'}-${++id}`,
     repositoryFactory: repositoryFactory ?? (() => repository),
-    schedulerFactory: () => ({ submit: async () => ({ jobId: 'JOB-1' }) }),
+    schedulerFactory,
     logger,
   });
   return { application, calls, repository };
@@ -42,7 +43,6 @@ function harness({
 test('runtime config is Development-only, complete and never returns unrelated environment data', () => {
   const loaded = loadRuntimeConfig({
     KSP_ENVIRONMENT: 'Development', KSP_PROJECT_ID: '43492000000013049',
-    KSP_ORGANIZATION_ID: 'ORG-KSP',
     KSP_PERMISSION_VERSION: '1.0.0', KSP_AUDIT_KEY: 'a'.repeat(32), KSP_AUDIT_KEY_VERSION: 'v1',
     KSP_INTELLIGENCE_JOB_POOL: 'KSPIntelligencePool',
     UNRELATED_SECRET: 'must-not-be-copied',
@@ -53,11 +53,10 @@ test('runtime config is Development-only, complete and never returns unrelated e
   assert.equal(loaded.intelligenceJobPool, 'KSPIntelligencePool');
   assert.equal(JSON.stringify(loaded).includes('must-not-be-copied'), false);
   for (const mutation of [
-    { KSP_ENVIRONMENT: 'Production' }, { KSP_PROJECT_ID: 'wrong' }, { KSP_ORGANIZATION_ID: '' },
+    { KSP_ENVIRONMENT: 'Production' }, { KSP_PROJECT_ID: 'wrong' },
     { KSP_AUDIT_KEY: '' }, { KSP_PERMISSION_VERSION: '0.9.0' }, { KSP_INTELLIGENCE_JOB_POOL: 'bad pool' },
   ]) assert.throws(() => loadRuntimeConfig({ ...{
     KSP_ENVIRONMENT: 'Development', KSP_PROJECT_ID: '43492000000013049',
-    KSP_ORGANIZATION_ID: 'ORG-KSP',
     KSP_PERMISSION_VERSION: '1.0.0', KSP_AUDIT_KEY: 'a'.repeat(32), KSP_AUDIT_KEY_VERSION: 'v1',
     KSP_INTELLIGENCE_JOB_POOL: 'KSPIntelligencePool',
   }, ...mutation }), /config|Development|project|audit|permission/i);
@@ -82,6 +81,14 @@ test('API composition serves the role workspace and governed report sources', as
   const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
   assert.equal(sources.status, 200);
   assert.equal(sources.body.data.length, 7);
+});
+
+test('read-only requests do not initialize Catalyst Job Scheduling', async () => {
+  const { application } = harness({
+    schedulerFactory: () => { throw new Error('Job Scheduling is unavailable'); },
+  });
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers: {}, body: null });
+  assert.equal(workspace.status, 200);
 });
 
 test('API composition serves authorized geospatial catalog and layer execution', async () => {
@@ -240,6 +247,7 @@ test('API emits correlated redacted structured completion and failure logs', asy
   assert.equal(failureLog[1].event, 'api_request_failed');
   assert.equal(failureLog[1].requestId, failure.body.error.requestId);
   assert.equal(failureLog[1].code, 'INTERNAL_ERROR');
+  assert.equal(failureLog[1].phase, 'REPOSITORY');
   assert.equal(JSON.stringify(entries).includes('secret database detail'), false);
   assert.equal(JSON.stringify(entries).includes('must-not-log'), false);
 });

@@ -3,6 +3,7 @@ const ALLOWED_KEYS = new Set([
   'visualization', 'limit',
 ]);
 const FILTER_OPERATORS = new Set(['eq', 'neq', 'in', 'gte', 'lte', 'between']);
+const MAP_VIEW_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u;
 
 function requireObject(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -75,6 +76,21 @@ export function normalizeReportDefinition(input, source) {
   if (!source.visualizations.includes(visualization.type)) {
     throw new TypeError('Unsupported visualization for report source');
   }
+  const visualizationKeys = Object.keys(visualization);
+  let normalizedVisualization;
+  if (visualization.type === 'map') {
+    if (visualizationKeys.length !== 2 || !visualizationKeys.includes('mapViewId')
+      || typeof visualization.mapViewId !== 'string' || !MAP_VIEW_ID.test(visualization.mapViewId)) {
+      throw new TypeError('Map visualization must reference exactly one governed map view');
+    }
+    normalizedVisualization = { type: 'map', mapViewId: visualization.mapViewId };
+    if (dimensions.length > 0 || normalizedMeasures.length > 0 || normalizedFilters.length > 0 || normalizedSort.length > 0) {
+      throw new TypeError('Map visualization cannot include report transforms');
+    }
+  } else {
+    if (visualizationKeys.length !== 1) throw new TypeError('Visualization contains unsupported fields');
+    normalizedVisualization = { type: visualization.type };
+  }
   const limit = input.limit ?? 100;
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new TypeError('Report limit must be an integer from 1 to 200');
@@ -88,7 +104,7 @@ export function normalizeReportDefinition(input, source) {
     measures: Object.freeze(normalizedMeasures),
     filters: Object.freeze(normalizedFilters),
     sort: Object.freeze(normalizedSort),
-    visualization: Object.freeze({ type: visualization.type }),
+    visualization: Object.freeze(normalizedVisualization),
     limit,
   });
 }

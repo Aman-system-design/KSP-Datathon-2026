@@ -1,5 +1,14 @@
-export function Busy({ label = 'Loading authorized intelligence…' }) {
-  return <div className="loading-state"><i /><strong>{label}</strong></div>;
+export function Busy({ label = 'Loading authorized intelligence…', branded = false }) {
+  return <div className={`loading-state${branded ? ' loading-state--branded' : ''}`} role="status" aria-label={label} aria-live="polite">
+    {branded ? <>
+      <div className="loading-state__mark">
+        <span aria-hidden="true" />
+        <img src="/brand/karnataka-state-emblem.png" alt="Karnataka State emblem" />
+      </div>
+      <small>Secure intelligence platform</small>
+    </> : <i aria-hidden="true" />}
+    <strong>{label}</strong>
+  </div>;
 }
 
 export function Failure({ error }) {

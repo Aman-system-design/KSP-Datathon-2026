@@ -1,5 +1,6 @@
 const EXPECTED_PROJECT = '43492000000013049';
 const EXPECTED_PERMISSION_VERSION = '1.0.0';
+const EXPECTED_ORGANIZATION = 'ORG-KSP';
 
 export function loadRuntimeConfig(environment = process.env) {
   if (environment.KSP_ENVIRONMENT !== 'Development') throw new Error('Runtime config must target Development.');
@@ -10,6 +11,7 @@ export function loadRuntimeConfig(environment = process.env) {
   if (!/^[A-Za-z0-9._-]{1,100}$/u.test(environment.KSP_INTELLIGENCE_JOB_POOL ?? '')) throw new Error('Runtime job pool config is invalid.');
   return Object.freeze({
     environment: 'Development', projectId: EXPECTED_PROJECT,
+    organizationId: EXPECTED_ORGANIZATION,
     permissionVersion: EXPECTED_PERMISSION_VERSION,
     auditKey: environment.KSP_AUDIT_KEY, auditKeyVersion: environment.KSP_AUDIT_KEY_VERSION,
     intelligenceJobPool: environment.KSP_INTELLIGENCE_JOB_POOL,
