@@ -45,34 +45,13 @@ test('returns no backend token until the Catalyst Web SDK session is available',
   await expect(auth.accessToken()).resolves.toBeNull();
 });
 
-test('renders Catalyst embedded authentication into the native login host', async () => {
-  const signIn = vi.fn();
-  const auth = createCatalystAuth({ catalyst: { auth: { signIn } } });
+test('opens the dedicated same-origin Catalyst sign-in page', () => {
+  const replace = vi.fn();
+  const auth = createCatalystAuth({ location: { origin: 'https://aiksp.onslate.in', replace } });
 
-  await auth.embeddedSignIn('loginDivElementId');
+  auth.openSignIn();
 
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
-});
-
-test('waits for the Catalyst auth surface before rendering embedded authentication', async () => {
-  const signIn = vi.fn();
-  const runtime = {};
-  const sleep = vi.fn(async () => { runtime.catalyst = { auth: { signIn } }; });
-  const auth = createCatalystAuth({
-    getCatalyst: () => runtime.catalyst,
-    sleep,
-    sdkAttempts: 2,
-  });
-
-  await auth.embeddedSignIn('loginDivElementId');
-
-  expect(sleep).toHaveBeenCalledOnce();
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
-});
-
-test('fails safely when Catalyst embedded authentication is unavailable', async () => {
-  const auth = createCatalystAuth({ catalyst: {}, sdkAttempts: 1, sleep: vi.fn() });
-  await expect(auth.embeddedSignIn()).rejects.toThrow('Catalyst authentication is unavailable.');
+  expect(replace).toHaveBeenCalledWith('/login.html');
 });
 
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
@@ -93,4 +72,18 @@ test('web entry loads Catalyst v4 and same-origin initialization before the appl
   expect(sdk).toBeGreaterThan(-1);
   expect(init).toBeGreaterThan(sdk);
   expect(application).toBeGreaterThan(init);
+});
+
+test('dedicated sign-in page invokes embedded Catalyst auth after its target exists', () => {
+  const html = readFileSync('public/login.html', 'utf8');
+  const sdk = html.indexOf('https://static.zohocdn.com/catalyst/sdk/js/4.6.2/catalystWebSDK.js');
+  const init = html.indexOf('/__catalyst/sdk/init.js');
+  const target = html.indexOf('id="loginDivElementId"');
+  const signIn = html.indexOf('catalyst.auth.signIn("loginDivElementId"');
+
+  expect(sdk).toBeGreaterThan(-1);
+  expect(init).toBeGreaterThan(sdk);
+  expect(target).toBeGreaterThan(init);
+  expect(signIn).toBeGreaterThan(target);
+  expect(html).toContain('service_url: "/"');
 });

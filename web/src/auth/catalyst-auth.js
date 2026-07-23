@@ -21,11 +21,7 @@ export function createCatalystAuth({
 
   return Object.freeze({
     loginUrl,
-    async embeddedSignIn(elementId = 'loginDivElementId') {
-      const signIn = (await readyAuth())?.signIn;
-      if (typeof signIn !== 'function') throw new Error('Catalyst authentication is unavailable.');
-      return signIn(elementId, {});
-    },
+    openSignIn() { location.replace('/login.html'); },
     async currentUser() {
       const result = await (await readyAuth())?.isUserAuthenticated?.();
       return result?.content ?? null;

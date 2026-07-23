@@ -49,31 +49,26 @@ test('alerts page treats a missing collection as an empty authorized result', as
   expect(screen.queryByText('Intelligence is unavailable')).not.toBeInTheDocument();
 });
 
-test('unauthenticated workspace renders native Catalyst sign-in without protected navigation', async () => {
-  const signIn = vi.fn();
-  vi.stubGlobal('catalyst', { auth: { signIn } });
+test('unauthenticated workspace opens native Catalyst sign-in without protected navigation', async () => {
   const api = { get: vi.fn(async () => { throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument();
-  expect(screen.getByLabelText('Catalyst sign in')).toHaveAttribute('id', 'loginDivElementId');
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
+  expect(await screen.findByRole('heading', { name: 'Opening secure sign in…' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute('href', '/login.html');
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
 
 test('unauthenticated Catalyst session renders sign-in before requesting an API token', async () => {
-  const signIn = vi.fn();
   const generateAuthToken = vi.fn();
   const fetch = vi.fn();
   vi.stubGlobal('fetch', fetch);
   vi.stubGlobal('catalyst', { auth: {
-    signIn, generateAuthToken, isUserAuthenticated: vi.fn(async () => null),
+    generateAuthToken, isUserAuthenticated: vi.fn(async () => null),
   } });
 
   render(<MemoryRouter><Application /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument();
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
+  expect(await screen.findByRole('heading', { name: 'Opening secure sign in…' })).toBeInTheDocument();
   expect(generateAuthToken).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
 });
