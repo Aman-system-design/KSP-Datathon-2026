@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "4cc4d104cc4605e2368e4510ff013724f2f8534f70ea036e624af9558c379690",
-      "bytes": 1802
+      "sha256": "4b336c653cd4b6ad3b302ec0a614abf68433f8bd67b372a63d3adebfcf2e5c0f",
+      "bytes": 1808
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -20,88 +20,88 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "93492e68c86d44604e1b995df8d6d27d87439f6ae820b8cd93f753ada02c86f8",
-      "bytes": 8086
+      "sha256": "1e26a1764edc41bbd0ce10df2ecfdd83970806b5803acf2a6fcc838025539023",
+      "bytes": 8149
     },
     {
       "path": "src/backend/catalyst/job-scheduling-adapter.mjs",
-      "sha256": "a517dcd9a339a4befb0b90fad8d7c4ef189294f661120f36e3abc8786d0a723a",
-      "bytes": 1494
+      "sha256": "6e6710b5bc1130c47c53c24da913b2e4f1df2bb1b9d3513882fa85e3348bb8d4",
+      "bytes": 1458
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
-      "sha256": "2c945a4ec1250329fdd09cdc2159f9deb8c865c19718cea0c2555456fd590d62",
-      "bytes": 1334
+      "sha256": "ff2675d4edf81f235debdbc008ff2cae7d4b50b69431d05c5aa844bb4cd40f57",
+      "bytes": 1342
     },
     {
       "path": "src/backend/geospatial/dataset-catalog.mjs",
-      "sha256": "b46d270e4374277f1faa6e33398d4f87fc414333583e09ce5b8bc4d364fbedd5",
-      "bytes": 2123
+      "sha256": "56dd797a02ff231aa9b6893384688823a6435596967fcd1e989f918d7243485f",
+      "bytes": 2163
     },
     {
       "path": "src/backend/geospatial/layer-service.mjs",
-      "sha256": "c32777d50b1b20c81be12f9002133816d8df7c0947ba4e5efed706d8f988d9d5",
-      "bytes": 13916
+      "sha256": "34679bdd1dbac1ccdbcfdfeedb1dea60e334b307af53c063e4e319e82fb50cc0",
+      "bytes": 14201
     },
     {
       "path": "src/backend/geospatial/map-view-service.mjs",
-      "sha256": "8184e88cab7cc71ad2dc19dba019992e96976d0eedee7846fd9ff37652f3fc16",
-      "bytes": 10111
+      "sha256": "f007bcb20279321a3d30b4cb5437cabc612b05f61ca7f3b00cfb365a25f0a1ca",
+      "bytes": 10326
     },
     {
       "path": "src/backend/http/api-contract.mjs",
-      "sha256": "c503c98bdcdb2df1cc4bf99d479a261fc54ef3fafaaf77418c2a5f01a8f118e6",
-      "bytes": 4964
+      "sha256": "6a4019cdf1824ddd24d031ebac9602c37daa508db8f1721610724b8f1bf18178",
+      "bytes": 4973
     },
     {
       "path": "src/backend/http/dispatch.mjs",
-      "sha256": "606d1de95f213aeae7e6e2bbb0eecee8aec425298fade0183069143b8422ab31",
-      "bytes": 8724
+      "sha256": "e163258f5b7d01d19ea1a1ce911e113864ccec3e46d6078a388f7811cb9e1433",
+      "bytes": 8773
     },
     {
       "path": "src/backend/operations/intelligence-run-resources.mjs",
-      "sha256": "b8f57b8aa74b79ddef35b9de6d5c67e0467b9764dec33615c5ccb12fec55484a",
-      "bytes": 1038
+      "sha256": "3fef962a764ff238421fe40ced30d9723b41051aa3bf570aaa4b597dd7ae55e2",
+      "bytes": 1015
     },
     {
       "path": "src/backend/operations/intelligence-run-service.mjs",
-      "sha256": "bb7b207d93b1a51dd625712bb33c52e0aa19c2e45904ecacd7e214cac6225ac1",
-      "bytes": 3573
+      "sha256": "ad60e72a84705f580cb2595d1ba0fc4931aee029bacb095fffb2d1b5e843268c",
+      "bytes": 3486
     },
     {
       "path": "src/backend/reporting/dashboard-service.mjs",
-      "sha256": "18b0b4042c38186d56998efa691f35d217c5486b702c8f00a630cf9c3f833e1a",
-      "bytes": 7285
+      "sha256": "6991aae75513f4d751f9b8da8b9d272b2661780f7133aee7cbe00a7060da392b",
+      "bytes": 7146
     },
     {
       "path": "src/backend/reporting/report-definition.mjs",
-      "sha256": "021e6fad979c52c453c1107d2cebc5ceff1e0bb8ae749c803da5c8b169f2d00a",
-      "bytes": 5113
+      "sha256": "f2096aff2ea54a47ca7afbb624f8ed427b1a4da2d6d4a897810688a7755ee8ff",
+      "bytes": 5134
     },
     {
       "path": "src/backend/reporting/report-execution.mjs",
-      "sha256": "e9bc5535b6e7197006d9d7e922718f51554fda30b3618230509e688e66058a01",
-      "bytes": 7525
+      "sha256": "b259f8c15cd77f6ab17f3dd9558c346b5974b29e155512830896dbc0d4f8551c",
+      "bytes": 7587
     },
     {
       "path": "src/backend/reporting/report-service.mjs",
-      "sha256": "3fe18bb40643dd12519eda73176277ee8707a37c65ab0cd21884707b73db161a",
-      "bytes": 6306
+      "sha256": "cc222fc4de7ee8435ca739c7d894b209b50a6f86b9f6b74293aeb1234f3f7e99",
+      "bytes": 6355
     },
     {
       "path": "src/backend/reporting/semantic-sources.mjs",
-      "sha256": "a688c1d5005c88d48b52214be5aaaf4f289d15afcbf68621e1e794eb0053a8ea",
-      "bytes": 4145
+      "sha256": "436d5bb296185d93d1808e4fb9166a258eea0910a357abae2e0fa322261169d1",
+      "bytes": 4053
     },
     {
       "path": "src/backend/reporting/workspace-services.mjs",
-      "sha256": "e8bbffa6f78ca17287480c01ef23678aedaa1a09d594dfaf84a83f344de524ea",
-      "bytes": 4506
+      "sha256": "fd1f41d4c37b041df5a4ffff68a17c9e2da4f3b7d341841fd7ed21a78c21a104",
+      "bytes": 4523
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "5d13921782799b2a9032fc55d5bf82d572affb354f8efc69e3f408196400818c",
-      "bytes": 79383
+      "sha256": "d615983d9fb07529096b14a6d55faa54f4bd1fb334253592b4ffafd630b5bc43",
+      "bytes": 79907
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
@@ -135,8 +135,8 @@
     },
     {
       "path": "src/backend/security/access-audit.mjs",
-      "sha256": "d77c4aaacc5382dcb7a95b6df941b264f3c27233312fcbfd6d0a6f360b558b68",
-      "bytes": 2020
+      "sha256": "72cb51dc3f0f6b5a1117983a542c133dd296fb33c9142a6ebedf835a22683fa1",
+      "bytes": 2031
     },
     {
       "path": "src/backend/security/disclosure.mjs",
@@ -145,33 +145,33 @@
     },
     {
       "path": "src/backend/security/identity.mjs",
-      "sha256": "fc891b9f0e664d53ce6cf4bfba85ff58f3c09cd05986bd8e566482b3f95cc552",
-      "bytes": 2170
+      "sha256": "2cd0efe7bc7081285d31b85369f26fbd24c67522c87064b2b9aaaa78ff14eec2",
+      "bytes": 2156
     },
     {
       "path": "src/backend/security/scope.mjs",
-      "sha256": "8524cc2e8ad2059d73af641090ee949256843f357cb6c39f76afe01ce20c1a96",
-      "bytes": 1784
+      "sha256": "079f89cbd48db90b4dd0f4a1751b18eb57027ecc0ecd8ee1e44c533892519783",
+      "bytes": 1770
     },
     {
       "path": "src/backend/services/alert-services.mjs",
-      "sha256": "6caa37a4a777147444fddfc9fa00dca5e99e6d1444bc17e7506f12016eae044d",
-      "bytes": 2537
+      "sha256": "1f3a508b195e4fa3b9f421d9475f896df6965c43dd02fcee3f4af515ca96b85f",
+      "bytes": 2481
     },
     {
       "path": "src/backend/services/envelope.mjs",
-      "sha256": "c66deb617b61975ab0ae60ad93b4611da11c75ce8c008f326f229eb46461230b",
-      "bytes": 704
+      "sha256": "9f3ed2af5cc3d773deb91e68e8688925fcd02cb8cafb5edafe1db2f812e85336",
+      "bytes": 707
     },
     {
       "path": "src/backend/services/errors.mjs",
-      "sha256": "bf0296d4505a0fe32c32e98511e7b1912ad450542f21cb7593a413ab0450c927",
-      "bytes": 613
+      "sha256": "e23262f93fc512b40a37e80d78795d2d0271cc80b2af2d0f39a2acd48fabfd4f",
+      "bytes": 615
     },
     {
       "path": "src/backend/services/read-services.mjs",
-      "sha256": "a7e89815fc0dad9f9243fa5e40fb4ce9079620c089a2dc82db8017c7d6c15344",
-      "bytes": 4914
+      "sha256": "85479d34b472e346b891976cc2d0936232993f25471026b52970fc35dac8498e",
+      "bytes": 4922
     },
     {
       "path": "src/backend/workflow/audit.mjs",
@@ -185,13 +185,13 @@
     },
     {
       "path": "src/backend/workflow/command-service.mjs",
-      "sha256": "f742e31131210bcf6c08a588248a68883128c90309a63cd738a7b4731b002a17",
-      "bytes": 11941
+      "sha256": "9761902832a3d25001b348d2a9a7eaa3ae56bdb4f9bf60add319cd696248de2e",
+      "bytes": 11898
     },
     {
       "path": "src/backend/workflow/state-machine.mjs",
-      "sha256": "0c00283c6e23baa5f6719aa1183653fe7239cca1e6fc8d36bd18d7817d9f410e",
-      "bytes": 1503
+      "sha256": "0727caba738c9335dd07da50a37b6db9e2126f5fbf924913d7fa53b212fdd7fe",
+      "bytes": 1489
     },
     {
       "path": "src/ingestion/pdf-semantic-rules.mjs",
@@ -200,23 +200,23 @@
     },
     {
       "path": "vendor/geospatial-core/index.mjs",
-      "sha256": "b7f7846254c9fc49cc14c7e85e931760b12d0e37e1104aaed91122a344b64254",
-      "bytes": 78
+      "sha256": "764e9ac86ff5a883e371e84de5a1de7de4b56d87f431515dea5786df340d6231",
+      "bytes": 80
     },
     {
       "path": "vendor/geospatial-core/package.json",
-      "sha256": "017663ed6fe7d1f7166df0179becba744179ecc8c1b58ccfc4ae5abb93558e5d",
-      "bytes": 214
+      "sha256": "0ffcdcff3de42086c64f216fcdde713ae623dc3bfca9d60aabb3d4e5bb7f854d",
+      "bytes": 227
     },
     {
       "path": "vendor/geospatial-core/src/compile-layer.mjs",
-      "sha256": "d80435984018828f0800e2a7274ad2ffa930d6707b525a7060d5992f22db5839",
-      "bytes": 2695
+      "sha256": "974d4c3153040e057e6895ecbc36085f34fda933d1c92d98f0a97f9cdffd26ce",
+      "bytes": 2762
     },
     {
       "path": "vendor/geospatial-core/src/contracts.mjs",
-      "sha256": "463aa9f380e0f4de9e9a8c5a47a7ef1230bf7cb97d4c797b5993ad57baee5403",
-      "bytes": 21115
+      "sha256": "c9575e1d41011175ea4ca1f0066b210543b70704bd8f26c9d7838c748f09f6cc",
+      "bytes": 21524
     }
   ]
 }
