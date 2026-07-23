@@ -2,25 +2,36 @@ const LOGIN_PATH = '/__catalyst/auth/login';
 
 export function createCatalystAuth({
   catalyst,
+  getCatalyst = () => globalThis.catalyst,
   location = globalThis.location,
   authOrigin = '',
+  sleep = duration => new Promise(resolve => setTimeout(resolve, duration)),
+  sdkAttempts = 25,
 } = {}) {
   const loginUrl = `${authOrigin}${LOGIN_PATH}`;
-  const sdk = () => catalyst ?? globalThis.catalyst;
+  const sdk = () => catalyst ?? getCatalyst();
+  const readyAuth = async () => {
+    for (let attempt = 0; attempt < sdkAttempts; attempt += 1) {
+      const auth = sdk()?.auth;
+      if (auth) return auth;
+      await sleep(100);
+    }
+    return null;
+  };
 
   return Object.freeze({
     loginUrl,
-    embeddedSignIn(elementId = 'loginDivElementId') {
-      const signIn = sdk()?.auth?.signIn;
+    async embeddedSignIn(elementId = 'loginDivElementId') {
+      const signIn = (await readyAuth())?.signIn;
       if (typeof signIn !== 'function') throw new Error('Catalyst authentication is unavailable.');
       return signIn(elementId, { service_url: '/' });
     },
     async currentUser() {
-      const result = await sdk()?.auth?.isUserAuthenticated?.();
+      const result = await (await readyAuth())?.isUserAuthenticated?.();
       return result?.content ?? null;
     },
     async accessToken() {
-      const result = await sdk()?.auth?.generateAuthToken?.();
+      const result = await (await readyAuth())?.generateAuthToken?.();
       return typeof result?.access_token === 'string' && result.access_token ? result.access_token : null;
     },
     signOut() {

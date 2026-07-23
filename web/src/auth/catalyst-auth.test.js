@@ -45,18 +45,34 @@ test('returns no backend token until the Catalyst Web SDK session is available',
   await expect(auth.accessToken()).resolves.toBeNull();
 });
 
-test('renders Catalyst embedded authentication into the native login host', () => {
+test('renders Catalyst embedded authentication into the native login host', async () => {
   const signIn = vi.fn();
   const auth = createCatalystAuth({ catalyst: { auth: { signIn } } });
 
-  auth.embeddedSignIn('loginDivElementId');
+  await auth.embeddedSignIn('loginDivElementId');
 
   expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
 });
 
-test('fails safely when Catalyst embedded authentication is unavailable', () => {
-  const auth = createCatalystAuth({ catalyst: {} });
-  expect(() => auth.embeddedSignIn()).toThrow('Catalyst authentication is unavailable.');
+test('waits for the Catalyst auth surface before rendering embedded authentication', async () => {
+  const signIn = vi.fn();
+  const runtime = {};
+  const sleep = vi.fn(async () => { runtime.catalyst = { auth: { signIn } }; });
+  const auth = createCatalystAuth({
+    getCatalyst: () => runtime.catalyst,
+    sleep,
+    sdkAttempts: 2,
+  });
+
+  await auth.embeddedSignIn('loginDivElementId');
+
+  expect(sleep).toHaveBeenCalledOnce();
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+});
+
+test('fails safely when Catalyst embedded authentication is unavailable', async () => {
+  const auth = createCatalystAuth({ catalyst: {}, sdkAttempts: 1, sleep: vi.fn() });
+  await expect(auth.embeddedSignIn()).rejects.toThrow('Catalyst authentication is unavailable.');
 });
 
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {

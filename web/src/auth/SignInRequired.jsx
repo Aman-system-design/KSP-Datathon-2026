@@ -5,11 +5,10 @@ import { OrganizationBrand } from '../components/OrganizationBrand.jsx';
 export function SignInRequired({ auth }) {
   const [error, setError] = useState('');
   useEffect(() => {
-    try {
-      auth.embeddedSignIn('loginDivElementId');
-    } catch {
-      setError('Catalyst sign in is temporarily unavailable.');
-    }
+    let active = true;
+    Promise.resolve(auth.embeddedSignIn('loginDivElementId'))
+      .catch(() => { if (active) setError('Catalyst sign in is temporarily unavailable.'); });
+    return () => { active = false; };
   }, [auth]);
 
   return <main className="auth-screen">
