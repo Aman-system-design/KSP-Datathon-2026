@@ -28,8 +28,8 @@ test('reserves enough height for Catalyst password and OTP steps', () => {
   const hostRule = css.match(/\.secure-login__catalyst\s*\{([^}]*)\}/)?.[1] ?? '';
   const frameRule = css.match(/\.secure-login__catalyst iframe\s*\{([^}]*)\}/)?.[1] ?? '';
 
-  expect(hostRule).toMatch(/height:\s*420px/);
-  expect(frameRule).toMatch(/height:\s*420px/);
+  expect(hostRule).toMatch(/height:\s*360px/);
+  expect(frameRule).toMatch(/height:\s*360px/);
 });
 
 test('uses a clean card edge instead of a decorative top strip', () => {
@@ -60,5 +60,5 @@ test('keeps the police emblem on a calm identity panel without decorative target
   const css = readFileSync('src/styles/app.css', 'utf8');
 
   expect(css).not.toMatch(/\.secure-login__identity::after/);
-  expect(css).toMatch(/\.secure-login__identity img\s*\{[^}]*width:\s*200px/);
+  expect(css).toMatch(/\.secure-login__identity img\s*\{[^}]*width:\s*180px/);
 });
