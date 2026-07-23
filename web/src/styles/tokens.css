@@ -19,7 +19,8 @@
   --surface: #ffffff;
   --canvas: #f3f6f9;
   --line: #dfe5ec;
-  --muted: oklch(0.965 0.006 247);
+  --muted-surface: oklch(0.965 0.006 247);
+  --muted: oklch(0.53 0.025 252);
   --shadow: 0 1px 3px rgb(15 35 70 / 8%);
   --background: oklch(0.985 0.003 247);
   --foreground: oklch(0.25 0.035 252);
@@ -81,7 +82,7 @@ button, input, select, textarea { font: inherit; }
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
+  --color-muted: var(--muted-surface);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -112,7 +113,8 @@ button, input, select, textarea { font: inherit; }
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --muted-surface: oklch(0.269 0 0);
+  --muted: oklch(0.708 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
