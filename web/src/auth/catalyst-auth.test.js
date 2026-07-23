@@ -70,7 +70,7 @@ test('opens the dedicated same-origin Catalyst sign-in page', () => {
 
   auth.openSignIn();
 
-  expect(replace).toHaveBeenCalledWith('/login.html?release=20260723-1617');
+  expect(replace).toHaveBeenCalledWith('/ksp-sign-in-v2.html');
 });
 
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
@@ -94,7 +94,7 @@ test('web entry loads Catalyst v4 and same-origin initialization before the appl
 });
 
 test('dedicated sign-in page invokes embedded Catalyst auth after its target exists', () => {
-  const html = readFileSync('public/login.html', 'utf8');
+  const html = readFileSync('public/ksp-sign-in-v2.html', 'utf8');
   const sdk = html.indexOf('https://static.zohocdn.com/catalyst/sdk/js/4.6.2/catalystWebSDK.js');
   const init = html.indexOf('/__catalyst/sdk/init.js');
   const target = html.indexOf('id="loginDivElementId"');
@@ -112,7 +112,7 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
 });
 
 test('dedicated sign-in page uses the approved KSP identity in a compact single-viewport composition', () => {
-  const html = readFileSync('public/login.html', 'utf8');
+  const html = readFileSync('public/ksp-sign-in-v2.html', 'utf8');
   const signInCss = readFileSync('public/auth/catalyst-sign-in-v3.css', 'utf8');
   const tokens = readFileSync('src/styles/tokens.css', 'utf8');
 
