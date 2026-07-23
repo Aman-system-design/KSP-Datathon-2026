@@ -51,7 +51,7 @@ test('renders Catalyst embedded authentication into the native login host', asyn
 
   await auth.embeddedSignIn('loginDivElementId');
 
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
 });
 
 test('waits for the Catalyst auth surface before rendering embedded authentication', async () => {
@@ -67,7 +67,7 @@ test('waits for the Catalyst auth surface before rendering embedded authenticati
   await auth.embeddedSignIn('loginDivElementId');
 
   expect(sleep).toHaveBeenCalledOnce();
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
 });
 
 test('fails safely when Catalyst embedded authentication is unavailable', async () => {

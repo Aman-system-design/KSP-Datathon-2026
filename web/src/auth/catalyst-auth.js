@@ -24,7 +24,7 @@ export function createCatalystAuth({
     async embeddedSignIn(elementId = 'loginDivElementId') {
       const signIn = (await readyAuth())?.signIn;
       if (typeof signIn !== 'function') throw new Error('Catalyst authentication is unavailable.');
-      return signIn(elementId, { service_url: '/' });
+      return signIn(elementId, {});
     },
     async currentUser() {
       const result = await (await readyAuth())?.isUserAuthenticated?.();

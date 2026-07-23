@@ -57,7 +57,7 @@ test('unauthenticated workspace renders native Catalyst sign-in without protecte
 
   expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument();
   expect(screen.getByLabelText('Catalyst sign in')).toHaveAttribute('id', 'loginDivElementId');
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
 
@@ -73,7 +73,7 @@ test('unauthenticated Catalyst session renders sign-in before requesting an API 
   render(<MemoryRouter><Application /></MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument();
-  expect(signIn).toHaveBeenCalledWith('loginDivElementId', { service_url: '/' });
+  expect(signIn).toHaveBeenCalledWith('loginDivElementId', {});
   expect(generateAuthToken).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
 });
