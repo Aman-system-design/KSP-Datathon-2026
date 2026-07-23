@@ -111,7 +111,7 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
   expect(html).not.toContain('name="password"');
 });
 
-test('dedicated sign-in page uses the approved KSP identity, typography and accessible full-height form', () => {
+test('dedicated sign-in page uses the approved KSP identity in a compact single-viewport composition', () => {
   const html = readFileSync('public/login.html', 'utf8');
   const tokens = readFileSync('src/styles/tokens.css', 'utf8');
 
@@ -123,8 +123,11 @@ test('dedicated sign-in page uses the approved KSP identity, typography and acce
   expect(html).toContain('<h2>Secure access</h2>');
   expect(html).not.toContain('<h2>Sign in</h2>');
   expect(html).toContain('Catalyst secure sign in');
-  expect(html).toContain('height: 520px');
+  expect(html).toContain('height: 390px');
   expect(html).toContain('frame.scrolling = "no"');
-  expect(html).toContain('align-items: start');
+  expect(html).toContain('align-items: center');
+  expect(html).toContain('min-height: 100dvh');
+  expect(html).not.toContain('min-height: 700px');
+  expect(html).toContain('Complete the Catalyst invitation sent by your administrator before signing in.');
   expect(tokens).toMatch(/font-family:\s*Roboto,/u);
 });
