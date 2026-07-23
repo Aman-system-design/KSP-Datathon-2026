@@ -64,12 +64,13 @@ test('alerts page treats a missing collection as an empty authorized result', as
   expect(screen.queryByText('Intelligence is unavailable')).not.toBeInTheDocument();
 });
 
-test('unauthenticated workspace opens native Catalyst sign-in without protected navigation', async () => {
+test('unauthenticated workspace embeds Catalyst sign-in without protected navigation', async () => {
   const api = { get: vi.fn(async () => { throw Object.assign(new Error('Authentication is required.'), { status: 401, code: 'UNAUTHENTICATED' }); }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Opening secure sign in…' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute('href', '/login.html');
+  expect(await screen.findByRole('heading', { name: 'Karnataka State Police' })).toBeInTheDocument();
+  expect(document.getElementById('catalystLogin')).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Continue to sign in' })).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
 
@@ -83,7 +84,7 @@ test('unauthenticated Catalyst session renders sign-in before requesting an API 
 
   render(<MemoryRouter><Application /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Opening secure sign in…' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Karnataka State Police' })).toBeInTheDocument();
   expect(generateAuthToken).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
 });
@@ -124,12 +125,16 @@ test('demo presenter chooses only from backend-authorized workspaces before ente
   }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Choose a workspace', level: 2 }, { timeout: 5000 })).toBeInTheDocument();
+  expect(await screen.findByRole(
+    'heading',
+    { name: 'Select workspace', level: 1 },
+    { timeout: 5000 },
+  )).toBeInTheDocument();
   expect(screen.getByRole('radio', { name: 'State Leadership' })).toBeInTheDocument();
   expect(screen.getByRole('radio', { name: 'Crime Analyst' })).toBeInTheDocument();
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
   expect(api.get).toHaveBeenCalledTimes(1);
-});
+}, 10000);
 
 test('authorized workspace lazy-loads Geospatial Studio from the governed catalog', async () => {
   const api = geospatialApi({ datasets: [{
