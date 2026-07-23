@@ -62,7 +62,7 @@ function AuthorizedApplication({ api, auth }) {
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
-  if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
+  if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} onSignOut={() => auth.signOut()} />;
   if (state.error) return <main className="application-gate"><Failure error={{ ...state.error, code: state.error.code ?? 'WORKSPACE_REQUEST_FAILED' }} /></main>;
   if (!validWorkspace(state.data)) {
     console.error('workspace_contract_invalid', workspaceContractDiagnostic(state.data));
@@ -79,7 +79,7 @@ function AuthorizedApplication({ api, auth }) {
     </Suspense>;
   }
   if (location.pathname === '/command-centre') {
-    if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" />;
+    if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
     return <CommandCentrePage api={api} workspace={workspace} />;
   }
   return <AppShell workspace={workspace} auth={auth}><Routes>
@@ -94,9 +94,9 @@ function AuthorizedApplication({ api, auth }) {
     <Route path="/alerts" element={<AlertsPage api={api} />} />
     <Route path="/alerts/:alertId" element={<AlertPage api={api} />} />
     <Route path="/networks" element={<NetworkView api={api} />} />
-    <Route path="/admin" element={workspace.role === 'PLATFORM_ADMIN' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
-    <Route path="/admin/intelligence-runs" element={workspace.role === 'PLATFORM_ADMIN' ? <IntelligenceRunMonitor api={api} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
-    <Route path="/audit" element={workspace.role === 'AUDITOR' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" />} />
+    <Route path="/admin" element={workspace.role === 'PLATFORM_ADMIN' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />} />
+    <Route path="/admin/intelligence-runs" element={workspace.role === 'PLATFORM_ADMIN' ? <IntelligenceRunMonitor api={api} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />} />
+    <Route path="/audit" element={workspace.role === 'AUDITOR' ? <PersonaWorkspace role={workspace.role} data={{}} /> : <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />} />
     <Route path="/admin/personas" element={<PersonaDirectory role={workspace.role} />} />
     <Route path="*" element={<Failure error={{ message: 'The requested workspace does not exist.' }} />} />
   </Routes></AppShell>;

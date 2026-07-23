@@ -1,6 +1,6 @@
 import { OrganizationBrand } from '../components/OrganizationBrand.jsx';
 
-export function AccessNotProvisioned({ requestId }) {
+export function AccessNotProvisioned({ requestId, onSignOut }) {
   return <main className="auth-screen">
     <section className="auth-card">
       <OrganizationBrand />
@@ -9,7 +9,7 @@ export function AccessNotProvisioned({ requestId }) {
         <h1>Access is not provisioned</h1>
         <p>Your Catalyst account is authenticated, but no active KSP role and geographic scope are assigned. Contact the platform administrator.</p>
         {requestId && <small>Reference: <strong>{requestId}</strong></small>}
-        <a className="secondary-button" href="/__catalyst/auth/login">Return to sign in</a>
+        <button className="secondary-button" type="button" onClick={onSignOut}>Sign out</button>
       </div>
     </section>
   </main>;

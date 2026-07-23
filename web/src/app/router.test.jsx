@@ -116,11 +116,15 @@ test('missing workspace data fails closed instead of rendering a loading persona
 });
 
 test('authenticated user without an access profile receives safe provisioning guidance', async () => {
+  const signOut = vi.fn();
+  vi.stubGlobal('catalyst', { auth: { signOut } });
   const api = { get: vi.fn(async () => { throw Object.assign(new Error('Internal profile detail'), { status: 403, code: 'INACTIVE_ACCESS_PROFILE', requestId: 'REQ-403' }); }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Access is not provisioned' })).toBeInTheDocument();
   expect(screen.getByText('REQ-403')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+  expect(signOut).toHaveBeenCalledWith('http://localhost:3000/');
   expect(screen.queryByText('Internal profile detail')).not.toBeInTheDocument();
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
 });
