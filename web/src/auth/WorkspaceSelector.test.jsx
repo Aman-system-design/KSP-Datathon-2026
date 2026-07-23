@@ -16,6 +16,8 @@ test('renders only personas returned by the backend', () => {
   expect(screen.getByRole('radio', { name: /Command Centre/i })).toBeVisible();
   expect(screen.queryByRole('radio', { name: /Station Operations/i })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Select workspace' })).toBeVisible();
+  expect(screen.getByText('KSP Intelligence')).toBeVisible();
+  expect(screen.queryByText('Demo Presenter')).not.toBeInTheDocument();
   expect(screen.queryByText(/changes the demonstration view/i)).not.toBeInTheDocument();
 });
 
@@ -42,6 +44,7 @@ test('opens Command Centre as an authorized presenter workspace', () => {
   }} onSelect={onSelect} onSignOut={() => {}} />);
 
   fireEvent.click(screen.getByRole('radio', { name: /Command Centre/i }));
+  expect(screen.getByRole('radio', { name: /Command Centre/i })).not.toHaveClass('workspace-entry__card--command');
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
   expect(onSelect).toHaveBeenCalledWith({ type: 'route', pathname: '/command-centre' });

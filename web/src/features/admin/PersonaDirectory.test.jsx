@@ -17,7 +17,7 @@ test('demo presenter can open every allowlisted persona workspace for the jury w
 
 test('platform administrator sees the monitored workspace catalogue without impersonation links', () => {
   render(<MemoryRouter><PersonaDirectory role="PLATFORM_ADMIN" /></MemoryRouter>);
-  expect(screen.getByText(/demo presenter account is required/i)).toBeInTheDocument();
+  expect(screen.getByText(/KSP Intelligence account is required/i)).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Open workspace' })).not.toBeInTheDocument();
 });
 

@@ -77,7 +77,7 @@ test('Development demo presenter switches persona from the extreme-right profile
   fireEvent.click(screen.getByRole('button', { name: /account: state leadership/i }));
 
   expect(screen.getByText('Employee 9900')).toBeInTheDocument();
-  expect(screen.getByText('Demo Presenter')).toBeInTheDocument();
+  expect(screen.getByText('KSP Intelligence')).toBeInTheDocument();
   expect(screen.getByText('Viewing as State Leadership')).toBeInTheDocument();
   const personaGroup = screen.getByRole('group', { name: 'Switch demonstration persona' });
   expect(personaGroup).toBeInTheDocument();

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '../components/icons.jsx';
 import { commandCentreWorkspace, getPersonaPresentation } from '../app/workspace-navigation.js';
+import { roleLabel } from '../app/workspace-labels.js';
 
 function authorizedPersonas(workspace) {
   if (workspace?.personaSwitch?.allowed !== true) return [];
@@ -61,7 +62,7 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
                   role="radio"
                   aria-checked={selected}
                   aria-label={presentation.label}
-                  className={`${selected ? 'selected' : ''}${presentation.role === 'COMMAND_CENTRE' ? ' workspace-entry__card--command' : ''}`.trim()}
+                  className={selected ? 'selected' : ''}
                   onClick={() => setSelectedKey(presentation.role)}
                 >
                   <span className="workspace-entry__icon"><Icon name={presentation.icon} size={22} /></span>
@@ -72,7 +73,7 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
               );
             })}
         </div>
-        <footer><span>Signed in as <strong>Demo Presenter</strong></span><Button disabled={!selectedKey} onClick={() => onSelect(workspaces.find(item => item.role === selectedKey)?.destination)}>Continue</Button></footer>
+        <footer><span>Signed in as <strong>{roleLabel(workspace.role)}</strong></span><Button disabled={!selectedKey} onClick={() => onSelect(workspaces.find(item => item.role === selectedKey)?.destination)}>Continue</Button></footer>
       </section>
     </main>
   );

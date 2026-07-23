@@ -22,7 +22,8 @@ describe('platform viewport layout contract', () => {
   test('keeps standalone workspaces inside the viewport', () => {
     expect(appCss).toMatch(/\.workspace-entry\s*{[^}]*height:\s*100dvh/s);
     expect(appCss).toMatch(/\.workspace-entry\s*{[^}]*overflow:\s*hidden/s);
-    expect(appCss).toMatch(/\.workspace-entry__panel\s*{[^}]*overflow:\s*auto/s);
+    expect(appCss).toMatch(/\.workspace-entry__panel\s*{[^}]*overflow:\s*hidden/s);
+    expect(appCss).toMatch(/@media \(max-width:\s*900px\)[^{]*{[^}]*\.workspace-entry\s*{[^}]*overflow:\s*auto/s);
     expect(appCss).toMatch(/\.command-centre\s*{[^}]*height:\s*100dvh/s);
     expect(appCss).toMatch(/\.command-centre__grid\s*{[^}]*overflow:\s*auto/s);
   });
