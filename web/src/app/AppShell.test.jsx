@@ -30,7 +30,7 @@ function LocationProbe() {
 
 afterEach(cleanup);
 
-test('renders one branded enterprise shell with persistent operational context', () => {
+test('renders a focused branded shell without report-level status clutter', () => {
   render(<MemoryRouter><AppShell workspace={workspace}><p>Workspace content</p></AppShell></MemoryRouter>);
 
   expect(screen.getByRole('banner')).toHaveTextContent('KSP Crime Decision Intelligence');
@@ -39,9 +39,11 @@ test('renders one branded enterprise shell with persistent operational context',
   expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toHaveTextContent('Analyst Workbench');
   expect(screen.getByRole('searchbox', { name: 'Global search' })).toBeDisabled();
   expect(screen.getAllByRole('link', { name: /^alerts$/i }).length).toBeGreaterThan(0);
-  expect(screen.getAllByText('Unit 101')).toHaveLength(2);
-  expect(screen.getByText('21 Jul 2026, 23:15 IST')).toBeInTheDocument();
-  expect(screen.getByText('Demonstration')).toBeInTheDocument();
+  expect(screen.getByText('Unit 101')).toBeInTheDocument();
+  expect(screen.queryByText('Intelligence freshness')).not.toBeInTheDocument();
+  expect(screen.queryByText('21 Jul 2026, 23:15 IST')).not.toBeInTheDocument();
+  expect(screen.queryByText('Data mode')).not.toBeInTheDocument();
+  expect(screen.queryByText('Demonstration')).not.toBeInTheDocument();
   expect(screen.queryByText(/not for operational policing/i)).not.toBeInTheDocument();
   expect(screen.getByText('Workspace content')).toBeInTheDocument();
 });
@@ -49,8 +51,9 @@ test('renders one branded enterprise shell with persistent operational context',
 test('workspace context panel collapses without removing platform navigation', () => {
   render(<MemoryRouter><AppShell workspace={workspace}><p>Workspace content</p></AppShell></MemoryRouter>);
   const toggle = screen.getByRole('button', { name: 'Collapse workspace panel' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
   fireEvent.click(toggle);
-  expect(screen.getByRole('button', { name: 'Expand workspace panel' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Expand workspace panel' })).toHaveAttribute('aria-expanded', 'false');
   expect(screen.queryByText('Analyst Workbench')).not.toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
 });

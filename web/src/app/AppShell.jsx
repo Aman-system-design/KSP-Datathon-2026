@@ -37,11 +37,6 @@ export function AppShell({ workspace, auth = catalystAuth, children }) {
         <Icon name="intelligence" size={17} />
         <input type="search" aria-label="Global search" placeholder="Search is available after governed indexing" disabled />
       </div>
-      <div className="header-context" aria-label="Current operational context">
-        <span><small>Authorized scope</small><strong>{unitLabel}</strong></span>
-        <span className="freshness-status"><small>Intelligence freshness</small><strong>{workspace?.freshness ?? 'Latest verified run'}</strong></span>
-        {workspace?.syntheticData && <span className="data-provenance"><small>Data mode</small><strong>Demonstration</strong></span>}
-      </div>
       <NavLink className="header-alert" to={governedAppLocation('/alerts', location)} aria-label="Alerts">
         <Icon name="alerts" />
       </NavLink>
@@ -80,7 +75,7 @@ export function AppShell({ workspace, auth = catalystAuth, children }) {
     </nav>
 
     <aside className="context-sidebar">
-      <button className="context-toggle" type="button" aria-label={`${contextCollapsed ? 'Expand' : 'Collapse'} workspace panel`} onClick={() => setContextCollapsed(value => !value)}>{contextCollapsed ? '›' : '‹'}</button>
+      <button className="context-toggle" type="button" aria-expanded={!contextCollapsed} aria-label={`${contextCollapsed ? 'Expand' : 'Collapse'} workspace panel`} onClick={() => setContextCollapsed(value => !value)}>{contextCollapsed ? '›' : '‹'}</button>
       {!contextCollapsed && <nav aria-label="Workspace navigation">
         <span className="context-eyebrow">Current workspace</span>
         <h2>{navigation.workspaceLabel}</h2>
