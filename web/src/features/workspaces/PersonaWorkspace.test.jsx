@@ -39,6 +39,17 @@ test('workspace with unavailable governed results renders an honest partial stat
   expect(screen.queryByText(/0 alerts/i)).not.toBeInTheDocument();
 });
 
+test('missing analytical values are unavailable rather than invented zeroes', () => {
+  render(<MemoryRouter><PersonaWorkspace role="DISTRICT_LEADERSHIP" data={{
+    anomalies: [{ id: 'A-1', label: 'Incomplete anomaly result' }],
+    hotspots: [{ id: 'H-1', area: 'Central corridor' }],
+  }} /></MemoryRouter>);
+
+  expect(screen.getByText(/observed unavailable against baseline unavailable/i)).toBeInTheDocument();
+  expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
+  expect(screen.queryByText('0%')).not.toBeInTheDocument();
+});
+
 test('district leadership receives a jurisdiction decision flow, not the generic platform home', () => {
   render(<MemoryRouter><PersonaWorkspace role="DISTRICT_LEADERSHIP" data={data} /></MemoryRouter>);
   expect(screen.getByRole('heading', { name: 'Jurisdiction Intelligence Pulse' })).toBeInTheDocument();

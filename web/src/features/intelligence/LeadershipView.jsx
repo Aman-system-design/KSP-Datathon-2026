@@ -2,13 +2,15 @@ import { Link, useLocation } from 'react-router-dom';
 
 import { governedAppLocation } from '../../app/runtime.js';
 
-const percent = value => `${Math.round((value ?? 0) * 100)}%`;
+const available = value => value ?? 'Unavailable';
+const percent = value => Number.isFinite(value) ? `${Math.round(value * 100)}%` : 'Unavailable';
 
 export function LeadershipView({ data = {} }) {
   const location = useLocation();
   const anomaly = data.anomalies?.[0];
   const hotspot = data.hotspots?.[0];
-  const riskScore = data.risk?.score > 1 ? Math.round(data.risk.score) : Math.round((data.risk?.score ?? 0) * 100);
+  const riskValue = data.risk?.score;
+  const riskScore = Number.isFinite(riskValue) ? (riskValue > 1 ? Math.round(riskValue) : Math.round(riskValue * 100)) : 'Unavailable';
 
   return <section className="feature-page role-home role-home--leadership">
     <header className="role-home__header">
@@ -21,7 +23,7 @@ export function LeadershipView({ data = {} }) {
         <header><div><span className="section-label">Decision queue</span><h2>Prioritized developments</h2></div><Link to={governedAppLocation('/alerts', location)}>Open Alert Centre</Link></header>
         {anomaly ? <article className="development-row development-row--selected">
           <span className="development-severity" aria-label="Elevated attention" />
-          <div><strong>{anomaly.label}</strong><p>Observed {anomaly.observed} against expected baseline {anomaly.expected}</p></div>
+          <div><strong>{anomaly.label}</strong><p>Observed {available(anomaly.observed)} against expected baseline {available(anomaly.expected)}</p></div>
           <div><strong>{percent(anomaly.confidence)}</strong><span>confidence</span></div>
           <Link to={governedAppLocation('/alerts', location)}>Inspect evidence</Link>
         </article> : <p className="honest-empty">No prioritized development was returned by the latest verified run.</p>}
@@ -31,17 +33,17 @@ export function LeadershipView({ data = {} }) {
         <header><div><span className="section-label">Geographic context</span><h2>{hotspot?.area ?? 'No active hotspot'}</h2></div><Link to={governedAppLocation('/geospatial', location)}>Open statewide map</Link></header>
         <div className="context-map" role="img" aria-label="Geographic context for selected intelligence development">
           <span className="context-map__grid" />{hotspot ? <span className="context-map__focus" /> : null}
-          <div><strong>{hotspot ? `${hotspot.caseCount} contributing cases` : 'No hotspot evidence'}</strong><span>{hotspot ? `${percent(hotspot.severity)} spatial severity` : 'Latest verified run'}</span></div>
+          <div><strong>{hotspot ? `${available(hotspot.caseCount)} contributing cases` : 'No hotspot evidence'}</strong><span>{hotspot ? `${percent(hotspot.severity)} spatial severity` : 'Latest verified run'}</span></div>
         </div>
       </section>
 
       <section className="decision-surface evidence-explanation">
         <header><div><span className="section-label">Explainability</span><h2>Why this needs attention</h2></div></header>
         <dl>
-          <div><dt>Observed</dt><dd>{anomaly?.observed ?? '—'}</dd></div>
-          <div><dt>Expected baseline</dt><dd>{anomaly?.expected ?? '—'}</dd></div>
-          <div><dt>Confidence</dt><dd>{anomaly ? percent(anomaly.confidence) : '—'}</dd></div>
-          <div><dt>Area risk</dt><dd>{Number.isFinite(riskScore) ? riskScore : '—'}</dd></div>
+          <div><dt>Observed</dt><dd>{available(anomaly?.observed)}</dd></div>
+          <div><dt>Expected baseline</dt><dd>{available(anomaly?.expected)}</dd></div>
+          <div><dt>Confidence</dt><dd>{percent(anomaly?.confidence)}</dd></div>
+          <div><dt>Area risk</dt><dd>{riskScore}</dd></div>
         </dl>
         <p>{data.risk?.limitation ?? 'Area-risk evidence is unavailable for this run.'}</p>
         <Link to={governedAppLocation('/intelligence', location)}>Inspect evidence model</Link>

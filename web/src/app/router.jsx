@@ -45,16 +45,16 @@ function CommandPage({ api, role }) {
       brief: brief.data,
       anomalies: anomalyItems.map(item => ({
         id: item.id ?? item.anomalyId, label: item.label ?? item.signalType ?? item.seriesId ?? 'Crime trend anomaly',
-        observed: item.observed ?? item.observedValue ?? 0, expected: item.expected ?? item.baselineValue ?? 0,
-        confidence: item.confidence ?? item.severity ?? 0,
+        observed: item.observed ?? item.observedValue, expected: item.expected ?? item.baselineValue,
+        confidence: item.confidence ?? item.severity,
       })),
       hotspots: hotspotItems.map(item => ({
         id: item.id ?? item.hotspotId, area: item.area ?? item.areaId ?? 'Authorized area',
-        caseCount: item.caseCount ?? item.magnitude ?? 0, severity: item.severity ?? item.confidence ?? 0,
+        caseCount: item.caseCount ?? item.magnitude, severity: item.severity ?? item.confidence,
         latitude: item.latitude ?? item.centroid?.latitude, longitude: item.longitude ?? item.centroid?.longitude,
       })),
       risk: {
-        score: risk.data?.score ?? 0, components: risk.data?.components ?? risk.data?.componentScores ?? {},
+        score: risk.data?.score, components: risk.data?.components ?? risk.data?.componentScores ?? {},
         limitation: risk.data?.limitation ?? risk.data?.limitations?.[0] ?? 'Area and time risk only.',
       },
     };
@@ -155,12 +155,12 @@ function CommandCentrePage({ api, workspace }) {
       brief: brief.data,
       anomalies: (anomalies.data?.items ?? []).map(item => ({
         id: item.id ?? item.anomalyId, label: item.label ?? item.signalType ?? item.seriesId ?? 'Crime trend anomaly',
-        observed: item.observed ?? item.observedValue ?? 0, expected: item.expected ?? item.baselineValue ?? 0,
-        confidence: item.confidence ?? item.severity ?? 0,
+        observed: item.observed ?? item.observedValue, expected: item.expected ?? item.baselineValue,
+        confidence: item.confidence ?? item.severity,
       })),
       hotspots: (hotspots.data?.items ?? []).map(item => ({
         id: item.id ?? item.hotspotId, area: item.area ?? item.areaId ?? 'Authorized area',
-        caseCount: item.caseCount ?? item.magnitude ?? 0, severity: item.severity ?? item.confidence ?? 0,
+        caseCount: item.caseCount ?? item.magnitude, severity: item.severity ?? item.confidence,
       })),
     };
   }, [api]);

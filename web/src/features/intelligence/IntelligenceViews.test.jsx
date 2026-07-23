@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, expect, test } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
 import { LeadershipView } from './LeadershipView.jsx';
+
+afterEach(cleanup);
 
 test('leadership workspace prioritizes explainable crime intelligence over generic totals', () => {
   render(<MemoryRouter><LeadershipView data={{
@@ -22,4 +24,15 @@ test('leadership workspace prioritizes explainable crime intelligence over gener
   expect(screen.getByRole('heading', { name: 'Prioritized developments' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Why this needs attention' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Ownership and action' })).toBeInTheDocument();
+});
+
+test('leadership workspace never converts missing evidence into a zero score', () => {
+  render(<MemoryRouter><LeadershipView data={{
+    anomalies: [{ id: 'A-1', label: 'Incomplete result' }],
+    hotspots: [{ id: 'H-1', area: 'Central corridor' }],
+  }} /></MemoryRouter>);
+
+  expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
+  expect(screen.queryByText('0%')).not.toBeInTheDocument();
+  expect(screen.queryByText(/0 contributing cases/i)).not.toBeInTheDocument();
 });

@@ -14,6 +14,9 @@ const definitions = {
   AUDITOR: ['Audit Console', 'Read-only decision, access and model-version traceability.'],
 };
 
+const valueOrUnavailable = value => value ?? 'Unavailable';
+const percentOrUnavailable = value => Number.isFinite(value) ? `${Math.round(value * 100)}%` : 'Unavailable';
+
 function PartialState({ partial }) {
   return partial ? <div className="partial-state">Some intelligence services are unavailable. Available governed results remain visible.</div> : null;
 }
@@ -23,8 +26,8 @@ function SignalQueue({ anomalies = [], linkLabel = 'Inspect evidence' }) {
   if (anomalies.length === 0) return <DataState title="No current signal result" message="No anomaly result was returned for this authorized scope and observation period." />;
   return <div className="operational-list">{anomalies.map(item => <article key={item.id}>
     <StatusBadge tone="warning">Review</StatusBadge>
-    <div><strong>{item.label}</strong><span>Observed {item.observed} against baseline {item.expected}</span></div>
-    <div className="numeric-evidence"><strong>{Math.round((item.confidence ?? 0) * 100)}%</strong><small>confidence</small></div>
+    <div><strong>{item.label}</strong><span>Observed {valueOrUnavailable(item.observed)} against baseline {valueOrUnavailable(item.expected)}</span></div>
+    <div className="numeric-evidence"><strong>{percentOrUnavailable(item.confidence)}</strong><small>confidence</small></div>
     <Link to={governedAppLocation('/alerts', location)}>{linkLabel}</Link>
   </article>)}</div>;
 }
@@ -56,7 +59,7 @@ function JurisdictionLeadershipWorkspace({ role, data }) {
     <PartialState partial={data.partial} />
     <div className="role-decision-grid">
       <section className="decision-surface role-decision-grid__main"><header><div><span className="section-label">Decision queue</span><h2>What changed</h2></div><Link to={governedAppLocation('/alerts', location)}>Open alerts</Link></header><SignalQueue anomalies={data.anomalies} /></section>
-      <section className="decision-surface"><header><div><span className="section-label">Geospatial evidence</span><h2>Jurisdiction context</h2></div><Link to={governedAppLocation('/geospatial', location)}>Open district map</Link></header>{hotspot ? <dl className="evidence-dl"><div><dt>Area</dt><dd>{hotspot.area}</dd></div><div><dt>Contributing cases</dt><dd>{hotspot.caseCount}</dd></div><div><dt>Spatial severity</dt><dd>{Math.round((hotspot.severity ?? 0) * 100)}%</dd></div></dl> : <p className="honest-empty">No hotspot result is available.</p>}</section>
+      <section className="decision-surface"><header><div><span className="section-label">Geospatial evidence</span><h2>Jurisdiction context</h2></div><Link to={governedAppLocation('/geospatial', location)}>Open district map</Link></header>{hotspot ? <dl className="evidence-dl"><div><dt>Area</dt><dd>{hotspot.area}</dd></div><div><dt>Contributing cases</dt><dd>{valueOrUnavailable(hotspot.caseCount)}</dd></div><div><dt>Spatial severity</dt><dd>{percentOrUnavailable(hotspot.severity)}</dd></div></dl> : <p className="honest-empty">No hotspot result is available.</p>}</section>
       <section className="decision-surface"><header><div><span className="section-label">Accountability</span><h2>Operational ownership</h2></div></header><dl className="evidence-dl"><div><dt>Review state</dt><dd>Awaiting authorized decision</dd></div><div><dt>Assignment</dt><dd>Managed in Alert Centre</dd></div><div><dt>Risk limitation</dt><dd>{data.risk?.limitation ?? 'Unavailable'}</dd></div></dl></section>
     </div>
   </section>;
@@ -70,7 +73,7 @@ function StationWorkspace({ data }) {
     <PartialState partial={data.partial} />
     <div className="station-layout">
       <section className="decision-surface"><header><div><span className="section-label">Authorized station</span><h2>Local attention queue</h2></div></header><SignalQueue anomalies={data.anomalies} linkLabel="Review local evidence" /></section>
-      <section className="decision-surface"><header><div><span className="section-label">Area awareness</span><h2>Station hotspot context</h2></div><Link to={governedAppLocation('/geospatial', location)}>Open map</Link></header>{hotspot ? <dl className="evidence-dl"><div><dt>Area</dt><dd>{hotspot.area}</dd></div><div><dt>Cases</dt><dd>{hotspot.caseCount}</dd></div><div><dt>Severity</dt><dd>{Math.round((hotspot.severity ?? 0) * 100)}%</dd></div></dl> : <p className="honest-empty">No local hotspot result is available.</p>}<p className="limitation-callout">{data.risk?.limitation ?? 'Area-risk evidence is unavailable.'}</p></section>
+      <section className="decision-surface"><header><div><span className="section-label">Area awareness</span><h2>Station hotspot context</h2></div><Link to={governedAppLocation('/geospatial', location)}>Open map</Link></header>{hotspot ? <dl className="evidence-dl"><div><dt>Area</dt><dd>{hotspot.area}</dd></div><div><dt>Cases</dt><dd>{valueOrUnavailable(hotspot.caseCount)}</dd></div><div><dt>Severity</dt><dd>{percentOrUnavailable(hotspot.severity)}</dd></div></dl> : <p className="honest-empty">No local hotspot result is available.</p>}<p className="limitation-callout">{data.risk?.limitation ?? 'Area-risk evidence is unavailable.'}</p></section>
     </div>
   </section>;
 }
@@ -82,7 +85,7 @@ function InvestigatorWorkspace({ data }) {
     <WorkspaceHeader eyebrow="Assigned case work" title="Investigation Tasks" description={definitions.INVESTIGATOR[1]} />
     <PartialState partial={data.partial} />
     <section className="decision-surface investigator-task"><header><div><span className="section-label">Evidence verification</span><h2>Assigned verification</h2></div><StatusBadge tone="warning">Human decision</StatusBadge></header>
-      {anomaly ? <article><div><span>System signal</span><strong>{anomaly.label}</strong><p>Observed {anomaly.observed} against baseline {anomaly.expected}. Verify the linked records; this signal is not proof.</p></div><dl><dt>Confidence</dt><dd>{Math.round((anomaly.confidence ?? 0) * 100)}%</dd><dt>Source</dt><dd>Latest verified run</dd></dl><Link className="primary-link" to={governedAppLocation('/alerts', location)}>Review assigned evidence</Link></article> : <DataState title="No assigned verification" message="No authorized verification task was returned for this user." />}
+      {anomaly ? <article><div><span>System signal</span><strong>{anomaly.label}</strong><p>Observed {valueOrUnavailable(anomaly.observed)} against baseline {valueOrUnavailable(anomaly.expected)}. Verify the linked records; this signal is not proof.</p></div><dl><dt>Confidence</dt><dd>{percentOrUnavailable(anomaly.confidence)}</dd><dt>Source</dt><dd>Latest verified run</dd></dl><Link className="primary-link" to={governedAppLocation('/alerts', location)}>Review assigned evidence</Link></article> : <DataState title="No assigned verification" message="No authorized verification task was returned for this user." />}
     </section>
   </section>;
 }
