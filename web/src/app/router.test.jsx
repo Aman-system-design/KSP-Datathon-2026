@@ -182,6 +182,18 @@ test('geospatial route failure is contained and offers a safe reload without bla
   console.error.mockRestore();
 });
 
+test('geospatial route opens the KSP tenant with Karnataka intelligence defaults', async () => {
+  const Studio = ({ organizationConfig, defaultDatasetIds }) => <output data-testid="geospatial-defaults">
+    {JSON.stringify({ viewport: organizationConfig.defaultViewport, defaultDatasetIds })}
+  </output>;
+
+  render(<GeospatialPage api={{}} Studio={Studio} />);
+
+  const defaults = await screen.findByTestId('geospatial-defaults');
+  expect(defaults).toHaveTextContent('"center":[75.5,15.2]');
+  expect(defaults).toHaveTextContent('"hotspots","anomalies","areaRisk"');
+});
+
 test('rejected lazy Studio module is contained without blanking the route shell', async () => {
   const RejectedStudio = lazy(() => Promise.reject(new Error('private chunk URL')));
   const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -73,6 +73,29 @@ describe('useGeospatialWorkspace', () => {
     expect(custom.result.current.viewport).toEqual({ center: [10, 20], zoom: 5 });
   });
 
+  test('adds available default intelligence datasets once in declared order', async () => {
+    const configured = [
+      dataset({ id: 'hotspots', name: 'Hotspots' }),
+      dataset({ id: 'anomalies', name: 'Anomalies' }),
+      dataset({ id: 'areaRisk', name: 'Area risk', geometryType: 'H3' }),
+      dataset({ id: 'unavailable', name: 'Unavailable', spatialStatus: 'GEOMETRY_NOT_AVAILABLE' }),
+    ];
+    const { api, executions } = apiHarness({ datasets: configured });
+    const { result, rerender } = renderHook(() => useGeospatialWorkspace({
+      api, defaultDatasetIds: ['hotspots', 'anomalies', 'areaRisk', 'unavailable'],
+    }));
+
+    await waitFor(() => expect(executions).toHaveLength(3));
+    expect(result.current.layers.map(layer => layer.datasetId)).toEqual(['hotspots', 'anomalies', 'areaRisk']);
+    expect(executions.map(item => item.body.layer.datasetId)).toEqual(['hotspots', 'anomalies', 'areaRisk']);
+    await act(async () => {
+      executions.forEach((item, index) => item.resolve(execution(`RUN-${index + 1}`)));
+      await Promise.all(executions.map(item => item.promise));
+    });
+    rerender();
+    expect(result.current.layers).toHaveLength(3);
+  });
+
   test('loads governed datasets and saved views, then executes only a visible spatial layer', async () => {
     const unavailable = dataset({ id: 'alerts', name: 'Alerts', spatialStatus: 'GEOMETRY_NOT_AVAILABLE' });
     const view = { id: 'MAP-1', name: 'Operations', definition: { layers: [] } };

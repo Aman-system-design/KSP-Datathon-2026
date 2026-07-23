@@ -55,7 +55,7 @@ function nextStateFor(collection) {
 
 export function useGeospatialWorkspace({
   api, pollIntervalMs = 60_000, idFactory = defaultIdFactory, initialViewport = NEUTRAL_VIEWPORT,
-  loadSavedViews = true, executionDescriptors,
+  loadSavedViews = true, executionDescriptors, defaultDatasetIds = [],
 } = {}) {
   if (!api || typeof api.get !== 'function' || typeof api.post !== 'function') {
     throw new TypeError('A geospatial API client is required');
@@ -85,6 +85,7 @@ export function useGeospatialWorkspace({
   const layerSequence = useRef(0);
   const executionDescriptorsRef = useRef(executionDescriptors);
   const freshnessRequest = useRef({ sequence: 0, inFlight: null, generation: undefined });
+  const defaultCompositionApplied = useRef(false);
   layersRef.current = layers;
   selectedFeatureRef.current = selectedFeature;
   viewportRef.current = viewport;
@@ -299,6 +300,28 @@ export function useGeospatialWorkspace({
     setLayers(previous => [...previous, added]);
     setSelectedLayerId(id);
   }, [datasets]);
+
+  useEffect(() => {
+    if (defaultCompositionApplied.current || catalogStatus !== 'READY') return;
+    defaultCompositionApplied.current = true;
+    const defaults = defaultDatasetIds
+      .map(datasetId => datasets.find(dataset => dataset.id === datasetId))
+      .filter(dataset => dataset?.spatialStatus === 'AVAILABLE');
+    if (defaults.length === 0) return;
+    setLayers(previous => {
+      const existing = new Set(previous.map(layer => layer.datasetId));
+      const added = defaults.filter(dataset => !existing.has(dataset.id)).map((dataset, index) => {
+        layerSequence.current += 1;
+        return {
+          id: `${dataset.id}-${layerSequence.current}`, datasetId: dataset.id, name: dataset.name,
+          renderer: rendererFor(dataset), visible: true, order: previous.length + index,
+          tooltipFields: displayFieldsFor(dataset), spatialStatus: dataset.spatialStatus, dataset,
+          state: 'IDLE', featureCollection: EMPTY_COLLECTION, meta: null, pendingUpdate: null, error: null,
+        };
+      });
+      return [...previous, ...added];
+    });
+  }, [catalogStatus, datasets, defaultDatasetIds]);
 
   const setLayerVisibility = useCallback((layerId, visible) => {
     if (!visible) generations.current.set(layerId, (generations.current.get(layerId) ?? 0) + 1);

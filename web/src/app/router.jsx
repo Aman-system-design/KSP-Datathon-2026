@@ -18,6 +18,11 @@ import { AppShell } from './AppShell.jsx';
 import { governedAppLocation, readDemoPersona, readRuntime } from './runtime.js';
 
 const GeospatialStudio = lazy(() => import('../features/geospatial/GeospatialStudio.jsx'));
+const KSP_GEOSPATIAL_CONFIG = Object.freeze({
+  defaultViewport: Object.freeze({ center: Object.freeze([75.5, 15.2]), zoom: 5.6 }),
+  jurisdictionLabel: 'Karnataka',
+});
+const KSP_DEFAULT_MAP_DATASETS = Object.freeze(['hotspots', 'anomalies', 'areaRisk']);
 
 function useLoad(loader, dependencies = []) {
   const [state, setState] = useState({ loading: true });
@@ -95,7 +100,7 @@ function validWorkspace(value) {
 export function GeospatialPage({ api, Studio = GeospatialStudio, reload }) {
   return <GeospatialRouteErrorBoundary reload={reload}>
     <Suspense fallback={<Busy label="Loading geospatial workspace…" />}>
-      <Studio api={api} />
+      <Studio api={api} organizationConfig={KSP_GEOSPATIAL_CONFIG} defaultDatasetIds={KSP_DEFAULT_MAP_DATASETS} />
     </Suspense>
   </GeospatialRouteErrorBoundary>;
 }

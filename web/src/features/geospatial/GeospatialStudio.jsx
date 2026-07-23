@@ -40,9 +40,11 @@ function ResizeHandle({ side, value, onChange, visible = true }) {
 }
 
 export function GeospatialStudio({
-  api, MapComponent = MapCanvas, organizationConfig = {}, clock = () => new Date(),
+  api, MapComponent = MapCanvas, organizationConfig = {}, defaultDatasetIds = [], clock = () => new Date(),
 }) {
-  const workspace = useGeospatialWorkspace({ api, initialViewport: organizationConfig.defaultViewport });
+  const workspace = useGeospatialWorkspace({
+    api, initialViewport: organizationConfig.defaultViewport, defaultDatasetIds,
+  });
   const [viewName, setViewName] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [saving, setSaving] = useState(false);
