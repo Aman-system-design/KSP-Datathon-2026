@@ -1,8 +1,9 @@
 export function readRuntime(environment = import.meta.env) {
-  const apiBase = environment.VITE_API_BASE ?? '/server/crime_intelligence_api';
-  const relative = apiBase.startsWith('/') && !apiBase.startsWith('//');
-  if (!relative) throw new TypeError('VITE_API_BASE must be a same-origin Catalyst endpoint');
-  return Object.freeze({ apiBase, authOrigin: '' });
+  const authOrigin = 'https://kspdatathon2026-60077844198.development.catalystserverless.in';
+  const approvedApi = `${authOrigin}/server/crime_intelligence_api`;
+  const apiBase = environment.VITE_API_BASE ?? approvedApi;
+  if (apiBase !== approvedApi) throw new TypeError('VITE_API_BASE must be the approved Catalyst endpoint');
+  return Object.freeze({ apiBase, authOrigin });
 }
 
 const demoPersonas = new Set(['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']);

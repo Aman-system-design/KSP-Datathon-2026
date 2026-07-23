@@ -140,10 +140,11 @@ test('legacy maps route redirects to the canonical geospatial workspace', async 
 });
 
 test('governed persona reaches workspace and Studio API requests through the same identity header', async () => {
-  const generateAuthToken = vi.fn();
+  const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
+  const generateAuthToken = vi.fn(async () => ({ access_token: 'TOKEN-1' }));
   vi.stubGlobal('catalyst', { auth: { generateAuthToken } });
   const fetch = vi.fn(async (url, options) => {
-    const path = String(url).replace('/server/crime_intelligence_api', '');
+    const path = String(url).slice(developmentApi.length);
     const data = path === '/v1/workspace' ? analystWorkspace
       : path === '/v1/alerts' || path === '/v1/geospatial/datasets' || path === '/v1/geospatial/views' ? { items: [] }
         : null;
@@ -159,8 +160,12 @@ test('governed persona reaches workspace and Studio API requests through the sam
   expect(await screen.findByRole('heading', { name: 'Geospatial Studio' })).toBeInTheDocument();
   expect(screen.getByTestId('location')).toHaveTextContent('/geospatial?persona=CRIME_ANALYST');
   expect(fetch).toHaveBeenCalledTimes(4);
-  for (const [, options] of fetch.mock.calls) expect(options.headers['X-Demo-Persona']).toBe('CRIME_ANALYST');
-  expect(generateAuthToken).not.toHaveBeenCalled();
+  for (const [url, options] of fetch.mock.calls) {
+    expect(String(url).startsWith(developmentApi)).toBe(true);
+    expect(options.headers['X-Demo-Persona']).toBe('CRIME_ANALYST');
+    expect(options.headers.Authorization).toBe('TOKEN-1');
+  }
+  expect(generateAuthToken).toHaveBeenCalledTimes(4);
 });
 
 test('geospatial route failure is contained and offers a safe reload without blanking its parent shell', () => {
