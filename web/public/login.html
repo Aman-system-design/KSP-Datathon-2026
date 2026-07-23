@@ -89,7 +89,10 @@
       };
       new MutationObserver(normalizeCatalystFrame).observe(host, { childList: true, subtree: true });
       try {
-        catalyst.auth.signIn("loginDivElementId", { service_url: "/" });
+        catalyst.auth.signIn("loginDivElementId", {
+          css_url: "/auth/catalyst-sign-in.css",
+          service_url: "/"
+        });
         normalizeCatalystFrame();
       } catch {
         document.getElementById("authError").hidden = false;

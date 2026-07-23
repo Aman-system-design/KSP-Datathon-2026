@@ -1,5 +1,13 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
 
+export function authFailureDiagnostic(error) {
+  return Object.freeze({
+    name: typeof error?.name === 'string' ? error.name : 'UnknownError',
+    code: typeof error?.code === 'string' ? error.code : null,
+    status: Number.isInteger(error?.status) ? error.status : null,
+  });
+}
+
 export function createCatalystAuth({
   catalyst,
   getCatalyst = () => globalThis.catalyst,
@@ -23,12 +31,22 @@ export function createCatalystAuth({
     loginUrl,
     openSignIn() { location.replace('/login.html'); },
     async currentUser() {
-      const result = await (await readyAuth())?.isUserAuthenticated?.();
-      return result?.content ?? null;
+      try {
+        const result = await (await readyAuth())?.isUserAuthenticated?.();
+        return result?.content ?? null;
+      } catch (error) {
+        console.error('catalyst_auth_session_failed', JSON.stringify(authFailureDiagnostic(error)));
+        throw error;
+      }
     },
     async accessToken() {
-      const result = await (await readyAuth())?.generateAuthToken?.();
-      return typeof result?.access_token === 'string' && result.access_token ? result.access_token : null;
+      try {
+        const result = await (await readyAuth())?.generateAuthToken?.();
+        return typeof result?.access_token === 'string' && result.access_token ? result.access_token : null;
+      } catch (error) {
+        console.error('catalyst_auth_token_failed', authFailureDiagnostic(error));
+        throw error;
+      }
     },
     signOut() {
       const auth = sdk()?.auth;

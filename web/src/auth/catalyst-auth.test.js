@@ -2,9 +2,14 @@ import { readFileSync } from 'node:fs';
 
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { createCatalystAuth } from './catalyst-auth.js';
+import { authFailureDiagnostic, createCatalystAuth } from './catalyst-auth.js';
 
 afterEach(() => vi.unstubAllGlobals());
+
+test('authentication diagnostics exclude messages and response payloads', () => {
+  const error = Object.assign(new Error('secret provider detail'), { code: 'TOKEN_FAILED', status: 401, response: { secret: true } });
+  expect(authFailureDiagnostic(error)).toEqual({ name: 'Error', code: 'TOKEN_FAILED', status: 401 });
+});
 
 test('uses the native Catalyst hosted-login route without storing credentials', () => {
   const auth = createCatalystAuth({ location: { origin: 'https://ksp.example' } });
@@ -29,6 +34,20 @@ test('falls back to the hosted-login URL when the Web SDK is unavailable', () =>
   const auth = createCatalystAuth({ location: { origin: 'https://ksp.example', assign } });
   auth.signOut();
   expect(assign).toHaveBeenCalledWith('/__catalyst/auth/login');
+});
+
+test('session failures are logged as serialized safe diagnostics', async () => {
+  const sessionError = Object.assign(new Error('private provider detail'), { code: 'SESSION_FAILED', status: 503 });
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const auth = createCatalystAuth({ catalyst: { auth: { isUserAuthenticated: async () => { throw sessionError; } } } });
+
+  await expect(auth.currentUser()).rejects.toBe(sessionError);
+
+  expect(log).toHaveBeenCalledWith('catalyst_auth_session_failed', JSON.stringify({
+    name: 'Error', code: 'SESSION_FAILED', status: 503,
+  }));
+  expect(log.mock.calls[0][1]).not.toContain('private provider detail');
+  log.mockRestore();
 });
 
 test('generates the Catalyst cross-domain backend token without storing it', async () => {
@@ -85,7 +104,11 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
   expect(init).toBeGreaterThan(sdk);
   expect(target).toBeGreaterThan(init);
   expect(signIn).toBeGreaterThan(target);
+  expect(html).toContain('css_url: "/auth/catalyst-sign-in.css"');
   expect(html).toContain('service_url: "/"');
+  expect(html).toContain('Karnataka State Police');
+  expect(html).not.toContain('type="password"');
+  expect(html).not.toContain('name="password"');
 });
 
 test('dedicated sign-in page uses the approved KSP identity, typography and accessible full-height form', () => {
