@@ -87,3 +87,17 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
   expect(signIn).toBeGreaterThan(target);
   expect(html).toContain('service_url: "/"');
 });
+
+test('dedicated sign-in page uses the approved KSP identity, typography and accessible full-height form', () => {
+  const html = readFileSync('public/login.html', 'utf8');
+  const tokens = readFileSync('src/styles/tokens.css', 'utf8');
+
+  expect(html).toContain('/brand/karnataka-state-police.webp');
+  expect(html).toContain('/fonts/roboto-latin-400-normal.woff2');
+  expect(html).toContain('/fonts/roboto-latin-500-normal.woff2');
+  expect(html).toContain('/fonts/roboto-latin-700-normal.woff2');
+  expect(html).toContain('Access is invitation-only');
+  expect(html).toContain('Catalyst secure sign in');
+  expect(html).toContain('height: 560px');
+  expect(tokens).toMatch(/font-family:\s*Roboto,/u);
+});
