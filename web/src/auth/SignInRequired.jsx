@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { usePlatformBrand } from '../branding/BrandProvider.jsx';
 
 export function SignInRequired({ auth }) {
+  const brand = usePlatformBrand();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -11,7 +13,7 @@ export function SignInRequired({ auth }) {
     const normalizeFrame = () => {
       const frame = host.querySelector('iframe');
       if (!frame) return;
-      frame.title = 'Karnataka State Police secure sign in';
+      frame.title = `${brand.organizationName} secure sign in`;
       frame.scrolling = 'no';
     };
     const observer = new MutationObserver(normalizeFrame);
@@ -20,15 +22,15 @@ export function SignInRequired({ auth }) {
       cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
     }).then(normalizeFrame).catch(() => setFailed(true));
     return () => observer.disconnect();
-  }, [auth]);
+  }, [auth, brand.organizationName]);
 
   return <main className="secure-login">
     <section className="secure-login__shell">
       <aside className="secure-login__identity">
-        <img src="/brand/karnataka-state-police.webp" alt="Karnataka State Police emblem" />
+        <img src={brand.primaryLogo} alt={`${brand.organizationName} emblem`} />
         <div>
-          <h1>Karnataka State Police</h1>
-          <p>Crime Decision Intelligence</p>
+          <h1>{brand.organizationName}</h1>
+          {brand.showProductTagline && <p>{brand.productTagline}</p>}
         </div>
       </aside>
       <div className="secure-login__access">

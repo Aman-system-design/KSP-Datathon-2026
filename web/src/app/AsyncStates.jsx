@@ -1,11 +1,14 @@
+import { usePlatformBrand } from '../branding/BrandProvider.jsx';
+
 export function Busy({ label = 'Loading authorized intelligence…', branded = false }) {
+  const brand = usePlatformBrand();
   return <div className={`loading-state${branded ? ' loading-state--branded' : ''}`} role="status" aria-label={label} aria-live="polite">
     {branded ? <>
       <div className="loading-state__mark">
         <span aria-hidden="true" />
-        <img src="/brand/karnataka-state-emblem.png" alt="Karnataka State emblem" />
+        <img src={brand.loadingLogo} alt={`${brand.organizationName} emblem`} />
       </div>
-      <small>Secure intelligence platform</small>
+      <small>{brand.instanceName}</small>
     </> : <i aria-hidden="true" />}
     <strong>{label}</strong>
   </div>;

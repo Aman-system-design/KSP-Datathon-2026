@@ -9,16 +9,16 @@ test('renders a branded secure application loader for startup gates', () => {
   render(<Busy branded label="Verifying Catalyst identity…" />);
 
   expect(screen.getByRole('status')).toHaveAccessibleName('Verifying Catalyst identity…');
-  expect(screen.getByRole('img', { name: 'Karnataka State emblem' })).toHaveAttribute(
+  expect(screen.getByRole('img', { name: 'Karnataka State Police emblem' })).toHaveAttribute(
     'src',
     '/brand/karnataka-state-emblem.png',
   );
-  expect(screen.getByText('Secure intelligence platform')).toBeInTheDocument();
+  expect(screen.getByText('KSP ACE')).toBeInTheDocument();
 });
 
 test('keeps ordinary in-page loading compact', () => {
   render(<Busy label="Loading scoped alerts…" />);
 
-  expect(screen.queryByRole('img', { name: 'Karnataka State emblem' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('img', { name: 'Karnataka State Police emblem' })).not.toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveAccessibleName('Loading scoped alerts…');
 });

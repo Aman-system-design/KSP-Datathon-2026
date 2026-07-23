@@ -5,6 +5,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/comp
 import { Icon } from '../components/icons.jsx';
 import { commandCentreWorkspace, getPersonaPresentation } from '../app/workspace-navigation.js';
 import { roleLabel } from '../app/workspace-labels.js';
+import { usePlatformBrand } from '../branding/BrandProvider.jsx';
 
 function authorizedPersonas(workspace) {
   if (workspace?.personaSwitch?.allowed !== true) return [];
@@ -20,6 +21,7 @@ function authorizedWorkspaces(workspace) {
 }
 
 export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
+  const brand = usePlatformBrand();
   const workspaces = authorizedWorkspaces(workspace);
   const [selectedKey, setSelectedKey] = useState('');
 
@@ -42,8 +44,8 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
   return (
     <main className="workspace-entry">
       <header className="workspace-entry__brand">
-        <img src="/brand/karnataka-state-police.webp" alt="Karnataka State Police emblem" />
-        <div><strong>Karnataka State Police</strong><span>Crime Decision Intelligence</span></div>
+        <img src={brand.primaryLogo} alt={`${brand.organizationName} emblem`} />
+        <div><strong>{brand.organizationName}</strong>{brand.showProductTagline && <span>{brand.productTagline}</span>}</div>
         <Button variant="ghost" onClick={onSignOut}>Sign out</Button>
       </header>
       <section className="workspace-entry__panel">

@@ -28,6 +28,12 @@ describe('platform viewport layout contract', () => {
     expect(appCss).toMatch(/\.command-centre__grid\s*{[^}]*overflow:\s*auto/s);
   });
 
+  test('uses compact natural-height workspace cards without a nested panel scrollbar', () => {
+    expect(appCss).toMatch(/\.workspace-entry__panel\s*{[^}]*height:\s*auto/s);
+    expect(appCss).toMatch(/\.workspace-entry__list\s*{[^}]*grid-auto-rows:\s*124px/s);
+    expect(appCss).not.toMatch(/\.workspace-entry__list\s*{[^}]*grid-template-rows:\s*repeat\(2,minmax\(0,1fr\)\)/s);
+  });
+
   test('constrains authentication and keeps Catalyst recovery actions reachable', () => {
     expect(appCss).toMatch(/\.secure-login\s*{[^}]*height:\s*100dvh/s);
     expect(appCss).toMatch(/\.secure-login__shell\s*{[^}]*max-height:\s*calc\(100dvh - 32px\)/s);

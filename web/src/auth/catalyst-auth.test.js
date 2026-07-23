@@ -99,10 +99,12 @@ test('web entry loads Catalyst v4 and same-origin initialization before the appl
 test('the application root owns sign in and no legacy login page is referenced', () => {
   const html = readFileSync('index.html', 'utf8');
   const auth = readFileSync('src/auth/SignInRequired.jsx', 'utf8');
+  const brand = readFileSync('src/branding/platform-brand.js', 'utf8');
 
   expect(html).toContain('id="root"');
   expect(auth).toContain("serviceUrl: '/'");
-  expect(auth).toContain('/brand/karnataka-state-police.webp');
+  expect(auth).toContain('brand.primaryLogo');
+  expect(brand).toContain("primaryLogo: '/brand/karnataka-state-police.webp'");
   expect(auth).not.toContain('/login.html');
   expect(auth).not.toContain('/ksp-sign-in');
 });

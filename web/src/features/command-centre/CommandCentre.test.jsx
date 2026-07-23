@@ -11,7 +11,7 @@ test('command centre is a presentation-safe aggregate view', () => {
     hotspots: [{ id: 'H-1', area: 'Central corridor', caseCount: 6, severity: 0.82 }],
   }} /></MemoryRouter>);
 
-  expect(screen.getByRole('heading', { name: 'KSP Command Centre' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'KSP ACE Command Centre' })).toBeInTheDocument();
   expect(screen.getByText('21 Jul 2026, 23:15 IST')).toBeInTheDocument();
   expect(screen.getByText(/synthetic demonstration/i)).toBeInTheDocument();
   expect(screen.getByText('Vehicle theft change')).toBeInTheDocument();

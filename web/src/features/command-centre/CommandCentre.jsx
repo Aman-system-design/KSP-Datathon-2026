@@ -1,8 +1,10 @@
 import { OrganizationBrand } from '../../components/OrganizationBrand.jsx';
+import { usePlatformBrand } from '../../branding/BrandProvider.jsx';
 
 export function CommandCentre({ data = {}, freshness = 'Latest verified run', synthetic = false }) {
+  const brand = usePlatformBrand();
   return <main className="command-centre">
-    <header className="command-centre__header"><OrganizationBrand compact /><div><span>Karnataka State Police</span><h1>KSP Command Centre</h1></div><div className="command-centre__freshness"><small>Intelligence freshness</small><strong>{freshness}</strong></div></header>
+    <header className="command-centre__header"><OrganizationBrand compact /><div><span>{brand.organizationName}</span><h1>{brand.instanceName} Command Centre</h1></div><div className="command-centre__freshness"><small>Intelligence freshness</small><strong>{freshness}</strong></div></header>
     {synthetic && <div className="command-centre__synthetic">Synthetic demonstration data · Presentation-safe aggregate view</div>}
     <section className="command-centre__brief"><span>Verified intelligence posture</span><p>{data.brief?.executiveSummary ?? 'No verified intelligence brief is currently available.'}</p><small>All analytical signals require authorized human review.</small></section>
     <div className="command-centre__grid">

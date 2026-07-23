@@ -16,6 +16,8 @@ test('renders only personas returned by the backend', () => {
   expect(screen.getByRole('radio', { name: /Command Centre/i })).toBeVisible();
   expect(screen.queryByRole('radio', { name: /Station Operations/i })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Select workspace' })).toBeVisible();
+  expect(screen.getByText('Karnataka State Police')).toBeVisible();
+  expect(screen.getByText('Analytics · Crime · Enforcement')).toBeVisible();
   expect(screen.getByText('KSP Intelligence')).toBeVisible();
   expect(screen.queryByText('Demo Presenter')).not.toBeInTheDocument();
   expect(screen.queryByText(/changes the demonstration view/i)).not.toBeInTheDocument();

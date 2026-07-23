@@ -33,8 +33,10 @@ afterEach(cleanup);
 test('renders a focused branded shell without report-level status clutter', () => {
   render(<MemoryRouter><AppShell workspace={workspace}><p>Workspace content</p></AppShell></MemoryRouter>);
 
-  expect(screen.getByRole('banner')).toHaveTextContent('KSP Crime Decision Intelligence');
-  expect(screen.getByRole('img', { name: 'Government of Karnataka seal' })).toBeInTheDocument();
+  expect(screen.getByRole('banner')).toHaveTextContent('Karnataka State Police');
+  expect(screen.getByRole('banner')).toHaveTextContent('Analytics · Crime · Enforcement');
+  expect(screen.getByRole('banner')).not.toHaveTextContent('KSP Crime Decision Intelligence');
+  expect(screen.getByRole('img', { name: 'Karnataka State Police emblem' })).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toHaveTextContent('Analyst Workbench');
   expect(screen.getByRole('searchbox', { name: 'Global search' })).toBeDisabled();
