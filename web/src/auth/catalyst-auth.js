@@ -1,4 +1,5 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
+const EMBEDDED_SIGN_IN_PATH = '/login.html?release=20260723-1617';
 
 export function authFailureDiagnostic(error) {
   return Object.freeze({
@@ -29,7 +30,7 @@ export function createCatalystAuth({
 
   return Object.freeze({
     loginUrl,
-    openSignIn() { location.replace('/login.html'); },
+    openSignIn() { location.replace(EMBEDDED_SIGN_IN_PATH); },
     async currentUser() {
       try {
         const result = await (await readyAuth())?.isUserAuthenticated?.();
