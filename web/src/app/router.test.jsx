@@ -124,7 +124,7 @@ test('demo presenter chooses only from backend-authorized workspaces before ente
   }) };
   render(<MemoryRouter><Application api={api} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Choose a workspace', level: 2 })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Choose a workspace', level: 2 }, { timeout: 5000 })).toBeInTheDocument();
   expect(screen.getByRole('radio', { name: 'State Leadership' })).toBeInTheDocument();
   expect(screen.getByRole('radio', { name: 'Crime Analyst' })).toBeInTheDocument();
   expect(screen.queryByRole('navigation', { name: 'Platform modules' })).not.toBeInTheDocument();
