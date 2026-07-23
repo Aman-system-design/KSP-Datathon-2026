@@ -19,13 +19,11 @@
       .identity img { width: min(240px, 100%); aspect-ratio: 1; object-fit: contain; }
       .identity h1 { margin: 22px 0 7px; max-width: 290px; color: #0b2742; font-size: 26px; line-height: 1.22; font-weight: 700; letter-spacing: -.015em; }
       .identity p { margin: 0; max-width: 280px; color: #5e7080; font-size: 14px; }
-      .authentication { min-width: 0; padding: 38px 52px 22px; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; align-content: start; }
+      .authentication { min-width: 0; padding: 46px 52px 24px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; align-content: start; }
       .authentication__heading { max-width: 560px; }
       .authentication h2 { margin: 0 0 6px; color: #0b2742; font-size: 30px; line-height: 1.2; font-weight: 500; letter-spacing: -.015em; }
       .authentication__heading > p { margin: 0; color: #5e7080; }
-      .access-note { margin: 16px 0 6px; padding: 10px 12px; color: #465b6c; background: #f6f8fb; border: 1px solid #dce3ea; border-left: 3px solid #1769aa; border-radius: 6px; font-size: 13px; }
-      .access-note strong { color: #172b3a; font-weight: 500; }
-      #loginDivElementId { width: 100%; height: 390px; min-height: 0; overflow: hidden; }
+      #loginDivElementId { width: 100%; height: 390px; min-height: 0; margin-top: 20px; overflow: hidden; }
       #loginDivElementId iframe { display: block !important; width: 100% !important; height: 390px !important; border: 0 !important; }
       .auth-error { margin: 12px 0 0; padding: 10px 12px; color: #8f1d24; background: #fff4f4; border: 1px solid #efc4c7; border-radius: 6px; font-size: 13px; }
       .auth-error[hidden] { display: none; }
@@ -47,7 +45,6 @@
         .identity img { width: 68px; }
         .identity h1 { font-size: 19px; }
         .authentication { padding: 24px 18px 18px; }
-        .access-note { margin-top: 14px; }
       }
     </style>
   </head>
@@ -60,13 +57,9 @@
       </header>
       <section class="authentication">
         <div class="authentication__heading">
-          <h2>Secure access</h2>
-          <p>Continue to your authorized Karnataka State Police workspace.</p>
+          <h2>Sign in</h2>
+          <p>Access your Karnataka State Police workspace.</p>
         </div>
-        <aside class="access-note" aria-label="Access policy">
-          <strong>Access is invitation-only.</strong>
-          <span> Complete the Catalyst invitation sent by your administrator before signing in.</span>
-        </aside>
         <div id="loginDivElementId"></div>
         <p id="authError" class="auth-error" role="alert" hidden>Secure sign in could not be loaded. Refresh the page or contact your platform administrator.</p>
         <footer>Authentication and password security are managed by Catalyst by Zoho.</footer>
@@ -85,7 +78,7 @@
       new MutationObserver(normalizeCatalystFrame).observe(host, { childList: true, subtree: true });
       try {
         catalyst.auth.signIn("loginDivElementId", {
-          css_url: "/auth/catalyst-sign-in.css",
+          css_url: "/auth/catalyst-sign-in.css?v=20260723-2",
           service_url: "/"
         });
         normalizeCatalystFrame();

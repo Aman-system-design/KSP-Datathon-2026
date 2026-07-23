@@ -104,7 +104,7 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
   expect(init).toBeGreaterThan(sdk);
   expect(target).toBeGreaterThan(init);
   expect(signIn).toBeGreaterThan(target);
-  expect(html).toContain('css_url: "/auth/catalyst-sign-in.css"');
+  expect(html).toContain('css_url: "/auth/catalyst-sign-in.css?v=20260723-2"');
   expect(html).toContain('service_url: "/"');
   expect(html).toContain('Karnataka State Police');
   expect(html).not.toContain('type="password"');
@@ -113,21 +113,23 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
 
 test('dedicated sign-in page uses the approved KSP identity in a compact single-viewport composition', () => {
   const html = readFileSync('public/login.html', 'utf8');
+  const signInCss = readFileSync('public/auth/catalyst-sign-in.css', 'utf8');
   const tokens = readFileSync('src/styles/tokens.css', 'utf8');
 
   expect(html).toContain('/brand/karnataka-state-police.webp');
   expect(html).toContain('/fonts/roboto-latin-400-normal.woff2');
   expect(html).toContain('/fonts/roboto-latin-500-normal.woff2');
   expect(html).toContain('/fonts/roboto-latin-700-normal.woff2');
-  expect(html).toContain('Access is invitation-only');
-  expect(html).toContain('<h2>Secure access</h2>');
-  expect(html).not.toContain('<h2>Sign in</h2>');
+  expect(html).toContain('<h2>Sign in</h2>');
+  expect(html).toContain('Access your Karnataka State Police workspace.');
+  expect(html).not.toContain('Access is invitation-only');
+  expect(html).not.toContain('Complete the Catalyst invitation');
+  expect(signInCss).toMatch(/\.signin_head,\s*#headtitle\s*\{\s*display:\s*none\s*!important;/u);
   expect(html).toContain('Catalyst secure sign in');
   expect(html).toContain('height: 390px');
   expect(html).toContain('frame.scrolling = "no"');
   expect(html).toContain('align-items: center');
   expect(html).toContain('min-height: 100dvh');
   expect(html).not.toContain('min-height: 700px');
-  expect(html).toContain('Complete the Catalyst invitation sent by your administrator before signing in.');
   expect(tokens).toMatch(/font-family:\s*Roboto,/u);
 });
