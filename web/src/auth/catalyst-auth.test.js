@@ -98,6 +98,8 @@ test('dedicated sign-in page uses the approved KSP identity, typography and acce
   expect(html).toContain('/fonts/roboto-latin-700-normal.woff2');
   expect(html).toContain('Access is invitation-only');
   expect(html).toContain('Catalyst secure sign in');
-  expect(html).toContain('height: 560px');
+  expect(html).toContain('height: 520px');
+  expect(html).toContain('frame.scrolling = "no"');
+  expect(html).toContain('align-items: start');
   expect(tokens).toMatch(/font-family:\s*Roboto,/u);
 });

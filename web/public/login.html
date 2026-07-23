@@ -12,7 +12,7 @@
       @font-face { font-family: Roboto; src: url("/fonts/roboto-latin-700-normal.woff2") format("woff2"); font-style: normal; font-weight: 700; font-display: swap; }
       :root { color: #172b3a; font: 16px/1.5 Roboto, "Noto Sans Kannada", "Segoe UI", Arial, sans-serif; background: #eef3f8; }
       * { box-sizing: border-box; }
-      body { margin: 0; min-width: 320px; min-height: 100vh; display: grid; place-items: center; padding: 32px; }
+      body { margin: 0; min-width: 320px; min-height: 100vh; display: grid; align-items: start; justify-items: center; padding: 20px 32px; }
       body::before { content: ""; position: fixed; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, #b4232c 0 50%, #e8a11a 50% 76%, #1d7655 76%); }
       main { width: min(1160px, 100%); min-height: 700px; display: grid; grid-template-columns: 420px minmax(0, 1fr); background: #fff; border: 1px solid #d6dee7; border-radius: 12px; box-shadow: 0 18px 50px rgb(11 39 66 / 12%); overflow: hidden; }
       .identity { padding: 48px 44px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: #f7f9fc; border-right: 1px solid #e1e7ee; }
@@ -27,8 +27,8 @@
       .access-note::before { content: ""; border-radius: 999px; background: #155e9b; }
       .access-note strong { display: block; margin-bottom: 2px; color: #172b3a; font-weight: 500; }
       .access-note span { display: block; font-size: 14px; }
-      #loginDivElementId { width: 100%; min-height: 560px; }
-      #loginDivElementId iframe { display: block !important; width: 100% !important; height: 560px !important; border: 0 !important; }
+      #loginDivElementId { width: 100%; min-height: 520px; }
+      #loginDivElementId iframe { display: block !important; width: 100% !important; height: 520px !important; border: 0 !important; }
       .auth-error { margin: 20px 0 0; padding: 14px 16px; color: #8f1d24; background: #fff4f4; border: 1px solid #efc4c7; border-radius: 8px; }
       .auth-error[hidden] { display: none; }
       footer { margin-top: 12px; color: #6a7b8b; font-size: 13px; }
@@ -83,8 +83,9 @@
         const frame = host.querySelector("iframe");
         if (!frame) return;
         frame.title = "Catalyst secure sign in";
+        frame.scrolling = "no";
         frame.style.width = "100%";
-        frame.style.height = "560px";
+        frame.style.height = "520px";
       };
       new MutationObserver(normalizeCatalystFrame).observe(host, { childList: true, subtree: true });
       try {
