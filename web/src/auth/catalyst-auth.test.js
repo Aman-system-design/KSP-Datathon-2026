@@ -70,7 +70,7 @@ test('opens the dedicated same-origin Catalyst sign-in page', () => {
 
   auth.openSignIn();
 
-  expect(replace).toHaveBeenCalledWith('/ksp-sign-in-v2.html');
+  expect(replace).toHaveBeenCalledWith('/ksp-sign-in-v3.html');
 });
 
 test('Slate authentication uses the approved Catalyst Function origin for hosted login and sign-out', () => {
@@ -94,7 +94,7 @@ test('web entry loads Catalyst v4 and same-origin initialization before the appl
 });
 
 test('dedicated sign-in page invokes embedded Catalyst auth after its target exists', () => {
-  const html = readFileSync('public/ksp-sign-in-v2.html', 'utf8');
+  const html = readFileSync('public/ksp-sign-in-v3.html', 'utf8');
   const sdk = html.indexOf('https://static.zohocdn.com/catalyst/sdk/js/4.6.2/catalystWebSDK.js');
   const init = html.indexOf('/__catalyst/sdk/init.js');
   const target = html.indexOf('id="loginDivElementId"');
@@ -104,7 +104,7 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
   expect(init).toBeGreaterThan(sdk);
   expect(target).toBeGreaterThan(init);
   expect(signIn).toBeGreaterThan(target);
-  expect(html).toContain('css_url: "/auth/catalyst-sign-in-v3.css"');
+  expect(html).toContain('css_url: "/auth/catalyst-sign-in-v4.css"');
   expect(html).toContain('service_url: "/"');
   expect(html).toContain('Karnataka State Police');
   expect(html).not.toContain('type="password"');
@@ -112,8 +112,8 @@ test('dedicated sign-in page invokes embedded Catalyst auth after its target exi
 });
 
 test('dedicated sign-in page uses the approved KSP identity in a compact single-viewport composition', () => {
-  const html = readFileSync('public/ksp-sign-in-v2.html', 'utf8');
-  const signInCss = readFileSync('public/auth/catalyst-sign-in-v3.css', 'utf8');
+  const html = readFileSync('public/ksp-sign-in-v3.html', 'utf8');
+  const signInCss = readFileSync('public/auth/catalyst-sign-in-v4.css', 'utf8');
   const tokens = readFileSync('src/styles/tokens.css', 'utf8');
 
   expect(html).toContain('/brand/karnataka-state-police.webp');
@@ -123,9 +123,14 @@ test('dedicated sign-in page uses the approved KSP identity in a compact single-
   expect(html).not.toContain('authentication__heading');
   expect(html).not.toContain('Access is invitation-only');
   expect(html).not.toContain('Complete the Catalyst invitation');
-  expect(signInCss).toContain('max-width: 440px');
+  expect(signInCss).toContain('max-width: 380px');
   expect(html).toContain('Catalyst secure sign in');
-  expect(html).toContain('height: 390px');
+  expect(html).toContain('width: min(960px, 100%)');
+  expect(html).toContain('grid-template-columns: 320px minmax(0, 1fr)');
+  expect(html).toContain('width: min(380px, 100%)');
+  expect(html).toContain('class="authentication__stack"');
+  expect(html).toContain('class="security-note"');
+  expect(html).toContain('height: 300px');
   expect(html).toContain('frame.scrolling = "no"');
   expect(html).toContain('align-items: center');
   expect(html).toContain('min-height: 100dvh');

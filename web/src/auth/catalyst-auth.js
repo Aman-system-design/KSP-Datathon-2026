@@ -1,5 +1,5 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
-const EMBEDDED_SIGN_IN_PATH = '/ksp-sign-in-v2.html';
+const EMBEDDED_SIGN_IN_PATH = '/ksp-sign-in-v3.html';
 
 export function authFailureDiagnostic(error) {
   return Object.freeze({
