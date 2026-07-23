@@ -1,108 +1,42 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { lazy, Suspense, useMemo } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { createApiClient } from '../api/client.js';
 import { AccessNotProvisioned } from '../auth/AccessNotProvisioned.jsx';
 import { createCatalystAuth } from '../auth/catalyst-auth.js';
 import { SignInRequired } from '../auth/SignInRequired.jsx';
-import { AlertDetail } from '../features/alerts/AlertDetail.jsx';
-import { AlertInbox } from '../features/alerts/AlertInbox.jsx';
-import { DashboardWorkspace } from '../features/dashboards/DashboardWorkspace.jsx';
 import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
 import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor.jsx';
-import { CommandCentre } from '../features/command-centre/CommandCentre.jsx';
+import { AlertPage, AlertsPage } from '../features/alerts/AlertPages.jsx';
+import { CommandCentrePage } from '../features/command-centre/CommandCentrePage.jsx';
+import { DashboardLibrary, DashboardPage, RoutedDashboardPage } from '../features/dashboards/DashboardPages.jsx';
+import { GeospatialPage } from '../features/geospatial/GeospatialPage.jsx';
+import { IntelligenceWorkspacePage } from '../features/intelligence/IntelligenceWorkspacePage.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
 import { ReportBuilder } from '../features/reports/ReportBuilder.jsx';
+import { HomePage } from '../features/workspaces/HomePage.jsx';
 import { PersonaWorkspace } from '../features/workspaces/PersonaWorkspace.jsx';
 import { AppShell } from './AppShell.jsx';
-import { governedAppLocation, readDemoPersona, readRuntime } from './runtime.js';
+import { Busy, Failure } from './AsyncStates.jsx';
+import { governedAppLocation, personaSearch, readDemoPersona, readRuntime } from './runtime.js';
+import { useLoad } from './useLoad.js';
 
-const GeospatialStudio = lazy(() => import('../features/geospatial/GeospatialStudio.jsx'));
-const KSP_GEOSPATIAL_CONFIG = Object.freeze({
-  defaultViewport: Object.freeze({ center: Object.freeze([75.5, 15.2]), zoom: 5.6 }),
-  jurisdictionLabel: 'Karnataka',
-});
-const KSP_DEFAULT_MAP_DATASETS = Object.freeze(['hotspots', 'anomalies', 'areaRisk']);
-
-function useLoad(loader, dependencies = []) {
-  const [state, setState] = useState({ loading: true });
-  useEffect(() => {
-    let active = true;
-    setState({ loading: true });
-    loader().then(data => active && setState({ data })).catch(error => active && setState({ error }));
-    return () => { active = false; };
-  }, dependencies); // eslint-disable-line react-hooks/exhaustive-deps
-  return state;
-}
-
-function Busy({ label = 'Loading authorized intelligence…' }) { return <div className="loading-state"><i /><strong>{label}</strong></div>; }
-export function Failure() { return <div className="failure-state"><strong>Intelligence is unavailable</strong><span>The request could not be completed.</span><button onClick={() => location.reload()}>Retry</button></div>; }
-
-function CommandPage({ api, role }) {
-  const state = useLoad(async () => {
-    const [brief, anomalies, hotspots, risk] = await Promise.all([
-      api.get('/v1/intelligence/brief'), api.get('/v1/anomalies?limit=10'),
-      api.get('/v1/hotspots?limit=10'), api.get('/v1/area-risk'),
-    ]);
-    const anomalyItems = anomalies.data?.items ?? [];
-    const hotspotItems = hotspots.data?.items ?? [];
-    return {
-      brief: brief.data,
-      anomalies: anomalyItems.map(item => ({
-        id: item.id ?? item.anomalyId, label: item.label ?? item.signalType ?? item.seriesId ?? 'Crime trend anomaly',
-        observed: item.observed ?? item.observedValue, expected: item.expected ?? item.baselineValue,
-        confidence: item.confidence ?? item.severity,
-      })),
-      hotspots: hotspotItems.map(item => ({
-        id: item.id ?? item.hotspotId, area: item.area ?? item.areaId ?? 'Authorized area',
-        caseCount: item.caseCount ?? item.magnitude, severity: item.severity ?? item.confidence,
-        latitude: item.latitude ?? item.centroid?.latitude, longitude: item.longitude ?? item.centroid?.longitude,
-      })),
-      risk: {
-        score: risk.data?.score, components: risk.data?.components ?? risk.data?.componentScores ?? {},
-        limitation: risk.data?.limitation ?? risk.data?.limitations?.[0] ?? 'Area and time risk only.',
-      },
-    };
-  }, [api]);
-  if (state.loading) return <Busy />;
-  if (state.error) return <Failure error={state.error} />;
-  return <PersonaWorkspace role={role} data={state.data} />;
-}
-
-function HomePage({ api, workspace }) {
-  if (workspace.role === 'DEMO_PRESENTER') return <PersonaDirectory role={workspace.role} />;
-  if (['PLATFORM_ADMIN', 'AUDITOR'].includes(workspace.role)) return <PersonaWorkspace role={workspace.role} data={{}} />;
-  return <CommandPage api={api} role={workspace.role} />;
-}
-
-export class GeospatialRouteErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { failed: false };
-  }
-
-  static getDerivedStateFromError() { return { failed: true }; }
-
-  render() {
-    if (!this.state.failed) return this.props.children;
-    return <div className="failure-state" role="alert">
-      <strong>Geospatial workspace is unavailable</strong>
-      <span>The map workspace could not be loaded. Other authorized modules remain available.</span>
-      <button type="button" onClick={() => (this.props.reload ?? (() => globalThis.location?.reload?.()))()}>Reload map workspace</button>
-    </div>;
-  }
-}
+const WorkspaceSelector = lazy(() => import('../auth/WorkspaceSelector.jsx')
+  .then(module => ({ default: module.WorkspaceSelector })));
 
 function validWorkspace(value) {
   return value && typeof value.role === 'string' && value.role !== 'LOADING';
 }
 
-export function GeospatialPage({ api, Studio = GeospatialStudio, reload }) {
-  return <GeospatialRouteErrorBoundary reload={reload}>
-    <Suspense fallback={<Busy label="Loading geospatial workspace…" />}>
-      <Studio api={api} organizationConfig={KSP_GEOSPATIAL_CONFIG} defaultDatasetIds={KSP_DEFAULT_MAP_DATASETS} />
-    </Suspense>
-  </GeospatialRouteErrorBoundary>;
+export function workspaceContractDiagnostic(value) {
+  const objectValue = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  const nestedData = objectValue?.data && typeof objectValue.data === 'object' && !Array.isArray(objectValue.data)
+    ? objectValue.data : null;
+  return Object.freeze({
+    kind: Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value,
+    keys: objectValue ? Object.keys(objectValue).sort() : [],
+    nestedDataKeys: nestedData ? Object.keys(nestedData).sort() : [],
+  });
 }
 
 function LegacyMapsRedirect() {
@@ -110,91 +44,35 @@ function LegacyMapsRedirect() {
   return <Navigate to={governedAppLocation('/geospatial', location, { preserveHash: true })} replace />;
 }
 
-export function AlertsPage({ api }) {
-  const state = useLoad(() => api.get('/v1/alerts').then(result => result.data?.items ?? []), [api]);
-  if (state.loading) return <Busy label="Loading scoped alerts…" />;
-  if (state.error) return <Failure error={state.error} />;
-  return <AlertInbox alerts={state.data} />;
-}
-
-function AlertPage({ api }) {
-  const { alertId } = useParams();
-  const state = useLoad(() => api.get(`/v1/alerts/${alertId}`).then(result => result.data), [api, alertId]);
-  if (state.loading) return <Busy label="Loading evidence pack…" />;
-  if (state.error) return <Failure error={state.error} />;
-  return <AlertDetail api={api} alert={state.data} />;
-}
-
-function DashboardLibrary({ workspace }) {
-  const dashboards = workspace.availableDashboards ?? [];
-  if (dashboards.length === 0) return <DashboardWorkspace dashboard={{ name: 'Dashboards', items: [] }} />;
-  return <section className="feature-page"><div className="page-heading"><div><span className="eyebrow">Reusable workspaces</span><h1>Dashboards</h1><p>Personal, shared, role-default, and global dashboards remain bounded by viewer authorization.</p></div></div><div className="library-grid">{dashboards.map(item => <article className="panel" key={item.id}><span className="eyebrow">{item.visibility ?? 'Available'}</span><h2>{item.name}</h2><p>{item.description || 'Authorized intelligence workspace'}</p><a href={`/dashboards/${item.id}`}>Open dashboard</a></article>)}</div></section>;
-}
-
-export function DashboardPage({ api, dashboardId, EmbeddedMapComponent }) {
-  const state = useLoad(async () => {
-    const dashboard = (await api.get(`/v1/dashboards/${dashboardId}`)).data;
-    const results = await Promise.allSettled((dashboard.items ?? []).map(item => api.post(`/v1/reports/${item.reportId}/execute`, {})));
-    return { ...dashboard, items: (dashboard.items ?? []).map((item, index) => {
-      const result = results[index];
-      if (result.status === 'rejected') return { ...item, title: 'Report unavailable', status: 'error' };
-      return {
-        ...item, title: result.value.data.definition?.name ?? 'Governed report', status: 'ready',
-        visualization: result.value.data.definition?.definition?.visualization?.type,
-        data: result.value.data.result?.data?.items ?? [],
-        mapExecution: result.value.data.result?.data?.mapView ? result.value.data.result.data : undefined,
-      };
-    }) };
-  }, [api, dashboardId]);
-  if (state.loading) return <Busy label="Executing viewer-scoped dashboard reports…" />;
-  if (state.error) return <Failure error={state.error} />;
-  return <DashboardWorkspace api={api} dashboard={state.data} EmbeddedMapComponent={EmbeddedMapComponent} />;
-}
-
-function CommandCentrePage({ api, workspace }) {
-  const state = useLoad(async () => {
-    const [brief, anomalies, hotspots] = await Promise.all([
-      api.get('/v1/intelligence/brief'), api.get('/v1/anomalies?limit=8'), api.get('/v1/hotspots?limit=8'),
-    ]);
-    return {
-      brief: brief.data,
-      anomalies: (anomalies.data?.items ?? []).map(item => ({
-        id: item.id ?? item.anomalyId, label: item.label ?? item.signalType ?? item.seriesId ?? 'Crime trend anomaly',
-        observed: item.observed ?? item.observedValue, expected: item.expected ?? item.baselineValue,
-        confidence: item.confidence ?? item.severity,
-      })),
-      hotspots: (hotspots.data?.items ?? []).map(item => ({
-        id: item.id ?? item.hotspotId, area: item.area ?? item.areaId ?? 'Authorized area',
-        caseCount: item.caseCount ?? item.magnitude, severity: item.severity ?? item.confidence,
-      })),
-    };
-  }, [api]);
-  if (state.loading) return <main className="command-centre"><Busy label="Loading presentation-safe intelligence…" /></main>;
-  if (state.error) return <main className="command-centre"><Failure error={state.error} /></main>;
-  return <CommandCentre data={state.data} synthetic={workspace.syntheticData} freshness={workspace.freshness} />;
-}
-
-function RoutedDashboardPage({ api }) {
-  const { dashboardId } = useParams();
-  return <DashboardPage api={api} dashboardId={dashboardId} />;
-}
-
 function AuthorizedApplication({ api, auth }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
-  if (state.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity and authorized scope…" /></main>;
+  if (state.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
   if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} />;
-  if (state.error) return <main className="application-gate"><Failure error={state.error} /></main>;
-  if (!validWorkspace(state.data)) return <main className="application-gate"><Failure /></main>;
+  if (state.error) return <main className="application-gate"><Failure error={{ ...state.error, code: state.error.code ?? 'WORKSPACE_REQUEST_FAILED' }} /></main>;
+  if (!validWorkspace(state.data)) {
+    console.error('workspace_contract_invalid', workspaceContractDiagnostic(state.data));
+    return <main className="application-gate"><Failure error={{ code: 'WORKSPACE_CONTRACT_INVALID', requestId: 'CLIENT-WORKSPACE' }} /></main>;
+  }
   const workspace = state.data;
+  if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {
+    return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading authorized workspaces…" /></main>}>
+      <WorkspaceSelector
+        workspace={workspace}
+        onSelect={persona => navigate({ pathname: '/', search: personaSearch(location.search, persona) })}
+        onSignOut={() => auth.signOut()}
+      />
+    </Suspense>;
+  }
   if (location.pathname === '/command-centre') {
     if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" />;
     return <CommandCentrePage api={api} workspace={workspace} />;
   }
   return <AppShell workspace={workspace} auth={auth}><Routes>
     <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
-    <Route path="/intelligence" element={<CommandPage api={api} role={workspace.role} />} />
+    <Route path="/intelligence" element={<IntelligenceWorkspacePage api={api} role={workspace.role} />} />
     <Route path="/geospatial" element={<GeospatialPage api={api} />} />
     <Route path="/maps" element={<LegacyMapsRedirect />} />
     <Route path="/reports" element={<ReportBuilder api={api} />} />
@@ -227,12 +105,11 @@ export function Application({ api: providedApi }) {
     [providedApi, auth],
   );
 
-  if (session.loading) return <main className="application-gate"><Busy label="Verifying Catalyst identity…" /></main>;
-  if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) {
-    return <SignInRequired auth={auth} />;
-  }
+  if (session.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity…" /></main>;
+  if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) return <SignInRequired auth={auth} />;
   if (session.error) return <main className="application-gate"><Failure error={session.error} /></main>;
   return <AuthorizedApplication api={api} auth={auth} />;
 }
 
+export { AlertsPage, DashboardPage, Failure, GeospatialPage };
 export function AppRouter() { return <BrowserRouter><Application /></BrowserRouter>; }

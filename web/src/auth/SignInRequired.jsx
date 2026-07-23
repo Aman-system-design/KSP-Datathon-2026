@@ -1,18 +1,44 @@
-import { useEffect } from 'react';
-
-import { OrganizationBrand } from '../components/OrganizationBrand.jsx';
+import { useEffect, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 
 export function SignInRequired({ auth }) {
-  useEffect(() => { auth.openSignIn(); }, [auth]);
+  const [failed, setFailed] = useState(false);
 
-  return <main className="auth-screen">
-    <section className="auth-card">
-      <OrganizationBrand />
-      <div className="auth-card__content">
-        <span className="eyebrow">Secure police workspace</span>
-        <h1>Opening secure sign in…</h1>
-        <p>Authentication is handled by Catalyst on this domain.</p>
-        <a href="/login.html">Continue to sign in</a>
+  useEffect(() => {
+    const host = document.getElementById('catalystLogin');
+    if (!host || host.dataset.authMounted === 'true') return undefined;
+    host.dataset.authMounted = 'true';
+    const normalizeFrame = () => {
+      const frame = host.querySelector('iframe');
+      if (!frame) return;
+      frame.title = 'Karnataka State Police secure sign in';
+      frame.scrolling = 'no';
+    };
+    const observer = new MutationObserver(normalizeFrame);
+    observer.observe(host, { childList: true, subtree: true });
+    auth.mountSignIn('catalystLogin', {
+      cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
+    }).then(normalizeFrame).catch(() => setFailed(true));
+    return () => observer.disconnect();
+  }, [auth]);
+
+  return <main className="secure-login">
+    <section className="secure-login__shell">
+      <aside className="secure-login__identity">
+        <img src="/brand/karnataka-state-police.webp" alt="Karnataka State Police emblem" />
+        <div>
+          <h1>Karnataka State Police</h1>
+          <p>Crime Decision Intelligence</p>
+        </div>
+      </aside>
+      <div className="secure-login__access">
+        <header className="secure-login__access-header">
+          <ShieldCheck aria-hidden="true" />
+          <span>Secure access protected by Catalyst</span>
+        </header>
+        <div id="catalystLogin" className="secure-login__catalyst" />
+        {failed && <p className="secure-login__error" role="alert">Secure sign in could not be loaded. Refresh the page or contact the platform administrator.</p>}
+        <p className="secure-login__managed"><ShieldCheck aria-hidden="true" />Authentication managed by Catalyst</p>
       </div>
     </section>
   </main>;

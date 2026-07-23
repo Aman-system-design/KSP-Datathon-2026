@@ -28,6 +28,7 @@ const REQUIRED_FILES = Object.freeze([
   'tools/node18-runtime/package.json',
   'tools/node18-runtime/package-lock.json',
   'web/src/app/router.test.jsx',
+  'web/src/features/geospatial/GeospatialPage.jsx',
   'web/src/features/geospatial/MapCanvas.test.jsx',
   'web/src/features/geospatial/GeospatialStudio.test.jsx',
   'web/src/features/geospatial/useGeospatialWorkspace.test.jsx',
@@ -505,7 +506,8 @@ export async function verifyGeospatial(repositoryRoot) {
 
   const router = await readRepositoryFile(root, 'web/src/app/router.jsx');
   invariant(/<Route\s+path=['"]\/geospatial['"]\s+element=/u.test(router), '/geospatial route is not declared');
-  invariant(/lazy\(\(\)\s*=>\s*import\(['"]\.\.\/features\/geospatial\/GeospatialStudio\.jsx['"]\)\)/u.test(router),
+  const geospatialPage = await readRepositoryFile(root, 'web/src/features/geospatial/GeospatialPage.jsx');
+  invariant(/lazy\(\(\)\s*=>\s*import\(['"]\.\/GeospatialStudio\.jsx['"]\)\)/u.test(geospatialPage),
     'Geospatial Studio must remain lazy-loaded');
 
   const canvas = await readRepositoryFile(root, 'web/src/features/geospatial/MapCanvas.jsx');

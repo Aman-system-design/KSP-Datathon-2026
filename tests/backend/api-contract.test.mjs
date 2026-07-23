@@ -267,5 +267,6 @@ test('demo persona is Development-only and internal failures return a non-leakin
   const response = await broken({ request: get('/v1/intelligence/brief'), currentUser: user('CAT-DISTRICT') });
   assert.equal(response.status, 500);
   assert.deepEqual(response.body, { error: { code: 'INTERNAL_ERROR', message: 'The request could not be completed.', requestId: 'REQ-API' } });
+  assert.deepEqual(response.diagnostic, { phase: 'READ_EXECUTION', operation: 'UNCLASSIFIED' });
   assert.doesNotMatch(JSON.stringify(response), /SDK|ROWID|4349|secret-token|stack/);
 });

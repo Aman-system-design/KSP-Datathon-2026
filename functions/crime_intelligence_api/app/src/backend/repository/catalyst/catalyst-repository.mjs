@@ -1,4 +1,3 @@
-import { selectCurrentRunGroup } from '../../refresh/run-groups.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { buildAlertCompareAndSwap } from '../zcql-cas.mjs';
 import { fail } from '../../services/errors.mjs';
@@ -21,6 +20,7 @@ const TABLES = Object.freeze({
   conclusions: 'WF_AnalystConclusion', outcomes: 'WF_Outcome', audits: 'WF_AuditEvent',
   alertNotes: 'WF_AlertNote', escalations: 'WF_Escalation',
   runRequests: 'OPS_IntelligenceRunRequest',
+  publicationState: 'INT_PublicationState',
 });
 const BUSINESS_ID = Object.freeze({
   INT_AnalysisRun: 'AnalysisRunID', TRN_CaseFeature: 'CaseFeatureID', TRN_LocationFeature: 'LocationFeatureID',
@@ -33,6 +33,7 @@ const BUSINESS_ID = Object.freeze({
   CFG_UserPreference: 'UserPreferenceID', CFG_MapView: 'MapViewID',
   CFG_MapViewVersion: 'MapViewVersionKey', WF_AlertNote: 'AlertNoteID', WF_Escalation: 'EscalationID',
   OPS_IntelligenceRunRequest: 'RunRequestID',
+  INT_PublicationState: 'PublicationStateID',
 });
 const SOURCE_TABLES = Object.freeze({
   CaseMaster: 'SRC_CaseMaster', ComplainantDetails: 'SRC_ComplainantDetails', ActSectionAssociation: 'SRC_ActSectionAssociation',
@@ -47,6 +48,7 @@ const CONTROL_TABLES = Object.freeze(['TRN_IngestionBatch', 'TRN_RejectedRecord'
 const ALLOWED_TABLES = new Set([...Object.values(TABLES), ...Object.values(SOURCE_TABLES), ...CONTROL_TABLES]);
 const DATETIME_COLUMNS = Object.freeze({
   INT_AnalysisRun: ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt'],
+  INT_PublicationState: ['PublishedAt', 'LatestAttemptAt'],
   INT_AreaRisk: ['PeriodStart', 'PeriodEnd'],
   WF_Alert: ['CreatedAt'],
   WF_Command: ['CreatedAt', 'CompletedAt'],
@@ -75,9 +77,7 @@ const positiveVersion = (value, name) => {
   return value;
 };
 const expectedVersionNumber = value => {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new TypeError('expectedVersion must be a non-negative safe integer.');
-  }
+  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError('expectedVersion must be a non-negative safe integer.');
   return value;
 };
 const safeId = (value, name, maxLength = 128) => {
@@ -92,6 +92,16 @@ const decimalId = (value, name) => {
   if (typeof value === 'string' && /^(0|[1-9]\d*)$/u.test(value)) return value;
   throw new TypeError(`${name} must be a canonical unsigned decimal ID.`);
 };
+const MAP_VIEW_VISIBILITIES = new Set(['PRIVATE', 'SHARED', 'ROLE_DEFAULT', 'ORGANIZATION_GLOBAL']);
+const mapViewSummary = (version, current) => {
+  const definition = JSON.parse(version.DefinitionJSON);
+  const name = definition.name ?? current.Name;
+  const visibility = definition.visibility ?? current.Visibility;
+  if (typeof name !== 'string' || name.length < 1 || name.length > 128) throw new TypeError('Map view name is invalid.');
+  if (!MAP_VIEW_VISIBILITIES.has(visibility)) throw new TypeError('Map view visibility is invalid.');
+  return { name, visibility };
+};
+const zcqlText = value => value.replaceAll("'", "''");
 const normalizeMapVersion = (version) => {
   if (!version || typeof version !== 'object') throw new TypeError('Map view version is required.');
   safeId(version.MapViewID, 'MapViewID', 64);
@@ -202,6 +212,33 @@ export class CatalystIntelligenceRepository {
     return clone(await this.#cache.get(tableName));
   }
 
+  async #queryIndexed(tableName, column, value, { maxRows = 5000 } = {}) {
+    if (!ALLOWED_TABLES.has(tableName)) throw new TypeError('Table is not allowlisted.');
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
+      return (await this.#read(tableName)).filter(row => String(row[column]) === String(value));
+    }
+    const pageSize = 200;
+    const rows = [];
+    const literal = typeof value === 'number' || /^(0|[1-9]\d*)$/u.test(String(value))
+      ? String(value) : `'${zcqlText(String(value))}'`;
+    for (let offset = 0; offset <= maxRows; offset += pageSize) {
+      let result;
+      try {
+        result = await this.#zcql.executeZCQLQuery(
+          `SELECT * FROM ${tableName} WHERE ${column} = ${literal} LIMIT ${offset}, ${pageSize}`,
+        );
+      } catch (error) {
+        throw sanitizeCatalystSdkError(error, { operation: `QUERY_${tableName}_${column}` });
+      }
+      const values = Array.isArray(result) ? result : result?.data ?? [];
+      const pageRows = values.map(item => mapCatalystRow(item?.[tableName] ?? item, { includeRowId: true }));
+      rows.push(...pageRows);
+      if (rows.length > maxRows) fail('DATA_NOT_READY', `${tableName} indexed result exceeds its governed read limit.`);
+      if (pageRows.length < pageSize) return rows;
+    }
+    fail('DATA_NOT_READY', `${tableName} indexed result exceeds its governed read limit.`);
+  }
+
   #invalidate(...tableNames) {
     for (const tableName of tableNames) this.#cache.delete(tableName);
   }
@@ -289,21 +326,38 @@ export class CatalystIntelligenceRepository {
     }
   }
 
-  async #current() {
-    const group = selectCurrentRunGroup(await this.#read(TABLES.runs));
-    if (!group) return undefined;
-    return group;
+  #groupFromPointer(pointer) {
+    if (!pointer?.CurrentRunGroupID) return undefined;
+    const runs = parseJson(pointer.CurrentRunsJSON, []);
+    if (!Array.isArray(runs) || runs.length !== 7) fail('DATA_NOT_READY', 'Publication pointer is invalid.');
+    return {
+      RunGroupID: pointer.CurrentRunGroupID, PublishedAt: pointer.PublishedAt,
+      PublicationGeneration: Number(pointer.PublicationGeneration), PointerVersion: Number(pointer.PointerVersion),
+      runs,
+    };
   }
 
-  async #currentRunRef(type) {
-    const group = await this.#current();
-    return group?.runs.find(row => row.AnalysisType === type)?.ROWID;
+  async #current() {
+    const [pointer] = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
+    return this.#groupFromPointer(pointer);
+  }
+
+  async #currentRunRef(type, group) {
+    group ??= await this.#current();
+    const run = group?.runs.find(row => row.AnalysisType === type);
+    return run?.ROWID ?? run?.AnalysisRunRef;
   }
 
   async getCurrentRunGroup() {
     const group = await this.#current();
     if (!group) return undefined;
-    return { ...group, runs: group.runs.map(stripRun) };
+    return {
+      ...group,
+      runs: group.runs.map(run => ({
+        ...stripRun(run),
+        ...((run.ROWID ?? run.AnalysisRunRef) ? { AnalysisRunRef: String(run.ROWID ?? run.AnalysisRunRef) } : {}),
+      })),
+    };
   }
 
   async listAnalysisRuns() {
@@ -349,9 +403,9 @@ export class CatalystIntelligenceRepository {
     };
   }
 
-  async #currentRows(tableName, analysisType) {
-    const ref = await this.#currentRunRef(analysisType);
-    return ref ? (await this.#read(tableName)).filter(row => String(row.AnalysisRunRef) === String(ref)) : [];
+  async #currentRows(tableName, analysisType, runGroup) {
+    const ref = await this.#currentRunRef(analysisType, runGroup);
+    return ref ? this.#queryIndexed(tableName, 'AnalysisRunRef', ref) : [];
   }
 
   #pattern(row) {
@@ -382,13 +436,26 @@ export class CatalystIntelligenceRepository {
   }
 
   async listHotspots(options = {}) {
-    const rows = await this.#currentRows(TABLES.hotspots, 'HOTSPOT');
-    return page(rows.map(row => ({
-      id: row.HotspotID, areaId: row.AreaID,
-      centroid: { latitude: row.CentroidLatitude, longitude: row.CentroidLongitude },
-      magnitude: row.CaseCount, confidence: row.Severity, method: 'HAVERSINE_DBSCAN',
-      version: row.MethodVersion, limitations: limitations(row.Limitation), synthetic: row.SyntheticData === true,
-    })).sort((left, right) => left.id.localeCompare(right.id)), options);
+    const rows = await this.#currentRows(TABLES.hotspots, 'HOTSPOT', options.runGroup);
+    const runRefs = new Set(rows.map(row => String(row.AnalysisRunRef)));
+    const evidenceRows = [];
+    for (const runRef of runRefs) evidenceRows.push(...await this.#queryIndexed(TABLES.evidence, 'AnalysisRunRef', runRef));
+    const evidence = evidenceRows.filter(row => row.FindingType === 'HOTSPOT');
+    return page(rows.map((row) => {
+      const contributing = evidence.filter(item => item.FindingBusinessID === row.HotspotID).map(item => ({
+        caseId: item.SourceBusinessID,
+        unitId: Number(parseJson(item.EvidenceSummary, {}).unitId),
+      }));
+      return {
+        id: row.HotspotID, areaId: row.AreaID,
+        centroid: { latitude: row.CentroidLatitude, longitude: row.CentroidLongitude },
+        magnitude: row.CaseCount, confidence: row.Severity, method: 'HAVERSINE_DBSCAN',
+        version: row.MethodVersion, limitations: limitations(row.Limitation), synthetic: row.SyntheticData === true,
+        evidenceCaseIds: contributing.map(item => item.caseId),
+        evidenceUnits: Object.fromEntries(contributing.filter(item => Number.isInteger(item.unitId))
+          .map(item => [item.caseId, item.unitId])),
+      };
+    }).sort((left, right) => left.id.localeCompare(right.id)), options);
   }
 
   async listAnomalies(options = {}) {
@@ -453,6 +520,137 @@ export class CatalystIntelligenceRepository {
       .map(row => parseJson(row.IndicatorsJSON, {
         unitId: Number(row.UnitID), sourceLabel: row.SourceLabel, limitation: row.Limitation, synthetic: true,
       }));
+  }
+
+  async #publicationPointer() {
+    const rows = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
+    if (rows.length > 1) fail('DATA_NOT_READY', 'Publication pointer is not unique.');
+    return rows[0];
+  }
+
+  async #annotatePublicationGeneration(rows, generation) {
+    for (const row of rows) await this.#update(TABLES.runs, { ...row, PublicationGeneration: generation });
+  }
+
+  async #advancePublication({ runGroup, rows, publishedAt, attemptSequence }) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      let pointer = await this.#publicationPointer();
+      if (!pointer) {
+        try {
+          await this.#insert(TABLES.publicationState, {
+            PublicationStateID: 'CURRENT', PublicationGeneration: 0, CurrentRunsJSON: '[]',
+            PointerVersion: 1, LastReservedAttemptSequence: Number(attemptSequence),
+            LatestAttemptSequence: 0, LatestAttemptStatus: 'NONE', SyntheticData: true,
+          });
+        } catch (error) {
+          if (error.code !== 'UNIQUE_CONFLICT') throw error;
+        }
+        continue;
+      }
+      if (Number(attemptSequence) < Number(pointer.LatestAttemptSequence ?? 0)
+        && pointer.CurrentRunGroupID !== runGroup.RunGroupID) {
+        fail('VERSION_CONFLICT', 'A newer intelligence refresh attempt has already completed.');
+      }
+      if (pointer.CurrentRunGroupID === runGroup.RunGroupID) {
+        const pointedRuns = parseJson(pointer.CurrentRunsJSON, []);
+        const pointedIds = pointedRuns.map(run => run.AnalysisRunID).sort();
+        const candidateIds = runGroup.runs.map(run => run.AnalysisRunID).sort();
+        if (JSON.stringify(pointedIds) === JSON.stringify(candidateIds)) {
+          const generation = Number(pointer.PublicationGeneration);
+          await this.#annotatePublicationGeneration(rows, generation);
+          return generation;
+        }
+      }
+      const rowId = String(pointer.ROWID);
+      if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
+      const nextVersion = Number(pointer.PointerVersion) + 1;
+      const nextGeneration = Number(pointer.PublicationGeneration) + 1;
+      await this.#annotatePublicationGeneration(rows, nextGeneration);
+      const query = `UPDATE INT_PublicationState SET PublicationGeneration = ${nextGeneration}, CurrentRunGroupID = '${zcqlText(runGroup.RunGroupID)}', CurrentRunsJSON = '${zcqlText(JSON.stringify(runGroup.runs.map(run => ({ ...run, PublicationGeneration: nextGeneration }))))}', PointerVersion = ${nextVersion}, PublishedAt = '${catalystDateTime(publishedAt)}', LastReservedAttemptSequence = ${Math.max(Number(pointer.LastReservedAttemptSequence ?? 0), Number(attemptSequence))}, LatestAttemptSequence = ${Number(attemptSequence)}, LatestAttemptStatus = 'COMPLETED', LatestAttemptRunGroupID = '${zcqlText(runGroup.RunGroupID)}', LatestAttemptAt = '${catalystDateTime(publishedAt)}' WHERE ROWID = ${rowId} AND PointerVersion = ${Number(pointer.PointerVersion)}`;
+      let result;
+      try { result = await this.#zcql.executeZCQLQuery(query); }
+      catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_POINTER_COMPARE_AND_SWAP' }); }
+      this.#invalidate(TABLES.publicationState);
+      const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+      if (affected === undefined || Number(affected) === 1) {
+        const committed = await this.#publicationPointer();
+        if (committed?.CurrentRunGroupID === runGroup.RunGroupID
+          && Number(committed.PublicationGeneration) === nextGeneration) return nextGeneration;
+      }
+    }
+    fail('DATA_NOT_READY', 'Publication pointer contention exceeded retry budget.');
+  }
+
+  async reserveRefreshAttempt() {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      let pointer = await this.#publicationPointer();
+      if (!pointer) {
+        try {
+          await this.#insert(TABLES.publicationState, {
+            PublicationStateID: 'CURRENT', PublicationGeneration: 0, CurrentRunsJSON: '[]',
+            PointerVersion: 1, LastReservedAttemptSequence: 0, LatestAttemptSequence: 0,
+            LatestAttemptStatus: 'NONE', SyntheticData: true,
+          });
+        } catch (error) { if (error.code !== 'UNIQUE_CONFLICT') throw error; }
+        continue;
+      }
+      const rowId = String(pointer.ROWID);
+      if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
+      const currentVersion = Number(pointer.PointerVersion);
+      const sequence = Number(pointer.LastReservedAttemptSequence ?? 0) + 1;
+      const query = `UPDATE INT_PublicationState SET PointerVersion = ${currentVersion + 1}, LastReservedAttemptSequence = ${sequence} WHERE ROWID = ${rowId} AND PointerVersion = ${currentVersion}`;
+      let result;
+      try { result = await this.#zcql.executeZCQLQuery(query); }
+      catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_ATTEMPT_RESERVE' }); }
+      this.#invalidate(TABLES.publicationState);
+      const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+      if (affected === undefined || Number(affected) === 1) return sequence;
+    }
+    fail('DATA_NOT_READY', 'Publication attempt reservation contention exceeded retry budget.');
+  }
+
+  async #updatePublicationAttempt({ sequence, status, runGroupId, at }) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const pointer = await this.#publicationPointer();
+      if (!pointer) return;
+      if (Number(sequence) < Number(pointer.LatestAttemptSequence ?? 0)) return;
+      if (Number(sequence) === Number(pointer.LatestAttemptSequence ?? 0)
+        && ['COMPLETED', 'FAILED_FINAL'].includes(pointer.LatestAttemptStatus)
+        && status !== pointer.LatestAttemptStatus) return;
+      const rowId = String(pointer.ROWID);
+      if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Publication pointer ROWID is invalid.');
+      const currentVersion = Number(pointer.PointerVersion);
+      const nextVersion = currentVersion + 1;
+      const query = `UPDATE INT_PublicationState SET PointerVersion = ${nextVersion}, LatestAttemptSequence = ${Number(sequence)}, LatestAttemptStatus = '${zcqlText(status)}', LatestAttemptRunGroupID = '${zcqlText(runGroupId)}', LatestAttemptAt = '${catalystDateTime(at)}' WHERE ROWID = ${rowId} AND PointerVersion = ${currentVersion} AND LatestAttemptSequence <= ${Number(sequence)}`;
+      let result;
+      try { result = await this.#zcql.executeZCQLQuery(query); }
+      catch (error) { throw sanitizeCatalystSdkError(error, { operation: 'PUBLICATION_ATTEMPT_COMPARE_AND_SWAP' }); }
+      this.#invalidate(TABLES.publicationState);
+      const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+      if (affected === undefined || Number(affected) === 1) {
+        const committed = await this.#publicationPointer();
+        if (committed?.LatestAttemptStatus === status
+          && committed?.LatestAttemptRunGroupID === runGroupId
+          && Number(committed.LatestAttemptSequence) === Number(sequence)
+          && Number(committed.PointerVersion) === nextVersion) return;
+      }
+    }
+    fail('DATA_NOT_READY', 'Publication attempt pointer contention exceeded retry budget.');
+  }
+
+  async getRefreshStatus() {
+    const [pointer] = await this.#queryIndexed(TABLES.publicationState, 'PublicationStateID', 'CURRENT', { maxRows: 1 });
+    if (pointer) return {
+      currentRunGroup: this.#groupFromPointer(pointer),
+      publicationGeneration: Number(pointer.PublicationGeneration),
+      latestAttempt: {
+        sequence: Number(pointer.LatestAttemptSequence ?? 0),
+        status: pointer.LatestAttemptStatus, runGroupId: pointer.LatestAttemptRunGroupID ?? null,
+        createdAt: pointer.LatestAttemptAt,
+        completedAt: pointer.LatestAttemptStatus === 'COMPLETED' ? pointer.LatestAttemptAt : null,
+      },
+    };
+    return { currentRunGroup: undefined, publicationGeneration: 0, latestAttempt: null };
   }
 
   #mapView(row) {
@@ -542,9 +740,7 @@ export class CatalystIntelligenceRepository {
       || intendedVersion.Version !== expectedVersion + 1) {
       throw new TypeError('nextVersion must be the next scoped immutable version.');
     }
-    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
-      throw new TypeError('Catalyst ZCQL is required.');
-    }
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') throw new TypeError('Catalyst ZCQL is required.');
     const rowId = String(row.ROWID);
     if (!/^[1-9]\d*$/u.test(rowId)) throw new TypeError('Map view must have a resolved positive ROWID.');
     try {
@@ -557,39 +753,40 @@ export class CatalystIntelligenceRepository {
         this.getMapView(mapViewId, organizationId),
       ]);
       const prepared = prepareCatalystRow(TABLES.mapViewVersions, intendedVersion);
-      const sameVersion = sameMapVersion(stored, prepared);
-      if (!sameVersion || current?.CurrentVersion !== expectedVersion) {
+      if (!sameMapVersion(stored, prepared) || current?.CurrentVersion !== expectedVersion) {
         fail('VERSION_CONFLICT', 'Map view version changed.');
       }
     }
     const updatedAt = catalystDateTime(intendedVersion.CreatedAt);
-    const query = `UPDATE CFG_MapView SET CurrentVersion = ${expectedVersion + 1}, UpdatedAt = '${updatedAt}' WHERE ROWID = ${rowId} AND CurrentVersion = ${expectedVersion}`;
-    let response;
-    try { response = await this.#zcql.executeZCQLQuery(query); }
-    catch (error) {
+    const summary = mapViewSummary(intendedVersion, row);
+    const query = `UPDATE CFG_MapView SET Name = '${zcqlText(summary.name)}', Visibility = '${summary.visibility}', CurrentVersion = ${expectedVersion + 1}, UpdatedAt = '${updatedAt}' WHERE ROWID = ${rowId} AND CurrentVersion = ${expectedVersion}`;
+    const committed = () => this.#mapView({
+      ...row, Name: summary.name, Visibility: summary.visibility,
+      CurrentVersion: expectedVersion + 1, UpdatedAt: updatedAt,
+    });
+    const reconcile = async () => {
       this.#invalidate(TABLES.mapViews, TABLES.mapViewVersions);
       const [current, stored] = await Promise.all([
         this.getMapView(mapViewId, organizationId),
         this.getMapViewVersion(mapViewId, intendedVersion.Version, organizationId),
       ]);
-      const prepared = prepareCatalystRow(TABLES.mapViewVersions, intendedVersion);
-      const sameVersion = sameMapVersion(stored, prepared);
-      if (sameVersion && current?.CurrentVersion === expectedVersion + 1 && current?.UpdatedAt === updatedAt) {
-        return current;
-      }
-      if (!sameVersion || current?.CurrentVersion !== expectedVersion) {
-        fail('VERSION_CONFLICT', 'Map view version changed.');
-      }
+      const sameVersion = sameMapVersion(stored, prepareCatalystRow(TABLES.mapViewVersions, intendedVersion));
+      if (sameVersion && current?.CurrentVersion >= expectedVersion + 1) return committed();
+      if (!sameVersion || current?.CurrentVersion !== expectedVersion) fail('VERSION_CONFLICT', 'Map view version changed.');
+      return undefined;
+    };
+    let result;
+    try { result = await this.#zcql.executeZCQLQuery(query); }
+    catch (error) {
+      const reconciled = await reconcile();
+      if (reconciled) return reconciled;
       throw sanitizeCatalystSdkError(error, { operation: 'MAP_VIEW_COMPARE_AND_SWAP' });
     }
     this.#invalidate(TABLES.mapViews);
-    const affected = (Array.isArray(response) ? response[0] : response)?.affected_rows;
+    const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
     if (affected !== undefined && Number(affected) === 0) fail('VERSION_CONFLICT', 'Map view version changed.');
-    const updated = await this.getMapView(mapViewId, organizationId);
-    if (updated?.CurrentVersion !== expectedVersion + 1 || updated?.UpdatedAt !== updatedAt) {
-      fail('VERSION_CONFLICT', 'Map view version changed.');
-    }
-    return updated;
+    if (affected !== undefined && Number(affected) === 1) return committed();
+    return (await reconcile()) ?? fail('VERSION_CONFLICT', 'Map view version changed.');
   }
 
   #mapReport(row) {
@@ -957,9 +1154,13 @@ export class CatalystIntelligenceRepository {
       event.CommandID ? this.#commandRow(event.CommandID) : undefined,
     ]);
     if ((event.AlertID && !alert) || (event.CommandID && !command)) fail('DATA_NOT_READY');
-    const { AlertID, CommandID, ...values } = event;
+    const { AlertID, CommandID, ActorEmployeeID, PreviousEventHash, ...values } = event;
     await this.#insert(TABLES.audits, {
-      ...values, AlertRef: alert ? String(alert.ROWID) : null, CommandRef: command ? String(command.ROWID) : null,
+      ...values,
+      ...(ActorEmployeeID !== null && ActorEmployeeID !== undefined ? { ActorEmployeeID } : {}),
+      ...(PreviousEventHash !== null && PreviousEventHash !== undefined ? { PreviousEventHash } : {}),
+      ...(alert ? { AlertRef: String(alert.ROWID) } : {}),
+      ...(command ? { CommandRef: String(command.ROWID) } : {}),
     });
     return clone(event);
   }
@@ -970,7 +1171,13 @@ export class CatalystIntelligenceRepository {
       (await this.#read(TABLES.commands)).find(item => String(item.ROWID) === String(row.CommandRef)),
     ]);
     const { ROWID, AlertRef, CommandRef, ...values } = row;
-    return { ...values, AlertID: alert?.AlertID, CommandID: command?.CommandID };
+    return {
+      ...values,
+      ActorEmployeeID: row.ActorEmployeeID ?? null,
+      PreviousEventHash: row.PreviousEventHash ?? null,
+      AlertID: alert?.AlertID ?? null,
+      CommandID: command?.CommandID ?? null,
+    };
   }
 
   async findAuditByCommand(commandId) {
@@ -1046,7 +1253,7 @@ export class CatalystIntelligenceRepository {
   }
 
   async getRefreshBatch(batchKey) {
-    const rows = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batchKey);
+    const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length === 0) return undefined;
     if (rows.length !== 7 || rows.some(row => row.Status === 'STAGING')) return undefined;
     const runs = rows.map(stripRun);
@@ -1063,8 +1270,10 @@ export class CatalystIntelligenceRepository {
     const completed = runs.length === 7 && runs.every(run => run.Status === 'COMPLETED'
       && run.PublishStatus === 'PUBLISHED' && typeof run.PublishedAt === 'string');
     return {
-      BatchKey: batchKey, Operation: rows[0].Operation,
-      Status: completed ? 'COMPLETED' : 'STAGED',
+      BatchKey: batchKey, Operation: rows[0].Operation, RequestHash: rows[0].RequestHash,
+      Status: completed ? 'COMPLETED'
+        : rows.some(row => row.Status === 'FAILED_RETRYABLE') ? 'FAILED_RETRYABLE'
+          : rows.some(row => row.Status === 'FAILED_FINAL') ? 'FAILED_FINAL' : 'STAGED',
       Reconciliation: parseJson(rows[0].ReconciliationJSON, {}),
       Findings: {
         features, hotspots, anomalies, patterns, identityResolutions: repeatSignals,
@@ -1085,17 +1294,21 @@ export class CatalystIntelligenceRepository {
     const reconciliation = JSON.stringify(batch.Reconciliation);
     const rows = batch.RunGroup.runs.map(run => ({
       ...clone(run), Status: 'STAGING', BatchKey: batch.BatchKey, Operation: batch.Operation,
+      AttemptSequence: batch.AttemptSequence,
       ReconciliationJSON: reconciliation,
       MethodVersion: run.MethodVersion ?? run.EngineVersion,
       CompletedAt: run.CompletedAt ?? batch.CreatedAt,
     }));
-    const existingRuns = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batch.BatchKey);
+    const existingRuns = await this.#queryIndexed(TABLES.runs, 'BatchKey', batch.BatchKey, { maxRows: 8 });
     const insertedRuns = existingRuns.length > 0 ? existingRuns : await this.#ensureMany(TABLES.runs, rows);
     if (insertedRuns.length !== 7 || insertedRuns.some(row => row.RunGroupID !== batch.RunGroup.RunGroupID)) {
       fail('DATA_NOT_READY', 'Refresh staging rows are inconsistent.');
     }
     await this.#stageRefreshFindings(batch, insertedRuns);
     for (const run of insertedRuns) await this.#update(TABLES.runs, { ...run, Status: 'COMPLETED' });
+    await this.#updatePublicationAttempt({
+      sequence: batch.AttemptSequence, status: 'STAGED', runGroupId: batch.RunGroup.RunGroupID, at: batch.CreatedAt,
+    });
     return this.getRefreshBatch(batch.BatchKey);
   }
 
@@ -1132,20 +1345,29 @@ export class CatalystIntelligenceRepository {
     })));
 
     const patterns = findings.patterns ?? [];
+    const hotspots = findings.hotspots ?? [];
     await this.#ensureMany(TABLES.patterns, patterns.map(pattern => ({
       PatternID: pattern.id, AnalysisRunRef: runRef('PATTERN'), PatternType: pattern.method,
       Title: pattern.title, Confidence: pattern.confidence,
       SignalComponentsJSON: JSON.stringify(pattern), Recommendation: pattern.recommendation,
       MethodVersion: pattern.version, Limitation: (pattern.limitations ?? []).join('|'), SyntheticData: true,
     })));
-    await this.#ensureMany(TABLES.evidence, patterns.flatMap((pattern, patternIndex) => (pattern.evidence ?? []).map((evidence, evidenceIndex) => ({
-      FindingEvidenceID: `EVID-${key}-${patternIndex + 1}-${evidenceIndex + 1}`,
+    const patternEvidence = patterns.flatMap((pattern, patternIndex) => (pattern.evidence ?? []).map((evidence, evidenceIndex) => ({
+      FindingEvidenceID: `EVID-${key}-PAT-${patternIndex + 1}-${evidenceIndex + 1}`,
       AnalysisRunRef: runRef('PATTERN'), FindingType: 'PATTERN', FindingBusinessID: pattern.id,
       SourceEntity: 'CaseMaster', SourceBusinessID: evidence.caseId, EvidenceLabel: 'SOURCE_CASE',
       EvidenceSummary: JSON.stringify(evidence), MethodVersion: pattern.version, SyntheticData: true,
-    }))));
+    })));
+    const hotspotEvidence = hotspots.flatMap((hotspot, hotspotIndex) => (hotspot.evidenceCaseIds ?? []).map((caseId, evidenceIndex) => ({
+      FindingEvidenceID: `EVID-${key}-HOT-${hotspotIndex + 1}-${evidenceIndex + 1}`,
+      AnalysisRunRef: runRef('HOTSPOT'), FindingType: 'HOTSPOT', FindingBusinessID: hotspot.id,
+      SourceEntity: 'CaseMaster', SourceBusinessID: caseId, EvidenceLabel: 'CONTRIBUTING_CASE',
+      EvidenceSummary: JSON.stringify({ caseId, unitId: hotspot.evidenceUnits?.[caseId] ?? null }),
+      MethodVersion: hotspot.version, SyntheticData: true,
+    })));
+    await this.#ensureMany(TABLES.evidence, [...patternEvidence, ...hotspotEvidence]);
 
-    await this.#ensureMany(TABLES.hotspots, (findings.hotspots ?? []).map(hotspot => ({
+    await this.#ensureMany(TABLES.hotspots, hotspots.map(hotspot => ({
       HotspotID: hotspot.id, AnalysisRunRef: runRef('HOTSPOT'),
       AreaID: String(Object.values(hotspot.evidenceUnits ?? {})[0] ?? 'UNKNOWN'),
       CentroidLatitude: hotspot.centroid.latitude, CentroidLongitude: hotspot.centroid.longitude,
@@ -1211,7 +1433,7 @@ export class CatalystIntelligenceRepository {
   }
 
   async updateRefreshBatch(batchKey, changes) {
-    const rows = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batchKey);
+    const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length === 0) return undefined;
     for (const row of rows) {
       await this.#update(TABLES.runs, {
@@ -1222,23 +1444,47 @@ export class CatalystIntelligenceRepository {
         CompletedAt: changes.CompletedAt ?? row.CompletedAt,
       });
     }
+    if (changes.Status) await this.#updatePublicationAttempt({
+      sequence: rows[0].AttemptSequence, status: changes.Status, runGroupId: rows[0].RunGroupID,
+      at: changes.CompletedAt ?? rows[0].CompletedAt ?? rows[0].ObservationEnd,
+    });
     return this.getRefreshBatch(batchKey);
   }
 
   async publishRefreshBatch(batchKey, publishedAt) {
     const existing = await this.getRefreshBatch(batchKey);
     if (!existing) return undefined;
-    if (existing.Status === 'COMPLETED') return existing;
-    const rows = (await this.#read(TABLES.runs)).filter(row => row.BatchKey === batchKey);
+    const rows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
     if (rows.length !== 7) fail('DATA_NOT_READY', 'Refresh run group is incomplete.');
-    for (const row of rows) {
-      await this.#update(TABLES.runs, {
-        ...row, Status: 'COMPLETED', PublishStatus: 'PUBLISHED',
-        PublishedAt: publishedAt, CompletedAt: row.CompletedAt ?? publishedAt,
-      });
+    const persistedGenerations = [...new Set(rows.map(row => Number(row.PublicationGeneration))
+      .filter(value => Number.isSafeInteger(value) && value >= 1))];
+    if (existing.Status === 'COMPLETED' && persistedGenerations.length === 1
+      && rows.every(row => Number(row.PublicationGeneration) === persistedGenerations[0])) {
+      const pointer = await this.#publicationPointer();
+      if (pointer?.CurrentRunGroupID === existing.RunGroup.RunGroupID
+        || Number(pointer?.PublicationGeneration) >= persistedGenerations[0]) return existing;
+    }
+    // Generation annotations are prepared before the pointer CAS. A retry must be
+    // allowed to reconcile a partially annotated group after an interrupted write.
+    if (existing.Status !== 'COMPLETED') {
+      for (const row of rows) {
+        await this.#update(TABLES.runs, {
+          ...row, Status: 'COMPLETED', PublishStatus: 'PUBLISHED',
+          PublishedAt: publishedAt, CompletedAt: row.CompletedAt ?? publishedAt,
+        });
+      }
     }
     const completed = await this.getRefreshBatch(batchKey);
     if (completed?.Status !== 'COMPLETED') fail('DATA_NOT_READY', 'Refresh publication is incoherent.');
-    return completed;
+    const publishedRows = await this.#queryIndexed(TABLES.runs, 'BatchKey', batchKey, { maxRows: 8 });
+    await this.#advancePublication({
+      runGroup: {
+        RunGroupID: completed.RunGroup.RunGroupID,
+        PublishedAt: completed.RunGroup.PublishedAt,
+        runs: publishedRows.map(row => ({ ...stripRun(row), ROWID: String(row.ROWID) })),
+      },
+      rows: publishedRows, publishedAt, attemptSequence: rows[0].AttemptSequence,
+    });
+    return this.getRefreshBatch(batchKey);
   }
 }

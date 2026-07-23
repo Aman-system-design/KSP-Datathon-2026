@@ -1,5 +1,13 @@
 const LOGIN_PATH = '/__catalyst/auth/login';
 
+export function authFailureDiagnostic(error) {
+  return Object.freeze({
+    name: typeof error?.name === 'string' ? error.name : 'UnknownError',
+    code: typeof error?.code === 'string' ? error.code : null,
+    status: Number.isInteger(error?.status) ? error.status : null,
+  });
+}
+
 export function createCatalystAuth({
   catalyst,
   getCatalyst = () => globalThis.catalyst,
@@ -21,22 +29,36 @@ export function createCatalystAuth({
 
   return Object.freeze({
     loginUrl,
-    openSignIn() { location.replace('/login.html'); },
+    async mountSignIn(elementId, { cssUrl, serviceUrl = '/' } = {}) {
+      const auth = await readyAuth();
+      if (typeof auth?.signIn !== 'function') throw new Error('Catalyst authentication is unavailable.');
+      return auth.signIn(elementId, { css_url: cssUrl, service_url: serviceUrl });
+    },
     async currentUser() {
-      const result = await (await readyAuth())?.isUserAuthenticated?.();
-      return result?.content ?? null;
+      try {
+        const result = await (await readyAuth())?.isUserAuthenticated?.();
+        return result?.content ?? null;
+      } catch (error) {
+        console.error('catalyst_auth_session_failed', JSON.stringify(authFailureDiagnostic(error)));
+        throw error;
+      }
     },
     async accessToken() {
-      const result = await (await readyAuth())?.generateAuthToken?.();
-      return typeof result?.access_token === 'string' && result.access_token ? result.access_token : null;
+      try {
+        const result = await (await readyAuth())?.generateAuthToken?.();
+        return typeof result?.access_token === 'string' && result.access_token ? result.access_token : null;
+      } catch (error) {
+        console.error('catalyst_auth_token_failed', authFailureDiagnostic(error));
+        throw error;
+      }
     },
     signOut() {
       const auth = sdk()?.auth;
       if (typeof auth?.signOut === 'function') {
-        auth.signOut(loginUrl.startsWith('http') ? loginUrl : `${location.origin}${loginUrl}`);
+        auth.signOut(`${location.origin}/`);
         return;
       }
-      location.assign(loginUrl);
+      location.assign('/');
     },
   });
 }

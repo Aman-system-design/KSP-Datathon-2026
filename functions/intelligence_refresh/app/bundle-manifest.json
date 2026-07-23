@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "cd2d7401bb5797634c1f89ba93717ddc304ab1b13753254e7f6aa892f2e47959",
-      "bytes": 1561
+      "sha256": "4cc4d104cc4605e2368e4510ff013724f2f8534f70ea036e624af9558c379690",
+      "bytes": 1802
     },
     {
       "path": "data/synthetic-demo-input.json",
@@ -35,13 +35,13 @@
     },
     {
       "path": "src/backend/catalyst/refresh-bootstrap.mjs",
-      "sha256": "83f8a6dd0aec2c0b6643447d96729d650e7b3a23c5f2c29ea974e9f811b6af71",
-      "bytes": 4931
+      "sha256": "efee58ce304e4786643ab7dd53114f924584d5c3eed60e134671c981704078b8",
+      "bytes": 4980
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
-      "sha256": "40e620aa621da0acbf04e6fcc302a170864e11a174ce3b20aea6a0d562e4ff81",
-      "bytes": 1252
+      "sha256": "2c945a4ec1250329fdd09cdc2159f9deb8c865c19718cea0c2555456fd590d62",
+      "bytes": 1334
     },
     {
       "path": "src/backend/refresh/finding-projection.mjs",
@@ -50,8 +50,8 @@
     },
     {
       "path": "src/backend/refresh/refresh-service.mjs",
-      "sha256": "09917ceac7f2ca7dce6d7126310d5f531cc68631efcd69a7ee84aeee1390a55a",
-      "bytes": 7205
+      "sha256": "804275a691eedb99b366070fca7cde7c71a744a84c539209a4943715b20c3950",
+      "bytes": 9905
     },
     {
       "path": "src/backend/refresh/run-groups.mjs",
@@ -60,8 +60,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "63046fbaa985519d74f28196544d79267ace5d6ccb30810fe718c766481dd514",
-      "bytes": 53827
+      "sha256": "5d13921782799b2a9032fc55d5bf82d572affb354f8efc69e3f408196400818c",
+      "bytes": 79383
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
@@ -90,8 +90,8 @@
     },
     {
       "path": "src/backend/services/errors.mjs",
-      "sha256": "20ce8dc7458a4b9d4889c962a39010c3798d2685f3a6da7994ab817431fc8b96",
-      "bytes": 578
+      "sha256": "bf0296d4505a0fe32c32e98511e7b1912ad450542f21cb7593a413ab0450c927",
+      "bytes": 613
     },
     {
       "path": "src/backend/workflow/audit.mjs",
@@ -145,8 +145,8 @@
     },
     {
       "path": "vendor/intelligence-core/src/candidates.mjs",
-      "sha256": "d145f4e8d55977590b9c93da7c2ac9acd122cb3c4787b7f432d94c9a4069e7c6",
-      "bytes": 5467
+      "sha256": "682565ffd6c089096d433f56c38504c51ee122fe93898ad76a4d3107266e16e0",
+      "bytes": 5577
     },
     {
       "path": "vendor/intelligence-core/src/contracts.mjs",
@@ -160,13 +160,13 @@
     },
     {
       "path": "vendor/intelligence-core/src/hotspot.mjs",
-      "sha256": "36fb03322e69dd18c5bbe2c1f0398470df14997a7656966f4afa4b67499ca9a0",
-      "bytes": 2662
+      "sha256": "ed04cfd025122534630deea57319425e16c88c3e717c2dba96518a72097b29bc",
+      "bytes": 2690
     },
     {
       "path": "vendor/intelligence-core/src/identity.mjs",
-      "sha256": "4c9fa19782c876275510357f227cbff050c7a865904d01a46fd2bf49972449c4",
-      "bytes": 1697
+      "sha256": "3a07a69a4890e137d35f14205b0f6b3dbb8d9a5c0b822b4b68285bc07abb4272",
+      "bytes": 1705
     },
     {
       "path": "vendor/intelligence-core/src/math.mjs",
@@ -180,13 +180,13 @@
     },
     {
       "path": "vendor/intelligence-core/src/pattern-fusion.mjs",
-      "sha256": "4c19c261a518633043eec4448f6f5624e05e988b29dca423f0651baa99249847",
-      "bytes": 4242
+      "sha256": "45a2faf2be072115ccfb5c646c9dbe5136a26784a0bca1b8dd03a9a7fe3ddf6e",
+      "bytes": 4259
     },
     {
       "path": "vendor/intelligence-core/src/pipeline.mjs",
-      "sha256": "3ad3f20a2e5bcabbb3aa08c0ec075e202750a6a0b788e04fa33021459323408c",
-      "bytes": 3886
+      "sha256": "66c2d943366f07e185d1e64278999bc8c48944ee8bda4abf3cff5abac6b991ce",
+      "bytes": 3892
     },
     {
       "path": "vendor/intelligence-core/src/text-similarity.mjs",

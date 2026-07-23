@@ -1,3 +1,5 @@
+import { MAX_FEATURES } from '../../../vendor/geospatial-core/index.mjs';
+
 function matches(row, { field, operator, value }) {
   const actual = row[field];
   if (operator === 'eq') return actual === value;
@@ -18,6 +20,62 @@ function aggregate(values, operation) {
   if (operation === 'min') return Math.min(...numbers);
   if (operation === 'max') return Math.max(...numbers);
   throw new TypeError(`Unsupported aggregate: ${operation}`);
+}
+
+const VIEW_KEYS = new Set(['id', 'name', 'description', 'version', 'visibility', 'viewport', 'timeWindow', 'globalFilters', 'layers']);
+const LAYER_KEYS = new Set([
+  'id', 'datasetId', 'renderer', 'visible', 'order', 'minZoom', 'maxZoom', 'filter', 'limit',
+  'weightField', 'colorField', 'sizeField', 'labelField', 'tooltipFields',
+]);
+const plain = value => value && typeof value === 'object' && !Array.isArray(value)
+  && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+
+function clientSafeMapDefinition(value) {
+  if (!plain(value) || Object.keys(value).some(key => !VIEW_KEYS.has(key)) || !Array.isArray(value.layers)) {
+    throw new TypeError('Invalid normalized map view definition');
+  }
+  const layers = value.layers.map(layer => {
+    if (!plain(layer) || Object.keys(layer).some(key => !LAYER_KEYS.has(key))) {
+      throw new TypeError('Invalid normalized map layer definition');
+    }
+    if (layer.limit !== undefined && (!Number.isInteger(layer.limit) || layer.limit < 1 || layer.limit > MAX_FEATURES)) {
+      throw new TypeError('Map layer limit must be bounded');
+    }
+    return structuredClone(layer);
+  }).sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+  return { ...structuredClone(value), layers };
+}
+
+function effectiveFilter(globalFilter, layerFilter) {
+  const hasGlobal = plain(globalFilter) && Object.keys(globalFilter).length > 0;
+  const hasLayer = plain(layerFilter) && Object.keys(layerFilter).length > 0;
+  if (hasGlobal && hasLayer) return { $and: [structuredClone(globalFilter), structuredClone(layerFilter)] };
+  if (hasGlobal) return structuredClone(globalFilter);
+  return hasLayer ? structuredClone(layerFilter) : {};
+}
+
+export function projectMapReportExecution(mapView) {
+  if (!plain(mapView) || typeof mapView.id !== 'string' || typeof mapView.name !== 'string'
+    || !Number.isInteger(mapView.version)) throw new TypeError('Invalid governed map view');
+  const definition = clientSafeMapDefinition(mapView.definition);
+  const executions = definition.layers.filter(layer => layer.visible !== false).map(layer => ({
+    layer: {
+      ...structuredClone(layer),
+      filter: effectiveFilter(definition.globalFilters?.[layer.datasetId], layer.filter),
+    },
+    runtime: Object.fromEntries([
+      ['viewport', definition.viewport ? structuredClone(definition.viewport) : undefined],
+      ['timeWindow', definition.timeWindow ? structuredClone(definition.timeWindow) : undefined],
+      ['limit', layer.limit ?? 1000],
+    ].filter(([, value]) => value !== undefined)),
+  }));
+  return Object.freeze({
+    mapView: Object.freeze({
+      id: mapView.id, name: mapView.name, visibility: mapView.visibility,
+      version: mapView.version, definition,
+    }),
+    executions: Object.freeze(executions),
+  });
 }
 
 export function executeReportDefinition(definition, sourceRows) {

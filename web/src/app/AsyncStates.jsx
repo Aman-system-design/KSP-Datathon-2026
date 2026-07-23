@@ -1,0 +1,22 @@
+export function Busy({ label = 'Loading authorized intelligence…', branded = false }) {
+  return <div className={`loading-state${branded ? ' loading-state--branded' : ''}`} role="status" aria-label={label} aria-live="polite">
+    {branded ? <>
+      <div className="loading-state__mark">
+        <span aria-hidden="true" />
+        <img src="/brand/karnataka-state-emblem.png" alt="Karnataka State emblem" />
+      </div>
+      <small>Secure intelligence platform</small>
+    </> : <i aria-hidden="true" />}
+    <strong>{label}</strong>
+  </div>;
+}
+
+export function Failure({ error }) {
+  const requestId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(error?.requestId ?? '') ? error.requestId : null;
+  const code = /^[A-Z][A-Z0-9_]{0,63}$/u.test(error?.code ?? '') ? error.code : null;
+  return <div className="failure-state">
+    <strong>Intelligence is unavailable</strong><span>The request could not be completed.</span>
+    {code ? <small>Reference {requestId ? `${requestId} · ` : ''}{code}</small> : null}
+    <button onClick={() => globalThis.location?.reload?.()}>Retry</button>
+  </div>;
+}

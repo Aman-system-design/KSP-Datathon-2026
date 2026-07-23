@@ -63,3 +63,16 @@ export const personaWorkspaceDefinitions = Object.freeze([
   { role: 'CRIME_ANALYST', label: 'Crime Analyst', workspace: 'Analyst Workbench', route: '/?persona=CRIME_ANALYST', scope: 'Assigned units and cases' },
   { role: 'STATION_OPERATIONS', label: 'Station Operations', workspace: 'Operational Intelligence', route: '/?persona=STATION_OPERATIONS', scope: 'Authorized station' },
 ]);
+
+const personaPresentationByRole = new Map(
+  personaWorkspaceDefinitions.map(definition => [definition.role, definition]),
+);
+
+export function getPersonaPresentation(role) {
+  return personaPresentationByRole.get(role) ?? {
+    role,
+    label: 'Authorized workspace',
+    workspace: 'Role workspace',
+    scope: 'Backend-authorized scope',
+  };
+}

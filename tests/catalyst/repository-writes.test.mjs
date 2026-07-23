@@ -155,6 +155,26 @@ test('Catalyst run requests persist idempotency and controlled status transition
   assert.equal(fake.tables.get('OPS_IntelligenceRunRequest')[0].RequestedAt, '2026-07-22 01:00:00');
 });
 
+test('Catalyst access audits omit absent optional references', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+
+  await repository.appendAuditEvent({
+    AuditEventID: 'AUD-ACCESS-1', StreamID: 'ACCESS:1', StreamSequence: 1,
+    PreviousEventHash: null, EventHash: 'a'.repeat(64), HashKeyVersion: 'v1',
+    AlertID: null, CommandID: null, ActorEmployeeID: null,
+    EventType: 'SENSITIVE_READ', EntityType: 'API_REQUEST', EntityBusinessID: 'request-1',
+    EventPayloadJSON: '{}', HashAlgorithm: 'HMAC-SHA-256', ActorType: 'CATALYST_USER',
+    OccurredAt: '2026-07-23T09:30:00.000Z', SyntheticData: true,
+  });
+
+  const stored = fake.tables.get('WF_AuditEvent')[0];
+  assert.equal(Object.hasOwn(stored, 'AlertRef'), false);
+  assert.equal(Object.hasOwn(stored, 'CommandRef'), false);
+  assert.equal(Object.hasOwn(stored, 'ActorEmployeeID'), false);
+  assert.equal(Object.hasOwn(stored, 'PreviousEventHash'), false);
+});
+
 test('Catalyst workflow persists one command/artifact/audit and verifies compare-and-swap', async () => {
   const fake = fakeApplication();
   const repository = new CatalystIntelligenceRepository({ application: fake.application });

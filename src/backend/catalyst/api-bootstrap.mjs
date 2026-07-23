@@ -76,14 +76,21 @@ export function createApiApplication({
     }
     let context;
     let currentUser;
+    let phase = 'SDK_CONTEXT';
     try {
       context = createCatalystSdkContext({ request: httpRequest, sdk, policyVersion: config.permissionVersion });
+      phase = 'CURRENT_USER';
       currentUser = await context.getCurrentUser();
+      phase = 'PROFILE_APPLICATION';
       const profileApplication = await context.getProfileApplication();
+      phase = 'REPOSITORY';
       const repository = repositoryFactory(profileApplication);
+      phase = 'ACCESS_PROFILE';
       const profile = await repository.getAccessProfile(currentUser.user_id);
+      phase = 'AUTHORIZE';
       await context.authorize(profile);
 
+      phase = 'SERVICE_COMPOSITION';
       const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
       const mapViewServices = createMapViewService({ repository, clock: now });
       const workspaceServices = createWorkspaceServices({
@@ -92,9 +99,15 @@ export function createApiApplication({
       const geospatialServices = createGeospatialLayerService({
         repository, readServices: { ...readServices, ...workspaceServices }, clock: () => new Date(now()),
       });
+      let scheduler;
+      const lazyScheduler = Object.freeze({
+        async submit(input) {
+          scheduler ??= schedulerFactory(profileApplication, config.intelligenceJobPool);
+          return scheduler.submit(input);
+        },
+      });
       const runService = createIntelligenceRunService({
-        repository, scheduler: schedulerFactory(profileApplication, config.intelligenceJobPool),
-        clock: now, idFactory,
+        repository, scheduler: lazyScheduler, clock: now, idFactory,
       });
       const resourceServices = Object.freeze({
         ...workspaceServices, ...createIntelligenceRunResources({ runService }),
@@ -128,19 +141,23 @@ export function createApiApplication({
         readServices, resourceServices, commandService, accessResolver,
         profileRepository: repository, auditService, environment: config.environment,
       });
+      phase = 'DISPATCH';
       const result = await dispatcher({ request, currentUser });
       const failed = result.status >= 500;
       log(failed ? 'error' : 'info', {
         event: failed ? 'api_request_failed' : 'api_request_completed',
         requestId, method: request.method, status: result.status, durationMs: durationMs(),
-        ...(failed ? { code: result.body?.error?.code ?? 'INTERNAL_ERROR' } : {}),
+        ...(failed ? {
+          code: result.body?.error?.code ?? 'INTERNAL_ERROR',
+          ...(result.diagnostic ?? {}),
+        } : {}),
       });
       return result;
     } catch (error) {
       const result = safeFailure(error?.code, requestId);
       log('error', {
         event: 'api_request_failed', requestId, method: request.method,
-        status: result.status, code: result.body.error.code, durationMs: durationMs(),
+        status: result.status, code: result.body.error.code, phase, durationMs: durationMs(),
       });
       return result;
     }

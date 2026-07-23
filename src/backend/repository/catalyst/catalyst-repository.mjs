@@ -1154,9 +1154,13 @@ export class CatalystIntelligenceRepository {
       event.CommandID ? this.#commandRow(event.CommandID) : undefined,
     ]);
     if ((event.AlertID && !alert) || (event.CommandID && !command)) fail('DATA_NOT_READY');
-    const { AlertID, CommandID, ...values } = event;
+    const { AlertID, CommandID, ActorEmployeeID, PreviousEventHash, ...values } = event;
     await this.#insert(TABLES.audits, {
-      ...values, AlertRef: alert ? String(alert.ROWID) : null, CommandRef: command ? String(command.ROWID) : null,
+      ...values,
+      ...(ActorEmployeeID !== null && ActorEmployeeID !== undefined ? { ActorEmployeeID } : {}),
+      ...(PreviousEventHash !== null && PreviousEventHash !== undefined ? { PreviousEventHash } : {}),
+      ...(alert ? { AlertRef: String(alert.ROWID) } : {}),
+      ...(command ? { CommandRef: String(command.ROWID) } : {}),
     });
     return clone(event);
   }
@@ -1167,7 +1171,13 @@ export class CatalystIntelligenceRepository {
       (await this.#read(TABLES.commands)).find(item => String(item.ROWID) === String(row.CommandRef)),
     ]);
     const { ROWID, AlertRef, CommandRef, ...values } = row;
-    return { ...values, AlertID: alert?.AlertID, CommandID: command?.CommandID };
+    return {
+      ...values,
+      ActorEmployeeID: row.ActorEmployeeID ?? null,
+      PreviousEventHash: row.PreviousEventHash ?? null,
+      AlertID: alert?.AlertID ?? null,
+      CommandID: command?.CommandID ?? null,
+    };
   }
 
   async findAuditByCommand(commandId) {
