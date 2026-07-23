@@ -57,12 +57,21 @@ export function getWorkspaceNavigation({ role } = {}) {
 }
 
 export const personaWorkspaceDefinitions = Object.freeze([
-  { role: 'STATE_LEADERSHIP', label: 'State Leadership', workspace: 'State Intelligence Brief', route: '/?persona=STATE_LEADERSHIP', scope: 'State' },
-  { role: 'REGIONAL_LEADERSHIP', label: 'Regional Leadership', workspace: 'Jurisdiction Intelligence Pulse', route: '/?persona=REGIONAL_LEADERSHIP', scope: 'Authorized region' },
-  { role: 'DISTRICT_LEADERSHIP', label: 'District Leadership', workspace: 'Jurisdiction Intelligence Pulse', route: '/?persona=DISTRICT_LEADERSHIP', scope: 'Authorized district' },
-  { role: 'CRIME_ANALYST', label: 'Crime Analyst', workspace: 'Analyst Workbench', route: '/?persona=CRIME_ANALYST', scope: 'Assigned units and cases' },
-  { role: 'STATION_OPERATIONS', label: 'Station Operations', workspace: 'Operational Intelligence', route: '/?persona=STATION_OPERATIONS', scope: 'Authorized station' },
+  { role: 'STATE_LEADERSHIP', label: 'State Leadership', workspace: 'State Intelligence Brief', route: '/?persona=STATE_LEADERSHIP', scope: 'Statewide', icon: 'intelligence' },
+  { role: 'REGIONAL_LEADERSHIP', label: 'Regional Leadership', workspace: 'Jurisdiction Intelligence Pulse', route: '/?persona=REGIONAL_LEADERSHIP', scope: 'Authorized region', icon: 'map' },
+  { role: 'DISTRICT_LEADERSHIP', label: 'District Leadership', workspace: 'Jurisdiction Intelligence Pulse', route: '/?persona=DISTRICT_LEADERSHIP', scope: 'Authorized district', icon: 'dashboard' },
+  { role: 'CRIME_ANALYST', label: 'Crime Analyst', workspace: 'Analyst Workbench', route: '/?persona=CRIME_ANALYST', scope: 'Assigned units and cases', icon: 'network' },
+  { role: 'STATION_OPERATIONS', label: 'Station Operations', workspace: 'Operational Intelligence', route: '/?persona=STATION_OPERATIONS', scope: 'Authorized station', icon: 'alerts' },
 ]);
+
+export const commandCentreWorkspace = Object.freeze({
+  role: 'COMMAND_CENTRE',
+  label: 'Command Centre',
+  workspace: 'Live Operational Overview',
+  scope: 'Presentation display',
+  icon: 'command',
+  destination: Object.freeze({ type: 'route', pathname: '/command-centre' }),
+});
 
 const personaPresentationByRole = new Map(
   personaWorkspaceDefinitions.map(definition => [definition.role, definition]),
@@ -74,5 +83,6 @@ export function getPersonaPresentation(role) {
     label: 'Authorized workspace',
     workspace: 'Role workspace',
     scope: 'Backend-authorized scope',
+    icon: 'home',
   };
 }

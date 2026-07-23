@@ -44,6 +44,18 @@ function LegacyMapsRedirect() {
   return <Navigate to={governedAppLocation('/geospatial', location, { preserveHash: true })} replace />;
 }
 
+export function workspaceDestinationLocation(destination, currentSearch = '') {
+  if (destination?.type === 'persona') {
+    const role = readDemoPersona(`?persona=${encodeURIComponent(destination.role ?? '')}`);
+    if (!role) throw new TypeError('A backend-authorized demonstration persona is required');
+    return Object.freeze({ pathname: '/', search: personaSearch(currentSearch, role) });
+  }
+  if (destination?.type === 'route' && destination.pathname === '/command-centre') {
+    return Object.freeze({ pathname: '/command-centre', search: '' });
+  }
+  throw new TypeError('An authorized workspace destination is required');
+}
+
 function AuthorizedApplication({ api, auth }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -61,7 +73,7 @@ function AuthorizedApplication({ api, auth }) {
     return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading authorized workspaces…" /></main>}>
       <WorkspaceSelector
         workspace={workspace}
-        onSelect={persona => navigate({ pathname: '/', search: personaSearch(location.search, persona) })}
+        onSelect={destination => navigate(workspaceDestinationLocation(destination, location.search))}
         onSignOut={() => auth.signOut()}
       />
     </Suspense>;
