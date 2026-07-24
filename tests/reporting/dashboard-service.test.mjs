@@ -83,3 +83,29 @@ test('only administrator permission sets a role default', async () => {
     { code: 'INVALID_REQUEST' },
   );
 });
+
+test('visible dashboards expose a safe owned shared or system relationship', async () => {
+  const { service, repository } = harness();
+  const viewer = access('VIEWER');
+  const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+  const owned = await service.create({ access: viewer, input: { name: 'Owned desk' } });
+  const shared = await service.create({ access: access('OTHER'), input: { name: 'Shared desk' } });
+  await repository.createContentShare({
+    id: 'SHARE-1', contentType: 'DASHBOARD', contentId: shared.id,
+    targetUserId: 'VIEWER', permission: 'VIEW', sharedByUserId: 'OTHER', version: 1,
+  });
+  const system = await service.create({ access: admin, input: { name: 'System desk' } });
+  await service.setRoleDefault({ access: admin, dashboardId: system.id, role: 'CRIME_ANALYST' });
+
+  const visible = await service.list({ access: viewer });
+
+  assert.deepEqual(
+    visible.filter(item => [owned.id, shared.id, system.id].includes(item.id)).map(item => ({ id: item.id, relationship: item.relationship })),
+    [
+      { id: owned.id, relationship: 'OWNED' },
+      { id: shared.id, relationship: 'SHARED' },
+      { id: system.id, relationship: 'SYSTEM' },
+    ],
+  );
+  assert.equal(visible.some(item => 'shareTargets' in item), false);
+});

@@ -53,7 +53,13 @@ export function createDashboardService({ repository, now, idFactory }) {
       const dashboards = await repository.listDashboards();
       const visible = [];
       for (const dashboard of dashboards) {
-        try { visible.push(await requireVisible(dashboard.id, access)); } catch (error) {
+        try {
+          const authorized = await requireVisible(dashboard.id, access);
+          const relationship = owns(authorized, access) ? 'OWNED'
+            : authorized.visibility === 'GLOBAL' || authorized.defaultRole === access.role ? 'SYSTEM'
+              : 'SHARED';
+          visible.push({ ...authorized, relationship });
+        } catch (error) {
           if (error.code !== 'NOT_FOUND') throw error;
         }
       }
