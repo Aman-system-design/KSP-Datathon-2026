@@ -38,7 +38,7 @@ test('opens only the selected backend-authorized workspace', () => {
   expect(onSelect).toHaveBeenCalledWith({ type: 'persona', role: 'CRIME_ANALYST' });
 });
 
-test('opens Command Centre immediately as the governed command center persona', () => {
+test('opens Command Centre through Continue as the governed command center persona', () => {
   const onSelect = vi.fn();
   render(<WorkspaceSelector workspace={{
     role: 'DEMO_PRESENTER',
@@ -46,6 +46,8 @@ test('opens Command Centre immediately as the governed command center persona', 
   }} onSelect={onSelect} onSignOut={() => {}} />);
 
   fireEvent.click(screen.getByRole('radio', { name: /Command Centre/i }));
+  expect(onSelect).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
   expect(onSelect).toHaveBeenCalledWith({ type: 'persona', role: 'COMMAND_CENTER' });
 });
