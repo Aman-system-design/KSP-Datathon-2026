@@ -27,7 +27,11 @@ function parameters(jobRequest) {
   const seed = Number(rawSeed);
   if (!Number.isSafeInteger(seed) || seed < 1
     || String(jobRequest.getJobParam('syntheticOnly')).toLowerCase() !== 'true') invalid();
-  return { operation, batchKey, seed };
+  const profile = jobRequest.getJobParam('profile') || 'smoke';
+  if (!['smoke', 'statewide'].includes(profile)) invalid();
+  const caseCount = profile === 'statewide' ? Number(jobRequest.getJobParam('caseCount') || 5200) : 50;
+  if (!Number.isSafeInteger(caseCount) || caseCount < 50 || caseCount > 50000) invalid();
+  return { operation, batchKey, seed, profile, caseCount };
 }
 
 export function createRefreshApplication({

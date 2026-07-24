@@ -83,7 +83,7 @@ export function createRefreshService({
   clock = () => new Date().toISOString(), idFactory, auditKeys = {}, onProgress = () => {},
 }) {
   return Object.freeze({
-    async execute({ operation, batchKey, seed } = {}) {
+    async execute({ operation, batchKey, seed, profile = 'smoke', caseCount = 50 } = {}) {
       if (operation === 'RECONCILE_GOVERNANCE') return governanceReport(repository, auditKeys, clock());
       if (!['BOOTSTRAP_SYNTHETIC', 'REFRESH_INTELLIGENCE'].includes(operation)) fail('INVALID_REQUEST', 'Unsupported refresh operation.');
       if (typeof batchKey !== 'string' || !batchKey.trim() || batchKey.length > 128) fail('INVALID_REQUEST', 'batchKey is required.');
@@ -98,7 +98,9 @@ export function createRefreshService({
       let validation;
       let bootstrapSource;
       if (operation === 'BOOTSTRAP_SYNTHETIC') {
-        bootstrapSource = sourceGenerator(seed);
+        bootstrapSource = profile === 'statewide'
+          ? sourceGenerator({ seed, profile, caseCount })
+          : sourceGenerator(seed);
         if (bootstrapSource?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
       } else {
         onProgress('VALIDATED_SOURCE_LOOKUP');
@@ -106,7 +108,7 @@ export function createRefreshService({
         if (!validation) fail('DATA_NOT_READY');
       }
       const requestHash = hash(operation === 'BOOTSTRAP_SYNTHETIC'
-        ? { operation, seed: seed ?? null, source: bootstrapSource }
+        ? { operation, seed: seed ?? null, profile, caseCount, source: bootstrapSource }
         : { operation, batchKey, accepted: validation.accepted, reconciliation: validation.reconciliation });
 
       if (batch && (batch.Operation !== operation || batch.RequestHash !== requestHash)) fail('IDEMPOTENCY_CONFLICT');

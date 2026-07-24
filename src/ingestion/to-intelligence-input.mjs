@@ -139,7 +139,7 @@ export function toIntelligenceInput(accepted) {
 
   return Object.freeze({
     schemaVersion: 'police-fir-er-diagram-2026-06-10',
-    fixtureVersion: 'pdf-aligned-1.0.0',
+    fixtureVersion: cases.length >= 5000 ? 'pdf-aligned-statewide-2.0.0' : 'pdf-aligned-1.0.0',
     asOf: '2026-07-01T00:00:00Z',
     cases,
     weeklySeries: buildWeeklySeries(cases),

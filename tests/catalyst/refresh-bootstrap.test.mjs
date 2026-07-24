@@ -48,6 +48,18 @@ test('bootstrap validates parameters, persists source and returns only a safe re
   assert.ok(await fixture.repository.getValidatedSource('KSP-DEMO-20260720-V1'));
 });
 
+test('bootstrap accepts the bounded statewide profile and publishes 5,200 FIRs', async () => {
+  const fixture = harness();
+  const result = await fixture.application(job({
+    operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'KSP-STATEWIDE-20260724-V1', seed: '20260724',
+    syntheticOnly: 'true', profile: 'statewide', caseCount: '5200',
+  }), fixture.context);
+
+  assert.equal(result.ok, true);
+  const stored = await fixture.repository.getValidatedSource('KSP-STATEWIDE-20260724-V1');
+  assert.equal(stored.accepted.CaseMaster.length, 5200);
+});
+
 test('refresh consumes an already persisted batch without regenerating a different source', async () => {
   const fixture = harness();
   const source = generateSourceSeed(20260720);
@@ -77,6 +89,7 @@ test('invalid operation/parameters close with failure and expose only stable cod
     { operation: 'DELETE_ALL', syntheticOnly: 'true' },
     { operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BATCH-1', seed: 'x', syntheticOnly: 'true' },
     { operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BATCH-1', seed: '20260720', syntheticOnly: 'false' },
+    { operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'BATCH-1', seed: '20260720', syntheticOnly: 'true', profile: 'statewide', caseCount: '50001' },
   ]) {
     const fixture = harness();
     const result = await fixture.application(job(params), fixture.context);
