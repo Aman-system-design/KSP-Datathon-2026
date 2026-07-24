@@ -202,3 +202,7 @@ The first real in-app prototype covers:
 - Analytical and Command-wall presentation density.
 
 The complete dashboard library, dashboard sharing administration, full Report Builder implementation, alert triage panel, and full investigation workspace are follow-on projects. The Command Centre may link to existing routes or explicit not-yet-available states for those capabilities until their dedicated designs are implemented.
+
+## Approved Toolbar Density Refinement
+
+The dashboard workspace must not repeat the generic “Command Centre” label above the canvas. The utility strip remains because dashboard tabs, edit mode, and presentation mode are dashboard-scoped controls, but it is reduced from 46 pixels to 34 pixels. Controls are right-aligned, 26 pixels high, and use compact spacing. A real selected dashboard name may appear only when it adds context; the empty workspace shows no redundant title.
