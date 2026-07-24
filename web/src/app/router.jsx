@@ -72,7 +72,11 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
   const workspace = state.data;
   if (requestedPersona === 'COMMAND_CENTER') {
     if (workspace.role !== 'DEMO_PRESENTER') return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
-    return <CommandCenterShell />;
+    return <CommandCenterShell
+      personas={workspace.personaSwitch?.personas ?? []}
+      onPersonaSelect={role => navigate(workspaceDestinationLocation({ type: 'persona', role }, location.search))}
+      onAllWorkspaces={() => navigate({ pathname: '/', search: personaSearch(location.search, null) })}
+    />;
   }
   if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {
     return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading authorized workspaces…" /></main>}>

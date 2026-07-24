@@ -160,6 +160,42 @@ test('command center persona verifies the ordinary workspace without intelligenc
   expect(api.get).toHaveBeenCalledTimes(1);
 });
 
+test('command center account menu navigates only to backend-authorized personas', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }) };
+  render(<MemoryRouter initialEntries={['/?release=1&persona=COMMAND_CENTER']}>
+    <Application api={api} /><LocationProbe />
+  </MemoryRouter>);
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Open persona menu' }));
+  expect(screen.queryByRole('menuitem', { name: 'Station Operations' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Crime Analyst' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/?release=1&persona=CRIME_ANALYST');
+});
+
+test('command center account menu returns to all workspaces without dropping the release', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }) };
+  render(<MemoryRouter initialEntries={['/?release=1&persona=COMMAND_CENTER']}>
+    <Application api={api} /><LocationProbe />
+  </MemoryRouter>);
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Open persona menu' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'All workspaces' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/?release=1');
+  expect(await screen.findByRole('heading', { name: 'Select workspace' })).toBeInTheDocument();
+});
+
 test('authorized workspace lazy-loads Geospatial Studio from the governed catalog', async () => {
   const api = geospatialApi({ datasets: [{
     id: 'hotspots', name: 'Crime hotspots', description: 'Authorized output',

@@ -1,4 +1,23 @@
-import { Bell, Search, Users } from 'lucide-react';
+import { Bell, Search, Settings } from 'lucide-react';
 import { usePlatformBrand } from '../../branding/BrandProvider.jsx';
 import { CommandCenterAppearanceMenu } from './CommandCenterAppearanceMenu.jsx';
-export function CommandCenterHeader({ appearance, menuOpen, onAppearanceChange, onMenuToggle }) { const brand = usePlatformBrand(); return <header className="command-center-header"><div className="command-center-header__brand"><img src={brand.primaryLogo} alt={`${brand.organizationName} emblem`} /><div><strong>{brand.organizationName}</strong><span>Analytics · Crime · Enforcement</span></div></div><div className="command-center-header__utilities"><label className="command-center-search"><Search aria-hidden="true" /><input type="search" aria-label="Search" placeholder="" disabled /></label><div className="command-center-account"><button className="command-center-avatar" type="button" aria-label="Open account menu" aria-expanded={menuOpen} onClick={onMenuToggle}>S</button>{menuOpen ? <CommandCenterAppearanceMenu value={appearance} onChange={onAppearanceChange} /> : null}</div><button type="button" aria-label="Notifications" disabled><Bell aria-hidden="true" /></button><button type="button" aria-label="Team" disabled><Users aria-hidden="true" /></button></div></header>; }
+import { CommandCenterPersonaMenu } from './CommandCenterPersonaMenu.jsx';
+
+export function CommandCenterHeader({ appearance, personas, accountOpen, settingsOpen, onAppearanceChange, onAccountToggle, onSettingsToggle, onPersonaSelect, onAllWorkspaces }) {
+  const brand = usePlatformBrand();
+  return <header className="command-center-header">
+    <div className="command-center-header__brand"><img src={brand.primaryLogo} alt={`${brand.organizationName} emblem`} /><div><strong>{brand.organizationName}</strong><span>Analytics · Crime · Enforcement</span></div></div>
+    <div className="command-center-header__utilities">
+      <label className="command-center-search"><Search aria-hidden="true" /><input type="search" aria-label="Search" placeholder="" disabled /></label>
+      <div className="command-center-account">
+        <button className="command-center-avatar" type="button" aria-label="Open persona menu" aria-expanded={accountOpen} onClick={onAccountToggle}>S</button>
+        {accountOpen ? <CommandCenterPersonaMenu personas={personas} onSelect={onPersonaSelect} onAllWorkspaces={onAllWorkspaces} /> : null}
+      </div>
+      <button type="button" aria-label="Notifications" disabled><Bell aria-hidden="true" /></button>
+      <div className="command-center-settings">
+        <button type="button" aria-label="Open settings" aria-expanded={settingsOpen} onClick={onSettingsToggle}><Settings aria-hidden="true" /></button>
+        {settingsOpen ? <CommandCenterAppearanceMenu value={appearance} onChange={onAppearanceChange} /> : null}
+      </div>
+    </div>
+  </header>;
+}
