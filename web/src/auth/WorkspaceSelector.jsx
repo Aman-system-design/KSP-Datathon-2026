@@ -65,7 +65,9 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
                   aria-checked={selected}
                   aria-label={presentation.label}
                   className={selected ? 'selected' : ''}
-                  onClick={() => setSelectedKey(presentation.role)}
+                  onClick={() => presentation.role === commandCentreWorkspace.role
+                    ? onSelect(presentation.destination)
+                    : setSelectedKey(presentation.role)}
                 >
                   <span className="workspace-entry__icon"><Icon name={presentation.icon} size={22} /></span>
                   <span className="workspace-entry__copy"><strong>{presentation.label}</strong><small>{presentation.workspace}</small></span>

@@ -38,7 +38,7 @@ test('opens only the selected backend-authorized workspace', () => {
   expect(onSelect).toHaveBeenCalledWith({ type: 'persona', role: 'CRIME_ANALYST' });
 });
 
-test('opens Command Centre as an authorized presenter workspace', () => {
+test('opens Command Centre immediately as the governed command center persona', () => {
   const onSelect = vi.fn();
   render(<WorkspaceSelector workspace={{
     role: 'DEMO_PRESENTER',
@@ -46,10 +46,8 @@ test('opens Command Centre as an authorized presenter workspace', () => {
   }} onSelect={onSelect} onSignOut={() => {}} />);
 
   fireEvent.click(screen.getByRole('radio', { name: /Command Centre/i }));
-  expect(screen.getByRole('radio', { name: /Command Centre/i })).not.toHaveClass('workspace-entry__card--command');
-  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-  expect(onSelect).toHaveBeenCalledWith({ type: 'route', pathname: '/command-centre' });
+  expect(onSelect).toHaveBeenCalledWith({ type: 'persona', role: 'COMMAND_CENTER' });
 });
 
 test('fails closed when persona switching is not authorized', () => {

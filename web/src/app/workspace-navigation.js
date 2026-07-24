@@ -70,7 +70,7 @@ export const commandCentreWorkspace = Object.freeze({
   workspace: 'Live Operational Overview',
   scope: 'Presentation display',
   icon: 'command',
-  destination: Object.freeze({ type: 'route', pathname: '/command-centre' }),
+  destination: Object.freeze({ type: 'persona', role: 'COMMAND_CENTER' }),
 });
 
 const personaPresentationByRole = new Map(
