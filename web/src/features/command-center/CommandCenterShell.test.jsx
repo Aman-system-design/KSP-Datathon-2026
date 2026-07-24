@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { BrandProvider } from '../../branding/BrandProvider.jsx';
 import { CommandCenterShell } from './CommandCenterShell.jsx';
 afterEach(() => { cleanup(); localStorage.clear(); });
-const renderShell = props => render(<BrandProvider><CommandCenterShell {...props} /></BrandProvider>);
-test('renders reference shell with empty canvas', () => { renderShell(); expect(screen.getByText('Karnataka State Police')).toBeInTheDocument(); expect(screen.getByRole('searchbox', { name: 'Search' })).toBeDisabled(); expect(screen.getByTestId('command-center-canvas')).toBeEmptyDOMElement(); });
+const renderShell = props => render(<MemoryRouter><BrandProvider><CommandCenterShell {...props} /></BrandProvider></MemoryRouter>);
+test('loads an honest empty landing dashboard', async () => { const api = { get: vi.fn(async () => ({ data: { id: 'D-1', name: 'State overview', items: [] } })), post: vi.fn(), put: vi.fn() }; renderShell({ api, workspace: { landingDashboard: { id: 'D-1' }, availableDashboards: [{ id: 'D-1', name: 'State overview', relationship: 'SYSTEM' }] } }); expect(await screen.findByText('This dashboard has no reports yet.')).toBeInTheDocument(); expect(screen.getByRole('searchbox', { name: 'Search' })).toBeDisabled(); });
 test('changes only rail selection', () => { renderShell(); const map = screen.getByRole('button', { name: 'Map' }); fireEvent.click(map); expect(map).toHaveAttribute('aria-current', 'page'); expect(screen.getByTestId('command-center-canvas')).toBeEmptyDOMElement(); });
 test('removes Team and switches only among authorized personas', () => { const onPersonaSelect = vi.fn(); renderShell({ personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'], onPersonaSelect }); expect(screen.queryByRole('button', { name: 'Team' })).not.toBeInTheDocument(); fireEvent.click(screen.getByRole('button', { name: 'Open persona menu' })); expect(screen.queryByRole('menuitem', { name: 'Station Operations' })).not.toBeInTheDocument(); fireEvent.click(screen.getByRole('menuitem', { name: 'Crime Analyst' })); expect(onPersonaSelect).toHaveBeenCalledWith('CRIME_ANALYST'); expect(screen.queryByRole('menu', { name: 'Change persona' })).not.toBeInTheDocument(); });
 test('returns to all workspaces from the persona menu', () => { const onAllWorkspaces = vi.fn(); renderShell({ personas: [], onAllWorkspaces }); fireEvent.click(screen.getByRole('button', { name: 'Open persona menu' })); fireEvent.click(screen.getByRole('menuitem', { name: 'All workspaces' })); expect(onAllWorkspaces).toHaveBeenCalledOnce(); });

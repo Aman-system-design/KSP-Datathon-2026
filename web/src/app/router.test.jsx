@@ -160,6 +160,18 @@ test('command center persona verifies the ordinary workspace without intelligenc
   expect(api.get).toHaveBeenCalledTimes(1);
 });
 
+test('command center loads its governed landing dashboard without invented content', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: { role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [{ id: 'D-1', name: 'State overview', relationship: 'SYSTEM' }], landingDashboard: { id: 'D-1' }, alertSummary: { total: 0 }, personaSwitch: { allowed: true, personas: [] } } };
+    if (path === '/v1/dashboards/D-1') return { data: { id: 'D-1', name: 'State overview', items: [] } };
+    throw new Error(`Unexpected request: ${path}`);
+  }), post: vi.fn(), put: vi.fn() };
+  render(<MemoryRouter initialEntries={['/?persona=COMMAND_CENTER']}><Application api={api} /></MemoryRouter>);
+  expect(await screen.findByText('This dashboard has no reports yet.')).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledWith('/v1/dashboards/D-1');
+  expect(screen.queryByText(/incident count|hotspot|priority alert/i)).not.toBeInTheDocument();
+});
+
 test('command center account menu navigates only to backend-authorized personas', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {

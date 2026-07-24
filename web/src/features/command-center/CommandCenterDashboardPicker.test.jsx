@@ -21,7 +21,17 @@ test('searches authorized dashboards and selects one in place', () => {
 
 test('opens the complete dashboard library', () => {
   const onOpenAll = vi.fn();
-  render(<CommandCenterDashboardPicker open dashboards={[]} onSelect={() => {}} onClose={() => {}} onOpenAll={onOpenAll} />);
+  render(<CommandCenterDashboardPicker open dashboards={[
+    { id: 'D-1', name: 'Recent board', relationship: 'SYSTEM' },
+    { id: 'D-2', name: 'Owned board', relationship: 'OWNED' },
+    { id: 'D-3', name: 'Shared board', relationship: 'SHARED' },
+    { id: 'D-4', name: 'System board', relationship: 'SYSTEM' },
+    { id: 'D-5', name: 'Another board', relationship: 'SYSTEM' },
+    { id: 'D-6', name: 'Older owned board', relationship: 'OWNED' },
+  ]} onSelect={() => {}} onClose={() => {}} onOpenAll={onOpenAll} />);
+  expect(screen.queryByRole('heading', { name: 'Owned by you' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Open all dashboards' }));
   expect(onOpenAll).toHaveBeenCalledOnce();
+  expect(screen.getByRole('heading', { name: 'Owned by you' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Shared with you' })).toBeInTheDocument();
 });
