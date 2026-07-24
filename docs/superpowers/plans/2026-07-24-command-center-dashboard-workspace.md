@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the empty Command Centre canvas with a functional governed dashboard workspace that opens the default dashboard, discovers authorized dashboards, renders real reports, switches tabs, supports view/edit modes, resizes report placements, and saves layouts.
+**Goal:** Replace the empty Command Centre canvas with a functional free-dashboard skeleton that opens the default dashboard, discovers authorized dashboards, switches tabs, supports view/edit modes, resizes report placements, saves layouts, and remains honest when no reports are configured.
 
-**Architecture:** Keep the existing Command Centre shell and backend dashboard/report contracts. Add a focused workspace controller that loads authorized dashboard definitions and executes referenced reports independently, then compose small discovery, toolbar, canvas, and report-surface components around it. Treat dashboard layouts as staged client state in edit mode and persist through the existing `PUT /v1/dashboards/{dashboardId}/items` endpoint.
+**Architecture:** Keep the existing Command Centre shell and backend dashboard/report contracts. Add a focused workspace controller and compose small discovery, toolbar, canvas, and optional report-surface components around it. Treat layouts as staged client state and persist them through the existing items endpoint; do not create a fixed report set or simulated intelligence to fill the canvas.
 
 **Tech Stack:** React 19, React Router 7, Vitest and Testing Library, existing Catalyst API client, existing MapLibre/deck.gl embedded map component, CSS custom properties and pointer events.
 
@@ -25,12 +25,16 @@
 - Modify `web/src/styles/app.css`: add native Catalyst-aligned dashboard, report, edit, dark, presentation, and responsive styles.
 - Create focused tests beside each new module and extend router/shell/responsive tests.
 
+## Scope Lock
+
+This plan implements the Command Centre skeleton only. It does not select the State Overview report set, implement alert triage or investigation, redesign the full Report Builder, add QuickML, or create sample analytics. An empty dashboard renders explicit report actions without sample metrics, maps, alerts, or AI findings.
+
 ### Task 0: Expose Safe Dashboard Relationship Metadata
 
 **Files:**
 - Modify: `src/backend/reporting/dashboard-service.mjs`
 - Modify: `functions/crime_intelligence_api/app/src/backend/reporting/dashboard-service.mjs`
-- Modify: `tests/backend/reporting-workspaces.test.mjs`
+- Modify: `tests/reporting/dashboard-service.test.mjs`
 
 - [ ] **Step 1: Write failing service tests**
 
@@ -48,7 +52,7 @@ Do not expose share targets or unrelated owner identity.
 
 - [ ] **Step 2: Run the backend test and verify RED**
 
-Run: `npm.cmd test -- tests/backend/reporting-workspaces.test.mjs`
+Run: `node --test tests/reporting/dashboard-service.test.mjs`
 
 Expected: FAIL because dashboard summaries do not contain `relationship`.
 
@@ -67,14 +71,14 @@ Apply the identical tested source change to the deployable function mirror.
 
 - [ ] **Step 4: Run backend regression tests**
 
-Run: `npm.cmd test -- tests/backend/reporting-workspaces.test.mjs tests/backend/api-contract.test.mjs`
+Run: `node --test tests/reporting/dashboard-service.test.mjs tests/backend/api-contract.test.mjs`
 
 Expected: dashboard relationship tests and API contract tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add src/backend/reporting/dashboard-service.mjs functions/crime_intelligence_api/app/src/backend/reporting/dashboard-service.mjs tests/backend/reporting-workspaces.test.mjs
+git add src/backend/reporting/dashboard-service.mjs functions/crime_intelligence_api/app/src/backend/reporting/dashboard-service.mjs tests/reporting/dashboard-service.test.mjs
 git commit -m "feat: classify authorized dashboards"
 ```
 
@@ -278,7 +282,7 @@ git add web/src/features/command-center/CommandCenterDashboardPicker.jsx web/src
 git commit -m "feat: add command center dashboard discovery"
 ```
 
-### Task 4: Render Authentic Governed Reports
+### Task 4: Render Honest Empty and Governed Report States
 
 **Files:**
 - Create: `web/src/features/command-center/CommandCenterReportSurface.jsx`
@@ -288,13 +292,15 @@ git commit -m "feat: add command center dashboard discovery"
 
 - [ ] **Step 1: Write failing report-surface tests**
 
-Cover ready scalar/table/chart/map results, freshness, jurisdiction/time metadata, safe unavailable state, evidence navigation, and edit controls hidden in view mode. Inject a test map component to prove a map report does not affect siblings.
+Cover an empty dashboard with no invented values, ready table/map results when placements exist, freshness, safe unavailable state, evidence navigation, and edit controls hidden in view mode.
 
 ```jsx
 expect(screen.getByRole('heading', { name: 'Crime trend' })).toBeInTheDocument();
 expect(screen.getByText('Updated 2 minutes ago')).toBeInTheDocument();
 expect(screen.queryByRole('button', { name: 'Edit Crime trend report' })).not.toBeInTheDocument();
 expect(screen.getByRole('alert', { name: 'Report unavailable' })).toHaveTextContent('Reference REPORT_FAILED');
+expect(screen.getByText('This dashboard has no reports yet.')).toBeInTheDocument();
+expect(screen.queryByText(/incidents|alerts|hotspots/i)).not.toBeInTheDocument();
 ```
 
 - [ ] **Step 2: Run the focused tests and verify RED**
@@ -309,7 +315,7 @@ Reuse `EmbeddedMapView` for map executions. Render tabular result fields honestl
 
 - [ ] **Step 4: Implement canvas composition**
 
-Use `placementStyle` for absolute placement inside a relative canvas. Filter placements by active tab. Render purposeful states for no dashboard, no tab reports, loading, unauthorized/unavailable, and stale data. Keep each report in an error boundary so a render error is contained.
+Use `placementStyle` for absolute placement inside a relative canvas. Filter placements by active tab. Render purposeful states for no dashboard, no tab reports, loading, unauthorized/unavailable, and stale data. The empty state contains no sample chart or count. Keep each report in an error boundary so a render error is contained.
 
 - [ ] **Step 5: Run report and canvas tests**
 
