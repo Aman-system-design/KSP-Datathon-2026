@@ -25,6 +25,7 @@ export function SignInRequired({ auth }) {
   }, [auth, brand.organizationName]);
 
   return <main className="secure-login">
+    <div className="secure-login__ambient" aria-hidden="true" />
     <section className="secure-login__shell">
       <aside className="secure-login__identity">
         <img src={brand.primaryLogo} alt={`${brand.organizationName} emblem`} />

@@ -36,9 +36,10 @@ describe('platform viewport layout contract', () => {
 
   test('constrains authentication and keeps Catalyst recovery actions reachable', () => {
     expect(appCss).toMatch(/\.secure-login\s*{[^}]*height:\s*100dvh/s);
-    expect(appCss).toMatch(/\.secure-login__shell\s*{[^}]*max-height:\s*calc\(100dvh - 32px\)/s);
+    expect(appCss).toMatch(/\.secure-login__shell\s*{[^}]*max-height:\s*calc\(100dvh - 48px\)/s);
     expect(appCss).toMatch(/\.secure-login__access\s*{[^}]*overflow-y:\s*auto/s);
     expect(catalystAuthCss).toMatch(/html,\s*body\s*{[^}]*height:\s*100%/s);
     expect(catalystAuthCss).toMatch(/body\s*{[^}]*overflow-y:\s*auto/s);
+    expect(catalystAuthCss).not.toMatch(/(?:#forgotpassword|\.bluetext_action|\.fed_div)[^{]*{[^}]*display:\s*none/s);
   });
 });
