@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { governedAppLocation, personaSearch, readRuntime } from './runtime.js';
+import { governedAppLocation, personaSearch, readDemoPersona, readRuntime } from './runtime.js';
 
 const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
 
@@ -17,6 +17,11 @@ test('persona search preserves other parameters and can return to presenter', ()
   expect(personaSearch('?review=1', 'CRIME_ANALYST')).toBe('?review=1&persona=CRIME_ANALYST');
   expect(personaSearch('?review=1&persona=CRIME_ANALYST', null)).toBe('?review=1');
   expect(personaSearch('?persona=STATE_LEADERSHIP', null)).toBe('');
+});
+
+test('command center is an allowlisted client presentation persona', () => {
+  expect(readDemoPersona('?persona=COMMAND_CENTER')).toBe('COMMAND_CENTER');
+  expect(readDemoPersona('?persona=COMMAND%20CENTER')).toBeNull();
 });
 
 test('governed app links preserve only an allowlisted persona and optionally the hash', () => {

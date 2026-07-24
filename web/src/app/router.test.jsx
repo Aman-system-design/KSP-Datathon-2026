@@ -150,6 +150,16 @@ test('demo presenter chooses only from backend-authorized workspaces before ente
   expect(api.get).toHaveBeenCalledTimes(1);
 }, 10000);
 
+test('command center persona verifies the ordinary workspace without intelligence requests', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: { role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 }, personaSwitch: { allowed: true, personas: [] } } };
+    throw new Error(`Unexpected request: ${path}`);
+  }) };
+  render(<MemoryRouter initialEntries={['/?persona=COMMAND_CENTER']}><Application api={api} /></MemoryRouter>);
+  expect(await screen.findByRole('application', { name: 'KSP Command Center' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledTimes(1);
+});
+
 test('authorized workspace lazy-loads Geospatial Studio from the governed catalog', async () => {
   const api = geospatialApi({ datasets: [{
     id: 'hotspots', name: 'Crime hotspots', description: 'Authorized output',

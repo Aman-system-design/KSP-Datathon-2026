@@ -1,0 +1,5 @@
+import { useState } from 'react';
+import { CommandCenterHeader } from './CommandCenterHeader.jsx';
+import { CommandCenterRail } from './CommandCenterRail.jsx';
+import { COMMAND_CENTER_APPEARANCE_KEY, readCommandCenterAppearance, resolveCommandCenterAppearance } from './command-center-appearance.js';
+export function CommandCenterShell() { const [selected, setSelected] = useState('home'); const [appearance, setAppearance] = useState(readCommandCenterAppearance); const [menuOpen, setMenuOpen] = useState(false); const resolved = resolveCommandCenterAppearance(appearance); const change = value => { localStorage.setItem(COMMAND_CENTER_APPEARANCE_KEY, value); setAppearance(value); }; return <div className={`command-center-shell command-center-shell--${resolved}`} data-appearance={resolved} role="application" aria-label="KSP Command Center"><CommandCenterHeader appearance={appearance} menuOpen={menuOpen} onAppearanceChange={change} onMenuToggle={() => setMenuOpen(open => !open)} /><CommandCenterRail selected={selected} onSelect={setSelected} /><main className="command-center-canvas" data-testid="command-center-canvas" /></div>; }

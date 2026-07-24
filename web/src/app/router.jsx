@@ -9,6 +9,7 @@ import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
 import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor.jsx';
 import { AlertPage, AlertsPage } from '../features/alerts/AlertPages.jsx';
 import { CommandCentrePage } from '../features/command-centre/CommandCentrePage.jsx';
+import { CommandCenterShell } from '../features/command-center/CommandCenterShell.jsx';
 import { DashboardLibrary, DashboardPage, RoutedDashboardPage } from '../features/dashboards/DashboardPages.jsx';
 import { GeospatialPage } from '../features/geospatial/GeospatialPage.jsx';
 import { IntelligenceWorkspacePage } from '../features/intelligence/IntelligenceWorkspacePage.jsx';
@@ -56,7 +57,7 @@ export function workspaceDestinationLocation(destination, currentSearch = '') {
   throw new TypeError('An authorized workspace destination is required');
 }
 
-function AuthorizedApplication({ api, auth }) {
+function AuthorizedApplication({ api, auth, requestedPersona }) {
   const location = useLocation();
   const navigate = useNavigate();
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
@@ -69,6 +70,10 @@ function AuthorizedApplication({ api, auth }) {
     return <main className="application-gate"><Failure error={{ code: 'WORKSPACE_CONTRACT_INVALID', requestId: 'CLIENT-WORKSPACE' }} /></main>;
   }
   const workspace = state.data;
+  if (requestedPersona === 'COMMAND_CENTER') {
+    if (workspace.role !== 'DEMO_PRESENTER') return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
+    return <CommandCenterShell />;
+  }
   if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {
     return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading authorized workspaces…" /></main>}>
       <WorkspaceSelector
@@ -105,13 +110,14 @@ function AuthorizedApplication({ api, auth }) {
 export function Application({ api: providedApi }) {
   const location = useLocation();
   const demoPersona = readDemoPersona(location.search);
+  const forwardedPersona = demoPersona === 'COMMAND_CENTER' ? null : demoPersona;
   const runtime = readRuntime();
   const auth = useMemo(() => createCatalystAuth({ authOrigin: runtime.authOrigin }), [runtime.authOrigin]);
   const api = useMemo(() => providedApi ?? createApiClient({
     baseUrl: runtime.apiBase,
-    headers: demoPersona ? { 'X-Demo-Persona': demoPersona } : {},
+    headers: forwardedPersona ? { 'X-Demo-Persona': forwardedPersona } : {},
     tokenProvider: () => auth.accessToken(),
-  }), [providedApi, demoPersona, runtime.apiBase, auth]);
+  }), [providedApi, forwardedPersona, runtime.apiBase, auth]);
   const session = useLoad(
     () => providedApi ? Promise.resolve({ trustedTestApi: true }) : auth.currentUser(),
     [providedApi, auth],
@@ -120,7 +126,7 @@ export function Application({ api: providedApi }) {
   if (session.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity…" /></main>;
   if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) return <SignInRequired auth={auth} />;
   if (session.error) return <main className="application-gate"><Failure error={session.error} /></main>;
-  return <AuthorizedApplication api={api} auth={auth} />;
+  return <AuthorizedApplication api={api} auth={auth} requestedPersona={demoPersona} />;
 }
 
 export { AlertsPage, DashboardPage, Failure, GeospatialPage };

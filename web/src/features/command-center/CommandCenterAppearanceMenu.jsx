@@ -1,0 +1,2 @@
+import { commandCenterAppearances } from './command-center-appearance.js';
+export function CommandCenterAppearanceMenu({ value, onChange }) { return <div className="command-center-appearance" role="radiogroup" aria-label="Appearance"><strong>Appearance</strong>{commandCenterAppearances.map(option => <label key={option}><input type="radio" name="command-center-appearance" checked={value === option} onChange={() => onChange(option)} /><span>{option[0].toUpperCase() + option.slice(1)}</span></label>)}</div>; }

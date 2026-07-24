@@ -1,0 +1,2 @@
+import { commandCenterDestinations } from './command-center-navigation.js';
+export function CommandCenterRail({ selected, onSelect }) { return <nav className="command-center-rail" aria-label="Command Center modules">{commandCenterDestinations.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-label={label} aria-current={selected === id ? 'page' : undefined} onClick={() => onSelect(id)}><Icon aria-hidden="true" /></button>)}</nav>; }
