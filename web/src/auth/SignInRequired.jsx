@@ -35,10 +35,6 @@ export function SignInRequired({ auth }) {
         </div>
       </aside>
       <div className="secure-login__access">
-        <header className="secure-login__access-header">
-          <ShieldCheck aria-hidden="true" />
-          <span>Secure access protected by Catalyst</span>
-        </header>
         <div id="catalystLogin" className="secure-login__catalyst" />
         {failed && <p className="secure-login__error" role="alert">Secure sign in could not be loaded. Refresh the page or contact the platform administrator.</p>}
         <p className="secure-login__managed"><ShieldCheck aria-hidden="true" />Authentication managed by Catalyst</p>

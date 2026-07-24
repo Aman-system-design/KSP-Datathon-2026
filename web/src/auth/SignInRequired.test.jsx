@@ -11,7 +11,7 @@ test('renders embedded Catalyst sign in on the application root', async () => {
   render(<SignInRequired auth={auth} />);
 
   expect(await screen.findByRole('heading', { name: 'Karnataka State Police' })).toBeInTheDocument();
-  expect(screen.getByText('Secure access protected by Catalyst')).toBeInTheDocument();
+  expect(screen.queryByText('Secure access protected by Catalyst')).not.toBeInTheDocument();
   expect(screen.queryByText('Catalyst secure access')).not.toBeInTheDocument();
   expect(screen.queryByText('Identity protected')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Sign in' })).not.toBeInTheDocument();
