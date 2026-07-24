@@ -87,20 +87,36 @@ In edit mode:
 
 **Edit report** opens the same full-width Report Builder used to create reports. It must preserve a return target containing the dashboard, tab, and placement so the user returns to the same context. The builder follows the approved full-space workflow—Data, Visualization, Configure, Style—but its implementation is a separate project.
 
-## Initial System Dashboard
+## Initial Dashboard Content Boundary
 
-The initial **State Crime Intelligence Overview** is a system dashboard assembled only from governed report definitions and available data. Its recommended report set is:
+The first implementation delivers the dashboard platform skeleton, not a committee-selected fixed dashboard. The default dashboard may be empty or contain only already-governed reports returned by the backend. The final report composition for **State Crime Intelligence Overview** will be designed and approved separately against the Challenge 02 jury journey.
 
-1. statewide crime pulse and change from an approved baseline;
-2. interactive hotspot and cluster map using Karnataka geography;
-3. crime trend with seasonal or expected-baseline comparison;
-4. crime-category composition and movement;
-5. district comparison and emerging-risk movement;
-6. AI-detected patterns and anomalies with confidence and evidence;
-7. priority alert stream with severity, jurisdiction, and freshness; and
-8. predictive watchlist where an approved predictive output exists.
+The skeleton must make an empty dashboard useful by providing authorized actions to add an existing report, open the report library, or create a report. It must not fill space with sample KPIs, decorative charts, placeholder maps, invented alerts, or canned AI findings.
 
-Unavailable data must produce an honest empty or unavailable state. The UI must never fabricate a metric, confidence score, district result, or live status. Alerts on the dashboard are a prioritized report; the left-rail Alerts destination remains the complete alert workspace.
+## Challenge 02 Alignment Guardrails
+
+Platform flexibility is a product advantage, but dashboard configurability is not itself Challenge 02 proof. The Command Centre must remain capable of hosting the required evidence-linked crime-intelligence journey without pretending that layout features satisfy analytical requirements.
+
+The following rules apply to all future dashboard content:
+
+- every analytical value comes from an authorized API result;
+- significant findings retain method, version, period, limitations, and evidence references;
+- hotspot, anomaly, pattern, network, repeat-identity, correlation, and area-risk reports remain drillable to their governed evidence;
+- synthetic provenance remains visible;
+- no report implies that similarity is guilt or that correlation is causation;
+- alert actions preserve the original system finding and record human conclusions separately; and
+- report, dashboard, and wall-display reuse never breaks viewer scope.
+
+The flagship Challenge 02 journey is implemented as reports and investigations on this platform after the free canvas is stable. It is not replaced by the canvas.
+
+## Alerts and Investigation Direction
+
+Alerts have two connected experiences.
+
+1. **Quick triage panel:** selecting an alert from the header, left rail, or dashboard report opens a contextual panel without discarding the dashboard. It shows severity, status, jurisdiction, observation period, why it was raised, evidence count, assignment, freshness, and safe actions supported by the user's permission.
+2. **Full investigation workspace:** **Investigate fully** opens the dedicated evidence workspace for synchronized map, timeline, contributing FIRs, network links, method/confidence/limitations, notes, analyst conclusion, assignment, outcome, and audit history.
+
+The triage panel never attempts to compress a complete investigation into the dashboard. It preserves a return target so closing or completing investigation returns the user to the same dashboard and tab. Alert implementation is documented here for platform continuity but is not part of the initial free-canvas skeleton build.
 
 ## Authentic Visual Design
 
@@ -180,9 +196,9 @@ The first real in-app prototype covers:
 - default dashboard loading;
 - left-rail dashboard discovery panel;
 - collapsible dashboard tabs;
-- authentic governed report rendering using existing components and data;
+- honest empty-dashboard behavior and governed report rendering when reports exist;
 - view and edit modes;
 - free placement and resizing with staged save/cancel behavior; and
 - Analytical and Command-wall presentation density.
 
-The complete dashboard library, dashboard sharing administration, and full Report Builder implementation are follow-on projects. The Command Centre may link to existing routes or explicit not-yet-available states for those capabilities until their dedicated designs are implemented.
+The complete dashboard library, dashboard sharing administration, full Report Builder implementation, alert triage panel, and full investigation workspace are follow-on projects. The Command Centre may link to existing routes or explicit not-yet-available states for those capabilities until their dedicated designs are implemented.
