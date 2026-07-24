@@ -16,7 +16,8 @@ test('renders an honest empty dashboard with creation paths', () => {
 
 test('keeps the unselected canvas addressable for workspace status', () => {
   render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={null} /></MemoryRouter>);
-  expect(screen.getByTestId('command-center-canvas')).toHaveTextContent('No dashboard selected');
+  expect(screen.getByTestId('command-center-canvas')).toHaveTextContent('Intelligence Workspace');
+  expect(screen.getByTestId('command-center-canvas')).toHaveTextContent('Create or open a dashboard to compose your operational intelligence view.');
 });
 
 test('places only reports belonging to the active tab', () => {

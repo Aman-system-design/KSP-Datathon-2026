@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { CommandCenterHeader } from './CommandCenterHeader.jsx';
 import { CommandCenterRail } from './CommandCenterRail.jsx';
 import { CommandCenterDashboardWorkspace } from './CommandCenterDashboardWorkspace.jsx';
+import { CommandCenterDashboardLibrary } from './CommandCenterDashboardLibrary.jsx';
 import { COMMAND_CENTER_APPEARANCE_KEY, readCommandCenterAppearance, resolveCommandCenterAppearance } from './command-center-appearance.js';
 
-export function CommandCenterShell({ api, workspace, personas = [], onPersonaSelect = () => {}, onAllWorkspaces = () => {}, onOpenAllDashboards = () => {} }) {
+export function CommandCenterShell({ api, workspace, personas = [], view = 'canvas', createMode = false, requestedDashboardId = null, onPersonaSelect = () => {}, onAllWorkspaces = () => {}, onOpenAllDashboards = () => {}, onCreateDashboard = () => {}, onOpenDashboard = () => {}, onDashboardCreated = () => {}, onCancelCreate = () => {} }) {
   const [selected, setSelected] = useState('home');
   const [appearance, setAppearance] = useState(readCommandCenterAppearance);
   const [openMenu, setOpenMenu] = useState(null);
@@ -20,6 +21,9 @@ export function CommandCenterShell({ api, workspace, personas = [], onPersonaSel
   return <div className={`command-center-shell command-center-shell--${resolved}`} data-appearance={resolved} role="application" aria-label="KSP Command Center">
     <CommandCenterHeader appearance={appearance} personas={personas} accountOpen={openMenu === 'account'} settingsOpen={openMenu === 'settings'} onAccountToggle={() => setOpenMenu(current => current === 'account' ? null : 'account')} onSettingsToggle={() => setOpenMenu(current => current === 'settings' ? null : 'settings')} onAppearanceChange={changeAppearance} onPersonaSelect={selectPersona} onAllWorkspaces={showAllWorkspaces} />
     <CommandCenterRail selected={selected} onSelect={setSelected} onDashboardOpen={() => setDashboardsOpen(true)} />
-    {api && workspace ? <CommandCenterDashboardWorkspace api={api} workspace={workspace} pickerOpen={dashboardsOpen} onPickerClose={() => setDashboardsOpen(false)} onOpenAll={onOpenAllDashboards} /> : <main className="command-center-canvas" data-testid="command-center-canvas" />}
+    {api && workspace ? view === 'library'
+      ? <CommandCenterDashboardLibrary api={api} dashboards={workspace.availableDashboards ?? []} createMode={createMode} onOpen={onOpenDashboard} onCreateMode={onCreateDashboard} onCreated={onDashboardCreated} onCancelCreate={onCancelCreate} />
+      : <CommandCenterDashboardWorkspace api={api} workspace={workspace} requestedDashboardId={requestedDashboardId} pickerOpen={dashboardsOpen} onPickerClose={() => setDashboardsOpen(false)} onOpenAll={onOpenAllDashboards} onCreate={onCreateDashboard} />
+      : <main className="command-center-canvas" data-testid="command-center-canvas" />}
   </div>;
 }

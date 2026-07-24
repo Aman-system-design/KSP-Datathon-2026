@@ -203,6 +203,14 @@ The first real in-app prototype covers:
 
 The complete dashboard library, dashboard sharing administration, full Report Builder implementation, alert triage panel, and full investigation workspace are follow-on projects. The Command Centre may link to existing routes or explicit not-yet-available states for those capabilities until their dedicated designs are implemented.
 
+## Approved Dashboard Library and Empty Workspace Refinement
+
+The Dashboard drawer is discovery only. Its header includes a compact **+ New dashboard** action. Selecting that action closes the drawer and opens the full Dashboard Library page in create mode; the drawer never owns a naming dialog. **Open all dashboards** opens the same full Dashboard Library in browse mode, including when the authorized dashboard list is empty.
+
+The full Dashboard Library owns dashboard naming and creation. After a successful create, the new private dashboard opens in the Command Centre canvas. The page preserves the governed `COMMAND_CENTER` persona and any release query parameter while navigating.
+
+Dashboard-scoped toolbar controls are absent until a dashboard exists. The empty canvas is titled **Intelligence Workspace** and says **Create or open a dashboard to compose your operational intelligence view.**
+
 ## Approved Toolbar Density Refinement
 
 The dashboard workspace must not repeat the generic “Command Centre” label above the canvas. The utility strip remains because dashboard tabs, edit mode, and presentation mode are dashboard-scoped controls, but it is reduced from 46 pixels to 34 pixels. Controls are right-aligned, 26 pixels high, and use compact spacing. A real selected dashboard name may appear only when it adds context; the empty workspace shows no redundant title.

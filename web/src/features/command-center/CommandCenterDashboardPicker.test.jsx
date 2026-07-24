@@ -21,6 +21,7 @@ test('searches authorized dashboards and selects one in place', () => {
 
 test('opens the complete dashboard library', () => {
   const onOpenAll = vi.fn();
+  const onClose = vi.fn();
   render(<CommandCenterDashboardPicker open dashboards={[
     { id: 'D-1', name: 'Recent board', relationship: 'SYSTEM' },
     { id: 'D-2', name: 'Owned board', relationship: 'OWNED' },
@@ -28,10 +29,21 @@ test('opens the complete dashboard library', () => {
     { id: 'D-4', name: 'System board', relationship: 'SYSTEM' },
     { id: 'D-5', name: 'Another board', relationship: 'SYSTEM' },
     { id: 'D-6', name: 'Older owned board', relationship: 'OWNED' },
-  ]} onSelect={() => {}} onClose={() => {}} onOpenAll={onOpenAll} />);
+  ]} onSelect={() => {}} onClose={onClose} onOpenAll={onOpenAll} />);
   expect(screen.queryByRole('heading', { name: 'Owned by you' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Open all dashboards' }));
   expect(onOpenAll).toHaveBeenCalledOnce();
-  expect(screen.getByRole('heading', { name: 'Owned by you' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Shared with you' })).toBeInTheDocument();
+  expect(onClose).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('heading', { name: 'Owned by you' })).not.toBeInTheDocument();
+});
+
+test('opens the full dashboard page in create mode', () => {
+  const onCreate = vi.fn();
+  const onClose = vi.fn();
+  render(<CommandCenterDashboardPicker open dashboards={[]} onSelect={() => {}} onClose={onClose} onOpenAll={() => {}} onCreate={onCreate} />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'New dashboard' }));
+
+  expect(onCreate).toHaveBeenCalledOnce();
+  expect(onClose).toHaveBeenCalledOnce();
 });

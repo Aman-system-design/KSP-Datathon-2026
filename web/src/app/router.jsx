@@ -57,6 +57,15 @@ export function workspaceDestinationLocation(destination, currentSearch = '') {
   throw new TypeError('An authorized workspace destination is required');
 }
 
+export function commandCenterDashboardLocation(currentSearch = '', { mode = 'canvas', dashboardId } = {}) {
+  const params = new URLSearchParams(personaSearch(currentSearch, 'COMMAND_CENTER'));
+  params.delete('create');
+  params.delete('dashboard');
+  if (mode === 'create') params.set('create', '1');
+  if (dashboardId) params.set('dashboard', dashboardId);
+  return Object.freeze({ pathname: mode === 'canvas' ? '/' : '/dashboards', search: `?${params.toString()}` });
+}
+
 function AuthorizedApplication({ api, auth, requestedPersona }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -75,9 +84,17 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     return <CommandCenterShell
       api={api}
       workspace={workspace}
+      view={location.pathname === '/dashboards' ? 'library' : 'canvas'}
+      createMode={new URLSearchParams(location.search).get('create') === '1'}
+      requestedDashboardId={new URLSearchParams(location.search).get('dashboard')}
       personas={workspace.personaSwitch?.personas ?? []}
       onPersonaSelect={role => navigate(workspaceDestinationLocation({ type: 'persona', role }, location.search))}
       onAllWorkspaces={() => navigate({ pathname: '/', search: personaSearch(location.search, null) })}
+      onOpenAllDashboards={() => navigate(commandCenterDashboardLocation(location.search, { mode: 'browse' }))}
+      onCreateDashboard={() => navigate(commandCenterDashboardLocation(location.search, { mode: 'create' }))}
+      onOpenDashboard={dashboardId => navigate(commandCenterDashboardLocation(location.search, { dashboardId }))}
+      onDashboardCreated={dashboardId => navigate(commandCenterDashboardLocation(location.search, { dashboardId }))}
+      onCancelCreate={() => navigate(commandCenterDashboardLocation(location.search, { mode: 'browse' }))}
     />;
   }
   if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {

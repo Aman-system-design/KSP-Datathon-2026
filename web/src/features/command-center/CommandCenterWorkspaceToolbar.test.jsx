@@ -14,9 +14,9 @@ test('keeps dashboard tabs collapsed until requested', () => {
   expect(onTab).toHaveBeenCalledWith('risk');
 });
 
-test('disables dashboard actions until an authorized dashboard is selected', () => {
+test('hides dashboard actions until an authorized dashboard is selected', () => {
   render(<CommandCenterWorkspaceToolbar dashboard={null} />);
   expect(screen.queryByText(/Command Cent(?:er|re)/)).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Edit dashboard' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Present' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Edit dashboard' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Present' })).not.toBeInTheDocument();
 });

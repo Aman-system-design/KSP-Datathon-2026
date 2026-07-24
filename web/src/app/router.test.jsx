@@ -3,7 +3,12 @@ import { lazy } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { AlertsPage, Application, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
+import { AlertsPage, Application, commandCenterDashboardLocation, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
+
+test('preserves release and persona across command center dashboard routes', () => {
+  expect(commandCenterDashboardLocation('?release=abc&persona=COMMAND_CENTER', { mode: 'create' })).toEqual({ pathname: '/dashboards', search: '?release=abc&persona=COMMAND_CENTER&create=1' });
+  expect(commandCenterDashboardLocation('?release=abc&persona=COMMAND_CENTER&create=1', { dashboardId: 'D-9' })).toEqual({ pathname: '/', search: '?release=abc&persona=COMMAND_CENTER&dashboard=D-9' });
+});
 
 test('failure state exposes a safe boundary code without requiring a server request id', () => {
   render(<Failure error={{ code: 'AUTH_SESSION_FAILED' }} />);

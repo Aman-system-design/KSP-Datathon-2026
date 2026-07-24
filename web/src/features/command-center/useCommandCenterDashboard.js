@@ -23,8 +23,8 @@ function executedItem(item, result) {
   };
 }
 
-export function useCommandCenterDashboard({ api, workspace }) {
-  const initialId = workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
+export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null }) {
+  const initialId = requestedDashboardId ?? workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState(initialId);
   const [dashboard, setDashboard] = useState(null);
   const [persistedItems, setPersistedItems] = useState([]);
