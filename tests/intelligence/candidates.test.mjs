@@ -48,6 +48,19 @@ test('common crime labels alone never create a quadratic Pattern Fusion bucket',
   assert.equal(result.diagnostics.candidatePairCount, 0);
 });
 
+test('common legal provisions never create a quadratic Pattern Fusion bucket', () => {
+  const features = Array.from({ length: 1000 }, (_, index) => ({
+    caseId: `LEGAL-${index}`, eligible: true,
+    latitude: -60 + Math.floor(index / 300) * 30,
+    longitude: -150 + (index % 300),
+    incidentAt: '2026-01-01T00:00:00.000Z',
+    acts: ['ACT-BNS'], sections: ['SECTION-303'], accused: [],
+  }));
+
+  const result = patternCandidatePairs(features, { maximumDays: 180, spatialRadiusKm: 50 });
+  assert.ok(result.diagnostics.candidatePairCount < 10_000);
+});
+
 test('spatial pattern candidates are partitioned by the observation window', () => {
   const features = [
     { caseId: 'OLD', latitude: 12.97, longitude: 77.59, incidentAt: '2020-01-01T00:00:00.000Z', eligible: true },

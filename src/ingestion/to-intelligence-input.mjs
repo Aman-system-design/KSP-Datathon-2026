@@ -15,18 +15,22 @@ function canonicalPersonId(sourceId) {
   const range = identityAuthority.ranges.find(({ minimum, maximum }) => numeric >= minimum && numeric <= maximum);
   if (!range) throw new Error(`Synthetic identity authority is missing accused ${sourceId}.`);
   if (range.constant) return range.constant;
-  const value = numeric - range.sourceBase + range.canonicalOffset;
+  const offset = range.groupSize
+    ? Math.floor((numeric - range.sourceBase) / range.groupSize)
+    : numeric - range.sourceBase;
+  const value = offset + range.canonicalOffset;
   return `${range.prefix}${String(value).padStart(range.width, '0')}`;
 }
 
 function appearanceId(sourceId) {
   const id = Number(sourceId);
-  if (id >= 410000001 && id <= 410000999) return `APP-${pad(id - 410000000)}`;
+  if (id >= 410000001 && id <= 410050000) return `APP-${pad(id - 410000000)}`;
   if (id === 420007001) return 'APP-007-A';
   if (id === 420007002) return 'APP-007-B';
   if (id === 430000001) return 'APP-FALSE-A';
   if (id === 430000002) return 'APP-FALSE-B';
-  if (id >= 440000001 && id <= 440000999) return `APP-NET-${pad(id - 440000000)}`;
+  if (id >= 440000001 && id <= 440000050) return `APP-NET-${pad(id - 440000000)}`;
+  if (id >= 440000101 && id <= 440000140) return `APP-PATTERN-${pad(id - 440000000)}`;
   return `APP-ACC-${id}`;
 }
 

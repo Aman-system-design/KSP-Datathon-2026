@@ -11,16 +11,25 @@
   "ranges": [
     {
       "minimum": 410000001,
-      "maximum": 410000999,
+      "maximum": 410050000,
       "sourceBase": 410000000,
       "canonicalOffset": 100,
       "prefix": "PERSON-",
-      "width": 3
+      "width": 6
     },
     {
       "minimum": 440000001,
-      "maximum": 440000999,
+      "maximum": 440000050,
       "constant": "PERSON-008"
+    },
+    {
+      "minimum": 440000101,
+      "maximum": 440000140,
+      "sourceBase": 440000101,
+      "groupSize": 10,
+      "canonicalOffset": 1,
+      "prefix": "PERSON-PATTERN-",
+      "width": 1
     }
   ]
 }

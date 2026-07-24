@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { buildCrimeIdentity, formatKarnatakaDateTime } from '../ingestion/pdf-semantic-rules.mjs';
+import { generateStatewideSourceSeed } from './statewide-source-seed.mjs';
 
 const canonicalInput = JSON.parse(readFileSync(
   new URL('../../fixtures/intelligence/demo-input.json', import.meta.url),
@@ -31,7 +32,15 @@ const accusedMasterId = (appearanceId) => {
   throw new Error(`unsupported synthetic appearance id ${appearanceId}`);
 };
 
-export function generateSourceSeed(seed = 20260720) {
+export function generateSourceSeed(input = 20260720) {
+  if (input && typeof input === 'object') {
+    const options = { seed: 20260720, caseCount: 50, profile: 'smoke', ...input };
+    if (options.profile === 'statewide' || options.caseCount > 50) {
+      return generateStatewideSourceSeed(options);
+    }
+    input = options.seed;
+  }
+  const seed = input;
   const serialByCase = new Map();
   const counters = new Map();
   const orderedCases = [...canonicalInput.cases].sort((left, right) => (

@@ -24,7 +24,7 @@ Run:
 ```powershell
 git status --short
 npm.cmd test -- --test-name-pattern="seed|report"
-npm.cmd run web:test -- --run web/src/features/reports/ReportBuilder.test.jsx
+npm.cmd run web:test -- src/features/reports/ReportBuilder.test.jsx
 ```
 
 Expected: existing tests pass; the three known unrelated working-tree files remain untouched.
@@ -376,7 +376,7 @@ Test keyboard-accessible tabs for My, Shared, Role, and Organization; search; cr
 - [ ] **Step 2: Run focused web tests and confirm failure**
 
 ```powershell
-npm.cmd run web:test -- --run web/src/features/reports/ReportBuilder.test.jsx web/src/features/reports/ReportLibrary.test.jsx
+npm.cmd run web:test -- src/features/reports/ReportBuilder.test.jsx src/features/reports/ReportLibrary.test.jsx
 ```
 
 - [ ] **Step 3: Implement one reducer/state module**

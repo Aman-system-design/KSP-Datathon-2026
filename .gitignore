@@ -7,6 +7,7 @@ tmp/
 artifacts/catalyst-schema-export/
 artifacts/intelligence/
 artifacts/source-seed/
+artifacts/source-seed-statewide/
 artifacts/catalyst-development/
 functions/**/node_modules/
 .build/

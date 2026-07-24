@@ -88,7 +88,8 @@ export function patternCandidatePairs(features, { maximumDays = 180, spatialRadi
     buckets.get(key).push(index);
   };
 
-  const evidence = new Map();
+  const maximumLegalBucketSize = 200;
+  const evidenceMembers = new Map();
   for (let index = 0; index < eligible.length; index += 1) {
     const row = eligible[index];
     const keys = [
@@ -96,7 +97,17 @@ export function patternCandidatePairs(features, { maximumDays = 180, spatialRadi
       ...(row.sections ?? []).map(value => `section:${value}`),
       ...(row.accused ?? []).flatMap(person => person.personId ? [`person:${person.personId}`] : []),
     ];
-    for (const key of new Set(keys)) addBucket(evidence, key, index);
+    for (const key of new Set(keys)) {
+      if (!evidenceMembers.has(key)) evidenceMembers.set(key, []);
+      evidenceMembers.get(key).push(index);
+    }
+  }
+  for (const [key, members] of evidenceMembers) {
+    const commonLegalProvision = (key.startsWith('act:') || key.startsWith('section:'))
+      && members.length > maximumLegalBucketSize;
+    if (commonLegalProvision) continue;
+    const bucket = new Map();
+    for (const index of members) addBucket(bucket, key, index);
   }
   for (const [left, right] of spatialCandidatePairs(eligible, { radiusKm: spatialRadiusKm, maximumDays }).pairs) {
     addPair(indexes.get(left), indexes.get(right));
