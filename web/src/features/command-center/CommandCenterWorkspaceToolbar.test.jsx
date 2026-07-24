@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { CommandCenterWorkspaceToolbar } from './CommandCenterWorkspaceToolbar.jsx';
+
+afterEach(cleanup);
 
 test('keeps dashboard tabs collapsed until requested', () => {
   const onTab = vi.fn();
@@ -10,4 +12,10 @@ test('keeps dashboard tabs collapsed until requested', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Overview dashboard tab' }));
   fireEvent.click(screen.getByRole('menuitem', { name: 'Risk' }));
   expect(onTab).toHaveBeenCalledWith('risk');
+});
+
+test('disables dashboard actions until an authorized dashboard is selected', () => {
+  render(<CommandCenterWorkspaceToolbar dashboard={null} />);
+  expect(screen.getByRole('button', { name: 'Edit dashboard' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Present' })).toBeDisabled();
 });

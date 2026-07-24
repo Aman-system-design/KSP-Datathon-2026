@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { CommandCenterDashboardCanvas } from './CommandCenterDashboardCanvas.jsx';
+
+afterEach(cleanup);
 
 test('renders an honest empty dashboard with creation paths', () => {
   render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={{ id: 'D-1', tabs: [{ id: 'overview', items: [] }] }} activeTab="overview" /></MemoryRouter>);
@@ -10,6 +12,11 @@ test('renders an honest empty dashboard with creation paths', () => {
   expect(screen.getByRole('link', { name: 'Open report library' })).toHaveAttribute('href', '/reports');
   expect(screen.getByRole('link', { name: 'Create report' })).toHaveAttribute('href', '/reports/new');
   expect(screen.queryByText(/incident count|hotspot|priority alert/i)).not.toBeInTheDocument();
+});
+
+test('keeps the unselected canvas addressable for workspace status', () => {
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={null} /></MemoryRouter>);
+  expect(screen.getByTestId('command-center-canvas')).toHaveTextContent('No dashboard selected');
 });
 
 test('places only reports belonging to the active tab', () => {

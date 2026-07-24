@@ -7,7 +7,7 @@ import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {} }) {
   const tab = dashboard?.tabs?.find(item => item.id === activeTab) ?? dashboard?.tabs?.[0];
   const items = tab?.items ?? [];
-  if (!dashboard) return <main className="command-center-dashboard-canvas"><div className="command-center-dashboard-empty"><strong>No dashboard selected</strong><span>Open Dashboards from the left rail to choose an authorized workspace.</span></div></main>;
+  if (!dashboard) return <main className="command-center-dashboard-canvas" data-testid="command-center-canvas"><div className="command-center-dashboard-empty"><strong>No dashboard selected</strong><span>Open Dashboards from the left rail to choose an authorized workspace.</span></div></main>;
   const stage = (target, changes) => onStage((dashboard.items ?? items).map(item => item.id === target.id ? { ...item, ...changes(item) } : item));
   const controls = item => <div className="command-center-placement-controls" aria-label={`Arrange ${item.title}`}>
     <button type="button" aria-label={`Move ${item.title} left`} disabled={item.column <= 1} onClick={() => stage(item, value => ({ column: Math.max(1, value.column - 1) }))}><ArrowLeft aria-hidden="true" /></button>

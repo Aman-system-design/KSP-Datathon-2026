@@ -8,9 +8,9 @@ export function CommandCenterWorkspaceToolbar({ dashboard, activeTab = 'overview
   return <header className="command-center-workspace-toolbar">
     <div className="command-center-workspace-title"><strong>{dashboard?.name ?? 'Command Centre'}</strong>{dashboard?.defaultRole ? <span>Default</span> : null}</div>
     <div className="command-center-workspace-actions">
-      <div className="command-center-tab-control"><button type="button" aria-label={`${active?.name ?? 'Overview'} dashboard tab`} aria-expanded={tabsOpen} onClick={() => setTabsOpen(open => !open)}>{active?.name ?? 'Overview'}<ChevronDown aria-hidden="true" /></button>{tabsOpen ? <div role="menu" aria-label="Dashboard tabs">{tabs.map(tab => <button role="menuitem" type="button" key={tab.id} onClick={() => { onTab(tab.id); setTabsOpen(false); }}>{tab.name}</button>)}</div> : null}</div>
-      {editing ? <><button type="button" onClick={onCancel}>Cancel</button><button className="primary" type="button" disabled={saving} onClick={onSave}>{saving ? 'Saving…' : 'Save'}</button></> : <button type="button" onClick={onEdit}>Edit dashboard</button>}
-      <button type="button" onClick={onPresent}><Maximize2 aria-hidden="true" />Present</button>
+      <div className="command-center-tab-control"><button type="button" disabled={!dashboard} aria-label={`${active?.name ?? 'Overview'} dashboard tab`} aria-expanded={tabsOpen} onClick={() => setTabsOpen(open => !open)}>{active?.name ?? 'Overview'}<ChevronDown aria-hidden="true" /></button>{tabsOpen ? <div role="menu" aria-label="Dashboard tabs">{tabs.map(tab => <button role="menuitem" type="button" key={tab.id} onClick={() => { onTab(tab.id); setTabsOpen(false); }}>{tab.name}</button>)}</div> : null}</div>
+      {editing ? <><button type="button" onClick={onCancel}>Cancel</button><button className="primary" type="button" disabled={saving} onClick={onSave}>{saving ? 'Saving…' : 'Save'}</button></> : <button type="button" disabled={!dashboard} onClick={onEdit}>Edit dashboard</button>}
+      <button type="button" disabled={!dashboard} onClick={onPresent}><Maximize2 aria-hidden="true" />Present</button>
     </div>
   </header>;
 }
