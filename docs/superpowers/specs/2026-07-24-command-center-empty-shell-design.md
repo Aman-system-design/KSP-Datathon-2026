@@ -19,8 +19,8 @@ The shell follows the supplied reference image:
 
 - a white horizontal header with the KSP emblem;
 - “Karnataka State Police” and “Analytics · Crime · Enforcement” identity text;
-- a centered, disabled search field reading “Search is available after governed indexing”;
-- notification, user-avatar, and team controls on the right;
+- an unlabeled search control aligned on the right side of the header immediately before the user-avatar and notification controls;
+- user-avatar, notification, and team controls on the right;
 - a narrow navy left rail with Home, Analytics, Alerts, Map, Network, Reports, and Apps icons;
 - Home selected by default; and
 - a completely empty content canvas.
@@ -37,7 +37,7 @@ The shell must not show cards, prompts, metrics, alerts, sample content, loading
 - Selecting a rail item updates its selected state, but the canvas remains empty until that destination is implemented in a later approved slice.
 - Clicking the avatar opens an account menu containing Light, Dark, and System appearance choices.
 - Appearance preference persists in browser-local storage.
-- Search remains disabled until governed indexing is connected.
+- Search is present without placeholder copy and remains disabled until its behavior is defined in a later approved slice.
 - Notification and team controls remain disabled and expose no invented counts or activity.
 - The shell performs no intelligence API requests.
 - Invalid or unauthorized persona access continues through the existing authentication and authorization boundary.
