@@ -4,7 +4,7 @@
 .platform-identity { display: flex; align-items: center; gap: 11px; min-width: 276px; }
 .platform-identity > span { display: grid; line-height: 1.2; }
 .platform-identity strong { font-size: 15px; letter-spacing: -.01em; }
-.platform-identity small { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.platform-identity small { margin-top: 3px; color: var(--muted); font-size: 11px; }
 .organization-brand { display: flex; align-items: center; gap: 12px; }
 .organization-brand > img { width: 54px; height: 54px; object-fit: contain; }
 .organization-brand__copy { display: grid; gap: 3px; }
