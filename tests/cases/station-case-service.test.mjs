@@ -5,6 +5,8 @@ import {
   ageInDays,
   ageingBucket,
   createStationCaseService,
+  karnatakaCalendarAgeDays,
+  karnatakaIncidentHour,
 } from '../../src/backend/cases/station-case-service.mjs';
 import { MemoryIntelligenceRepository } from '../../src/backend/repository/memory-repository.mjs';
 
@@ -39,7 +41,7 @@ test('station case list returns only authorized units with deterministic ageing'
     [{ caseId: 'CASE-1', ageDays: 6, ageingBucket: '0–7 days' }],
   );
   assert.equal(result.data.items[0].registeredAgeDays, 6);
-  assert.equal(result.data.items[0].incidentHour, 22);
+  assert.equal(result.data.items[0].incidentHour, 3);
 });
 
 test('station analytics derive provenance from synthetic, operational, mixed, and empty rows', async () => {
@@ -70,7 +72,7 @@ test('case list and detail require the dedicated case-read action', async () => 
   await assert.rejects(service.get({ access: denied, caseId: 'CASE-1' }), { code: 'FORBIDDEN_ACTION' });
 });
 
-test('ageing boundaries use whole elapsed UTC days', () => {
+test('ageing boundaries use Karnataka civil calendar days', () => {
   const current = new Date('2026-07-26T12:30:00Z');
   const expected = [
     [7, '0–7 days'],
@@ -85,7 +87,7 @@ test('ageing boundaries use whole elapsed UTC days', () => {
     assert.equal(ageInDays(registeredAt, current), days);
     assert.equal(ageingBucket(days), bucket);
   }
-  assert.equal(ageInDays('2026-07-25T13:00:00Z', current), 0);
+  assert.equal(ageInDays('2026-07-25T13:00:00Z', current), 1);
 });
 
 test('age calculation clamps future dates and handles invalid dates safely', () => {
@@ -94,6 +96,24 @@ test('age calculation clamps future dates and handles invalid dates safely', () 
   assert.equal(ageInDays('not-a-date', current), 0);
   assert.equal(ageInDays(undefined, current), 0);
   assert.equal(ageInDays('2026-07-20T00:00:00Z', new Date('invalid')), 0);
+});
+
+test('Karnataka incident hour interprets zone-less civil time and converts zoned instants', () => {
+  assert.equal(karnatakaIncidentHour('2026-07-19T22:15:00'), 22);
+  assert.equal(karnatakaIncidentHour('2026-07-19T22:15:00.123456'), 22);
+  assert.equal(karnatakaIncidentHour('2026-07-19T22:15:00+05:30'), 22);
+  assert.equal(karnatakaIncidentHour('2026-07-19T20:45:00Z'), 2);
+  assert.equal(karnatakaIncidentHour('invalid'), null);
+});
+
+test('Karnataka registration age uses civil calendar days independent of timestamp zone', () => {
+  const now = '2026-07-31T20:00:00Z'; // 1 August in Karnataka.
+  assert.equal(karnatakaCalendarAgeDays('2026-07-02T23:59:59', now), 30);
+  assert.equal(karnatakaCalendarAgeDays('2026-07-02T23:59:59+05:30', now), 30);
+  assert.equal(karnatakaCalendarAgeDays('2026-07-02T18:29:59Z', now), 30);
+  assert.equal(karnatakaCalendarAgeDays('2026-07-02T18:30:00Z', now), 29);
+  assert.equal(karnatakaCalendarAgeDays('2026-08-02T00:00:00', now), 0);
+  assert.equal(karnatakaCalendarAgeDays('invalid', now), null);
 });
 
 test('invalid source dates remain unavailable for report filters and incident grouping', async () => {

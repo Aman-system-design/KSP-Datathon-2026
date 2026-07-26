@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { STATION_LAYOUT, STATION_REPORTS } from './station-dashboard-template.js';
+import { createStationReports, STATION_LAYOUT, STATION_REPORTS } from './station-dashboard-template.js';
 
 const approvedFields = {
   alerts: new Set(['state', 'recordCount']),
@@ -110,5 +110,19 @@ describe('station dashboard template', () => {
     expect(() => { STATION_LAYOUT[0].width = 12; }).toThrow(TypeError);
     expect(STATION_REPORTS[0].filters[0].value).toBe(true);
     expect(STATION_LAYOUT[0].width).toBe(3);
+  });
+
+  test('creates immutable selected-period definitions for approved period options', () => {
+    const periods = [7, 30, 90].map(periodDays => createStationReports({ periodDays }));
+    expect(periods.map(reports => reports[2].name)).toEqual([
+      'New Cases · Last 7 Days', 'New Cases · Last 30 Days', 'New Cases · Last 90 Days',
+    ]);
+    expect(periods.map(reports => reports[2].filters[0].value)).toEqual([7, 30, 90]);
+    expect(periods[0][2].description).toMatch(/active selected 7-day period/i);
+    expect(Object.isFrozen(periods[0][2].filters[0])).toBe(true);
+    expect(STATION_REPORTS[2]).toEqual(periods[1][2]);
+    for (const periodDays of [0, 14, 365, '30', null]) {
+      expect(() => createStationReports({ periodDays })).toThrow(TypeError);
+    }
   });
 });

@@ -2,6 +2,7 @@ import { fail } from '../services/errors.mjs';
 import { provenanceFields } from '../services/result-provenance.mjs';
 
 const DAY_MS = 86_400_000;
+const KARNATAKA_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const ANALYTICS_LIMIT = 5000;
 const OPEN_LIFECYCLE_STATUSES = new Set([
   'under investigation',
@@ -10,30 +11,60 @@ const OPEN_LIFECYCLE_STATUSES = new Set([
   'synthetic chargesheet filed',
 ]);
 
-const instant = (value) => {
+const KARNATAKA_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?)?$/u;
+const KARNATAKA_CIVIL = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+});
+
+function karnatakaInstant(value) {
   if (value === null || value === undefined || value === '') return Number.NaN;
-  const milliseconds = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return Number.isFinite(value) ? value : Number.NaN;
+  if (typeof value !== 'string') return Number.NaN;
+  const civil = value.match(KARNATAKA_TIMESTAMP);
+  if (civil) {
+    const [year, month, day, hour = '0', minute = '0', second = '0', fraction = '0'] = civil.slice(1);
+    const milliseconds = Date.UTC(
+      Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second),
+      Number(fraction.slice(0, 3).padEnd(3, '0')),
+    );
+    const check = new Date(milliseconds);
+    if (check.getUTCFullYear() !== Number(year) || check.getUTCMonth() !== Number(month) - 1
+      || check.getUTCDate() !== Number(day) || check.getUTCHours() !== Number(hour)
+      || check.getUTCMinutes() !== Number(minute) || check.getUTCSeconds() !== Number(second)) return Number.NaN;
+    return milliseconds - KARNATAKA_OFFSET_MS;
+  }
+  const milliseconds = Date.parse(value.replace(' ', 'T'));
   return Number.isFinite(milliseconds) ? milliseconds : Number.NaN;
-};
+}
+
+function karnatakaCivilParts(milliseconds) {
+  if (!Number.isFinite(milliseconds)) return null;
+  const parts = Object.fromEntries(KARNATAKA_CIVIL.formatToParts(new Date(milliseconds))
+    .filter(part => part.type !== 'literal').map(part => [part.type, Number(part.value)]));
+  return { year: parts.year, month: parts.month, day: parts.day, hour: parts.hour };
+}
+
+export function karnatakaCalendarAgeDays(registeredAt, now) {
+  const registered = karnatakaCivilParts(karnatakaInstant(registeredAt));
+  const current = karnatakaCivilParts(karnatakaInstant(now));
+  if (!registered || !current) return null;
+  const registeredDay = Date.UTC(registered.year, registered.month - 1, registered.day) / DAY_MS;
+  const currentDay = Date.UTC(current.year, current.month - 1, current.day) / DAY_MS;
+  return Math.max(0, currentDay - registeredDay);
+}
+
+export function karnatakaIncidentHour(incidentAt) {
+  return karnatakaCivilParts(karnatakaInstant(incidentAt))?.hour ?? null;
+}
 
 export function ageInDays(registeredAt, now) {
-  const registeredMilliseconds = instant(registeredAt);
-  const nowMilliseconds = instant(now);
-  if (!Number.isFinite(registeredMilliseconds) || !Number.isFinite(nowMilliseconds)) return 0;
-  return Math.max(0, Math.floor((nowMilliseconds - registeredMilliseconds) / DAY_MS));
+  return karnatakaCalendarAgeDays(registeredAt, now) ?? 0;
 }
 
 function registeredAgeInDays(registeredAt, now) {
-  const registeredMilliseconds = instant(registeredAt);
-  const nowMilliseconds = instant(now);
-  if (!Number.isFinite(registeredMilliseconds) || !Number.isFinite(nowMilliseconds)
-    || registeredMilliseconds > nowMilliseconds) return null;
-  return Math.floor((nowMilliseconds - registeredMilliseconds) / DAY_MS);
-}
-
-function incidentHour(incidentAt) {
-  const milliseconds = instant(incidentAt);
-  return Number.isFinite(milliseconds) ? new Date(milliseconds).getUTCHours() : null;
+  return karnatakaCalendarAgeDays(registeredAt, now);
 }
 
 export function ageingBucket(value) {
@@ -57,7 +88,7 @@ const project = (row, currentTime) => {
     status: row.status,
     registeredAt: row.registeredAt,
     incidentAt: row.incidentAt,
-    incidentHour: incidentHour(row.incidentAt),
+    incidentHour: karnatakaIncidentHour(row.incidentAt),
     majorHead: row.majorHead,
     minorHead: row.minorHead,
     syntheticData: row.syntheticData === true,
@@ -84,8 +115,8 @@ const normalizeOpenOnly = (query) => {
 };
 
 const compareCases = (left, right) => {
-  const leftTime = instant(left.registeredAt);
-  const rightTime = instant(right.registeredAt);
+  const leftTime = karnatakaInstant(left.registeredAt);
+  const rightTime = karnatakaInstant(right.registeredAt);
   const leftValid = Number.isFinite(leftTime);
   const rightValid = Number.isFinite(rightTime);
   if (leftValid && rightValid && leftTime !== rightTime) return rightTime - leftTime;

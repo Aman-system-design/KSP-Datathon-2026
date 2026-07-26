@@ -85,7 +85,7 @@ test('new case reports count all lifecycle states registered in the last thirty 
   assert.deepEqual(result.result.data.items, [{ recordCount_sum: 2 }]);
 });
 
-test('incident pattern reports group valid server-derived UTC incident hours', async () => {
+test('incident pattern reports group valid server-derived Karnataka civil hours', async () => {
   const result = await execute([
     caseRow(1, { incidentAt: '2026-07-19T22:15:00Z' }),
     caseRow(2, { incidentAt: '2026-07-18T00:45:00Z' }),
@@ -98,8 +98,9 @@ test('incident pattern reports group valid server-derived UTC incident hours', a
     sort: [{ field: 'incidentHour', direction: 'asc' }], visualization: { type: 'line' },
   });
   assert.deepEqual(result.result.data.items, [
-    { incidentHour: 0, recordCount_sum: 1 },
-    { incidentHour: 22, recordCount_sum: 2 },
+    { incidentHour: 3, recordCount_sum: 1 },
+    { incidentHour: 4, recordCount_sum: 1 },
+    { incidentHour: 6, recordCount_sum: 1 },
   ]);
 });
 
