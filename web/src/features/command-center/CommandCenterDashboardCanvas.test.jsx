@@ -48,7 +48,10 @@ test('forwards report selections with the dashboard item', () => {
   const report = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', definition: { name: 'Case ageing', dimensions: ['ageingBucket'], measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'bar' }, style: {} }, data: [{ ageingBucket: '60+ days', recordCount_sum: 4 }], column: 1, row: 1, width: 6, height: 3 };
   render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={{ id: 'D-1', tabs: [{ id: 'overview', items: [report] }] }} onSelect={onSelect} /></MemoryRouter>);
   fireEvent.click(screen.getByTitle('60+ days: 4'));
-  expect(onSelect).toHaveBeenCalledWith(report, { ageingBucket: '60+ days', recordCount_sum: 4 });
+  expect(onSelect).toHaveBeenCalledWith(report, {
+    field: 'ageingBucket', value: '60+ days',
+    row: { ageingBucket: '60+ days', recordCount_sum: 4 },
+  });
 });
 
 test('keeps report selection optional for command centre callers', () => {

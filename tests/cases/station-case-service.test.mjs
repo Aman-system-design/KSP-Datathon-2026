@@ -38,6 +38,25 @@ test('station case list returns only authorized units with deterministic ageing'
     result.data.items.map(({ caseId, ageDays, ageingBucket }) => ({ caseId, ageDays, ageingBucket })),
     [{ caseId: 'CASE-1', ageDays: 6, ageingBucket: '0–7 days' }],
   );
+  assert.equal(result.data.items[0].registeredAgeDays, 6);
+  assert.equal(result.data.items[0].incidentHour, 22);
+});
+
+test('station analytics derive provenance from synthetic, operational, mixed, and empty rows', async () => {
+  for (const [sourceRows, provenance, syntheticData] of [
+    [[rows[0]], 'SYNTHETIC', true],
+    [[{ ...rows[0], syntheticData: false }], 'OPERATIONAL', false],
+    [[rows[0], { ...rows[0], caseId: 'CASE-MIXED', syntheticData: false }], 'MIXED', false],
+    [[], 'EMPTY', false],
+  ]) {
+    const provenanceService = createStationCaseService({
+      repository: { async listStationCaseRows() { return sourceRows; } },
+      now: () => new Date('2026-07-26T00:00:00Z'),
+    });
+    const result = await provenanceService.listForReport({ access });
+    assert.equal(result.provenance, provenance);
+    assert.equal(result.syntheticData, syntheticData);
+  }
 });
 
 test('case detail fails closed outside the station scope', async () => {
@@ -75,6 +94,17 @@ test('age calculation clamps future dates and handles invalid dates safely', () 
   assert.equal(ageInDays('not-a-date', current), 0);
   assert.equal(ageInDays(undefined, current), 0);
   assert.equal(ageInDays('2026-07-20T00:00:00Z', new Date('invalid')), 0);
+});
+
+test('invalid source dates remain unavailable for report filters and incident grouping', async () => {
+  const invalid = { ...rows[0], registeredAt: 'invalid', incidentAt: undefined };
+  const invalidService = createStationCaseService({
+    repository: { async listStationCaseRows() { return [invalid]; } },
+    now: () => new Date('2026-07-26T00:00:00Z'),
+  });
+  const [projected] = (await invalidService.listForReport({ access })).data.items;
+  assert.equal(projected.registeredAgeDays, null);
+  assert.equal(projected.incidentHour, null);
 });
 
 test('openOnly accepts strict boolean transport forms', async () => {

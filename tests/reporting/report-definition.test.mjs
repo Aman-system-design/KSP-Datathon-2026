@@ -26,13 +26,16 @@ test('station case reports expose only the governed analytical allowlist', () =>
   assert.equal(source.service, 'listStationCasesForAnalytics');
   assert.deepEqual(Object.keys(source.fields), [
     'caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt', 'incidentAt',
-    'majorHead', 'minorHead', 'ageDays', 'ageingBucket', 'isOpen', 'recordCount',
+    'incidentHour', 'majorHead', 'minorHead', 'ageDays', 'registeredAgeDays',
+    'ageingBucket', 'isOpen', 'recordCount',
   ]);
   assert.deepEqual(source.visualizations, ['number', 'table', 'bar', 'line', 'pie', 'funnel']);
   assert.deepEqual(source.fields.ageDays.aggregates, ['avg', 'min', 'max']);
+  assert.equal(source.fields.incidentHour.dimension, true);
+  assert.deepEqual(source.fields.registeredAgeDays.aggregates, ['avg', 'min', 'max']);
   assert.deepEqual(source.fields.recordCount.aggregates, ['sum', 'count']);
   for (const field of ['caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt',
-    'incidentAt', 'majorHead', 'minorHead', 'ageingBucket', 'isOpen']) {
+    'incidentAt', 'incidentHour', 'majorHead', 'minorHead', 'ageingBucket', 'isOpen']) {
     assert.equal(source.fields[field].dimension, true, field);
   }
 

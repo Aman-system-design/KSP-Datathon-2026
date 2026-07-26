@@ -67,6 +67,52 @@ test('station case number reports count open cases', async () => {
   });
   assert.deepEqual(result.result.data.items, [{ recordCount_sum: 2 }]);
   assert.equal(result.syntheticData, true);
+  assert.equal(result.provenance, 'SYNTHETIC');
+});
+
+test('new case reports count all lifecycle states registered in the last thirty days', async () => {
+  const result = await execute([
+    caseRow(1, { registeredAt: '2026-07-20T00:00:00Z' }),
+    caseRow(2, { registeredAt: '2026-07-10T00:00:00Z', status: 'Closed' }),
+    caseRow(3, { registeredAt: '2026-06-01T00:00:00Z' }),
+    caseRow(4, { registeredAt: 'invalid' }),
+  ], {
+    name: 'New Cases · Last 30 Days', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'registeredAgeDays', operator: 'lte', value: 30 }],
+    visualization: { type: 'number' },
+  });
+  assert.deepEqual(result.result.data.items, [{ recordCount_sum: 2 }]);
+});
+
+test('incident pattern reports group valid server-derived UTC incident hours', async () => {
+  const result = await execute([
+    caseRow(1, { incidentAt: '2026-07-19T22:15:00Z' }),
+    caseRow(2, { incidentAt: '2026-07-18T00:45:00Z' }),
+    caseRow(3, { incidentAt: '2026-07-17T22:59:00Z' }),
+    caseRow(4, { incidentAt: 'invalid' }),
+  ], {
+    name: '24-Hour Incident Pattern', sourceKey: 'stationCases', dimensions: ['incidentHour'],
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'incidentHour', operator: 'gte', value: 0 }],
+    sort: [{ field: 'incidentHour', direction: 'asc' }], visualization: { type: 'line' },
+  });
+  assert.deepEqual(result.result.data.items, [
+    { incidentHour: 0, recordCount_sum: 1 },
+    { incidentHour: 22, recordCount_sum: 2 },
+  ]);
+});
+
+test('report execution preserves mixed provenance without claiming demonstration data', async () => {
+  const result = await execute([
+    caseRow(1, { syntheticData: true }),
+    caseRow(2, { syntheticData: false }),
+  ], {
+    name: 'All cases', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'number' },
+  });
+  assert.equal(result.provenance, 'MIXED');
+  assert.equal(result.syntheticData, false);
 });
 
 test('station case reports aggregate complete analytical reads beyond the 200-row HTTP limit', async () => {

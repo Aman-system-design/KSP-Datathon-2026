@@ -39,7 +39,8 @@ test('projects station cases through a mutation-safe analytical allowlist', () =
   const source = {
     caseId: 'CASE-1', caseNumber: '01/2026', unitId: 1001, unitName: 'Central Station',
     status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
-    incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Theft', minorHead: 'Vehicle Theft',
+    incidentAt: '2026-07-19T22:00:00Z', incidentHour: 22, registeredAgeDays: 6,
+    majorHead: 'Theft', minorHead: 'Vehicle Theft',
     ageDays: 6, ageingBucket: '0–7 days', isOpen: true, recordCount: 999,
     syntheticData: true, BriefFacts: 'restricted narrative', ComplainantName: 'restricted person',
   };
@@ -48,7 +49,8 @@ test('projects station cases through a mutation-safe analytical allowlist', () =
   assert.deepEqual(projectReportRows('stationCases', { data: { items: [source] } }), [{
     caseId: 'CASE-1', caseNumber: '01/2026', unitId: 1001, unitName: 'Central Station',
     status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
-    incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Theft', minorHead: 'Vehicle Theft',
+    incidentAt: '2026-07-19T22:00:00Z', incidentHour: 22, registeredAgeDays: 6,
+    majorHead: 'Theft', minorHead: 'Vehicle Theft',
     ageDays: 6, ageingBucket: '0–7 days', isOpen: true, recordCount: 1,
   }]);
   assert.deepEqual(source, snapshot);
@@ -66,7 +68,8 @@ test('all semantic projections match their declared types and accept typed filte
     ['stationCases', { data: { items: [{
       caseId: 'C-1', caseNumber: '1/2026', unitId: 1001, unitName: 'Central Station',
       status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
-      incidentAt: '2026-07-19T00:00:00Z', majorHead: 'Property', minorHead: 'Theft',
+      incidentAt: '2026-07-19T00:00:00Z', incidentHour: 0, registeredAgeDays: 6,
+      majorHead: 'Property', minorHead: 'Theft',
       ageDays: 6, ageingBucket: '0–7 days', isOpen: true,
     }] } }, 'isOpen'],
   ];

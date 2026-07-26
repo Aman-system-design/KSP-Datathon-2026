@@ -97,6 +97,7 @@ export function createReportService({ repository, readServices, mapViewService, 
       return {
         definition: clientReport(report),
         syntheticData: result.syntheticData === true,
+        ...(result.provenance ? { provenance: result.provenance } : {}),
         result: {
           data: { items: executeReportDefinition(report.definition, projectReportRows(source.key, result)) },
           meta: result.meta,

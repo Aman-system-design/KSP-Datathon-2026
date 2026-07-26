@@ -1,16 +1,18 @@
-function rowSelection(row) {
-  const field = Object.hasOwn(row, 'caseId') ? 'caseId' : Object.keys(row)[0];
+function rowSelection(row, selectionField) {
+  const field = Object.hasOwn(row, 'caseId') ? 'caseId' : selectionField ?? Object.keys(row)[0];
   return { field, value: field ? row[field] : undefined, row };
 }
 
-function rowLabel(row, index) {
-  const identity = row.caseNumber ?? row.caseId;
-  if (identity !== undefined && identity !== null && String(identity).trim()) return `Select case ${identity}`;
-  const selection = rowSelection(row);
-  return selection.field ? `Select ${selection.field} ${selection.value}` : `Select row ${index + 1}`;
+function actionLabel(row, index, selectionField) {
+  const caseIdentity = row.caseNumber ?? row.caseId;
+  if (Object.hasOwn(row, 'caseId') && caseIdentity !== undefined && caseIdentity !== null && String(caseIdentity).trim()) {
+    return `Open case ${caseIdentity}`;
+  }
+  const selection = rowSelection(row, selectionField);
+  return selection.field ? `Select ${selection.value}` : `Select row ${index + 1}`;
 }
 
-export function TableReport({ rows, selectionRows = rows, density = 'comfortable', onSelect }) {
+export function TableReport({ rows, selectionRows = rows, selectionField, density = 'comfortable', onSelect }) {
   const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
   const interactive = typeof onSelect === 'function';
   return <div aria-label="table report visualization" className={`report-table-wrap report-table-wrap--${density}`} data-testid="report-table">
@@ -18,8 +20,9 @@ export function TableReport({ rows, selectionRows = rows, density = 'comfortable
       <thead><tr>{interactive ? <th>Action</th> : null}{columns.map(column => <th key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead>
       <tbody>{rows.map((row, index) => {
         const sourceRow = selectionRows[index] ?? row;
+        const label = actionLabel(sourceRow, index, selectionField);
         return <tr key={index}>
-          {interactive ? <td><button type="button" aria-label={rowLabel(sourceRow, index)} onClick={() => onSelect(rowSelection(sourceRow))}>Open</button></td> : null}
+          {interactive ? <td><button type="button" onClick={() => onSelect(rowSelection(sourceRow, selectionField))}>{label}</button></td> : null}
           {columns.map(column => <td key={column}>{row[column] ?? '\u2014'}</td>)}
         </tr>;
       })}</tbody>

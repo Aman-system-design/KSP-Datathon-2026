@@ -4,6 +4,14 @@ import { MoreHorizontal } from 'lucide-react';
 import { governedAppLocation } from '../../app/runtime.js';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 
+function normalizedSelection(item, selection) {
+  if (!selection || typeof selection !== 'object') return selection;
+  if (typeof selection.field === 'string' && Object.hasOwn(selection, 'value') && selection.row) return selection;
+  const row = selection.row ?? selection;
+  const field = item.definition?.dimensions?.[0];
+  return field ? { field, value: row?.[field], row } : selection;
+}
+
 export function CommandCenterReportSurface({ item, editing = false, onRemove = () => {}, onSelect }) {
   const location = useLocation();
   return <article className="command-center-report" aria-label={item.title}>
@@ -17,8 +25,8 @@ export function CommandCenterReportSurface({ item, editing = false, onRemove = (
           definition={item.definition}
           density="dashboard"
           hasRun
-          provenance={item.syntheticData ? 'Demonstration data' : item.provenance ?? ''}
-          onSelect={typeof onSelect === 'function' ? selection => onSelect(item, selection) : undefined}
+          provenance={item.provenance ?? (item.syntheticData ? 'SYNTHETIC' : '')}
+          onSelect={typeof onSelect === 'function' ? selection => onSelect(item, normalizedSelection(item, selection)) : undefined}
         />}</div>
     <footer>{item.freshness ? <span>{item.freshness}</span> : <span>Viewer-scoped result</span>}<Link to={governedAppLocation(`/reports/${item.reportId}`, location)}>Open report</Link></footer>
   </article>;

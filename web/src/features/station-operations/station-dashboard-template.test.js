@@ -6,7 +6,8 @@ const approvedFields = {
   alerts: new Set(['state', 'recordCount']),
   stationCases: new Set([
     'caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt', 'incidentAt',
-    'majorHead', 'minorHead', 'ageDays', 'ageingBucket', 'isOpen', 'recordCount',
+    'incidentHour', 'majorHead', 'minorHead', 'ageDays', 'registeredAgeDays',
+    'ageingBucket', 'isOpen', 'recordCount',
   ]),
 };
 
@@ -21,8 +22,8 @@ describe('station dashboard template', () => {
   test('declares exactly nine governed report definitions without seeded results', () => {
     expect(STATION_REPORTS).toHaveLength(9);
     expect(STATION_REPORTS.map(report => report.name)).toEqual([
-      'Open Cases', '60+ Day Cases', 'Cases Registered by Period', 'Active Alerts',
-      'Case Ageing', 'Case Lifecycle', 'Crime Category', 'Registered Case Trend',
+      'Open Cases', '60+ Day Cases', 'New Cases · Last 30 Days', 'Active Alerts',
+      'Case Ageing', 'Case Lifecycle', 'Crime Category', '24-Hour Incident Pattern',
       'Open Case Register',
     ]);
     expect(STATION_REPORTS.map(report => report.sourceKey)).toEqual([
@@ -56,7 +57,9 @@ describe('station dashboard template', () => {
       { field: 'ageingBucket', operator: 'eq', value: '60+ days' },
     ]);
     expect(STATION_REPORTS[2]).toMatchObject({
-      dimensions: ['registeredAt'], visualization: { type: 'table' }, filters: [],
+      dimensions: [], measures: [{ field: 'recordCount', aggregate: 'sum' }],
+      filters: [{ field: 'registeredAgeDays', operator: 'lte', value: 30 }],
+      visualization: { type: 'number' },
     });
     expect(STATION_REPORTS[3].filters).toEqual([
       { field: 'state', operator: 'in', value: ['GENERATED', 'ASSIGNED', 'ACKNOWLEDGED', 'CONCLUDED'] },
@@ -67,7 +70,11 @@ describe('station dashboard template', () => {
       visualization: { type: 'bar' },
     });
     expect(STATION_REPORTS[5]).toMatchObject({ dimensions: ['status'], filters: [], visualization: { type: 'funnel' } });
-    expect(STATION_REPORTS[7]).toMatchObject({ dimensions: ['registeredAt'], visualization: { type: 'line' } });
+    expect(STATION_REPORTS[7]).toMatchObject({
+      dimensions: ['incidentHour'],
+      filters: [{ field: 'incidentHour', operator: 'gte', value: 0 }],
+      visualization: { type: 'line' },
+    });
     expect(STATION_REPORTS[8]).toMatchObject({ visualization: { type: 'table' }, filters: [{ field: 'isOpen', operator: 'eq', value: true }] });
   });
 
@@ -91,5 +98,17 @@ describe('station dashboard template', () => {
     }
     expect(STATION_LAYOUT[4].width).toBeGreaterThanOrEqual(6);
     expect(STATION_LAYOUT[8].height).toBeGreaterThanOrEqual(4);
+  });
+
+  test('deeply freezes report definitions and layout placements', () => {
+    expect(Object.isFrozen(STATION_REPORTS[0].filters)).toBe(true);
+    expect(Object.isFrozen(STATION_REPORTS[0].filters[0])).toBe(true);
+    expect(Object.isFrozen(STATION_REPORTS[0].visualization)).toBe(true);
+    expect(Object.isFrozen(STATION_LAYOUT[0])).toBe(true);
+    expect(() => { STATION_REPORTS[0].filters[0].value = false; }).toThrow(TypeError);
+    expect(() => { STATION_REPORTS[0].visualization.type = 'table'; }).toThrow(TypeError);
+    expect(() => { STATION_LAYOUT[0].width = 12; }).toThrow(TypeError);
+    expect(STATION_REPORTS[0].filters[0].value).toBe(true);
+    expect(STATION_LAYOUT[0].width).toBe(3);
   });
 });

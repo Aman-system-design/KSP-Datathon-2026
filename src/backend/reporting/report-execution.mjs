@@ -5,9 +5,9 @@ function matches(row, { field, operator, value }) {
   if (operator === 'eq') return actual === value;
   if (operator === 'neq') return actual !== value;
   if (operator === 'in') return Array.isArray(value) && value.includes(actual);
-  if (operator === 'gte') return actual >= value;
-  if (operator === 'lte') return actual <= value;
-  if (operator === 'between') return Array.isArray(value) && value.length === 2 && actual >= value[0] && actual <= value[1];
+  if (operator === 'gte') return actual !== null && actual !== undefined && actual >= value;
+  if (operator === 'lte') return actual !== null && actual !== undefined && actual <= value;
+  if (operator === 'between') return actual !== null && actual !== undefined && Array.isArray(value) && value.length === 2 && actual >= value[0] && actual <= value[1];
   return false;
 }
 
@@ -157,9 +157,11 @@ export function projectReportRows(sourceKey, envelope) {
     status: row.status,
     registeredAt: row.registeredAt,
     incidentAt: row.incidentAt,
+    incidentHour: row.incidentHour,
     majorHead: row.majorHead,
     minorHead: row.minorHead,
     ageDays: row.ageDays,
+    registeredAgeDays: row.registeredAgeDays,
     ageingBucket: row.ageingBucket,
     isOpen: row.isOpen,
     recordCount: 1,

@@ -18,16 +18,16 @@ test('loads the landing dashboard and contains one failed report', async () => {
     } : [] })),
     post: vi.fn(async path => {
       if (path.includes('R-2')) throw Object.assign(new Error('unavailable'), { code: 'REPORT_FAILED' });
-      return { data: { definition: { name: 'Crime trend', definition: { dimensions: ['day'], measures: [{ field: 'case', aggregate: 'count' }], visualization: { type: 'line' } } }, result: { data: { items: [{ day: '2026-07-24', case_count: 12 }] }, meta: { provenance: 'viewer-scoped' } }, syntheticData: true } };
+      return { data: { definition: { name: 'Crime trend', definition: { dimensions: ['day'], measures: [{ field: 'case', aggregate: 'count' }], visualization: { type: 'line' } } }, result: { data: { items: [{ day: '2026-07-24', case_count: 12 }] } }, provenance: 'MIXED', syntheticData: false } };
     }),
     put: vi.fn(),
   };
   const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace }));
   await waitFor(() => expect(result.current.loading).toBe(false));
   expect(result.current.dashboard.items[0]).toMatchObject({
-    status: 'ready', title: 'Crime trend', syntheticData: true,
+    status: 'ready', title: 'Crime trend', syntheticData: false,
     definition: { dimensions: ['day'], visualization: { type: 'line' } },
-    provenance: 'viewer-scoped',
+    provenance: 'MIXED',
   });
   expect(result.current.dashboard.items[1]).toMatchObject({ status: 'error', errorCode: 'REPORT_FAILED' });
 });

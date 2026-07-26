@@ -23,7 +23,7 @@ function executedItem(item, result) {
     mapExecution: data?.mapView ? data : undefined,
     freshness: payload.result?.freshness ?? data?.freshness,
     syntheticData: payload.syntheticData === true || payload.result?.syntheticData === true,
-    provenance: payload.result?.meta?.provenance ?? payload.provenance,
+    provenance: payload.provenance ?? payload.result?.meta?.provenance,
   };
 }
 
