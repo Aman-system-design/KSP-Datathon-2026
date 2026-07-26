@@ -181,9 +181,9 @@ test('API case resources deny base presenter and auditor roles but honor an assu
   assert.equal(outside.body.error.code, 'NOT_FOUND');
 });
 
-test('assumed station persona is rejected when its server-governed station is unavailable', async () => {
+test('assumed station persona is rejected when no active server-governed station is available', async () => {
   const state = buildDemoState();
-  state.units = state.units.filter(row => Number(row.UnitID) !== 1001);
+  state.units = state.units.filter(row => Number(row.TypeID) !== 3);
   const presenter = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' }, state }).application;
 
   const response = await presenter({

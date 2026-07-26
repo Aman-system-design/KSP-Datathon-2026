@@ -17,7 +17,7 @@ import { createStationCaseService } from '../cases/station-case-service.mjs';
 import { fail } from '../services/errors.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
-const DEVELOPMENT_DEMO_SCOPE_BY_ROLE = Object.freeze({ STATION_OPERATIONS: 1001 });
+const DEVELOPMENT_DEMO_STATION_ROLE = 'STATION_OPERATIONS';
 const utilityCatalogueServices = createUtilityServices();
 
 function safeFailure(code, requestId) {
@@ -145,11 +145,12 @@ export function createApiApplication({
           currentUser: user, profile: accessProfile, requestedPersona,
           environment: config.environment, policy,
         });
-        const demoScopeUnitId = base.demoPersona ? DEVELOPMENT_DEMO_SCOPE_BY_ROLE[base.role] : undefined;
-        if (demoScopeUnitId !== undefined) {
-          const station = units.find(row => Number(row.UnitID) === demoScopeUnitId);
-          if (!station || Number(station.TypeID) !== 3 || station.Active !== true) fail('FORBIDDEN_ACTION');
-        }
+        const demoStation = base.demoPersona && base.role === DEVELOPMENT_DEMO_STATION_ROLE
+          ? units.filter(row => Number(row.TypeID) === 3 && row.Active === true)
+            .sort((left, right) => Number(left.UnitID) - Number(right.UnitID))[0]
+          : undefined;
+        if (base.demoPersona && base.role === DEVELOPMENT_DEMO_STATION_ROLE && !demoStation) fail('FORBIDDEN_ACTION');
+        const demoScopeUnitId = demoStation?.UnitID;
         const scopeUnitId = demoScopeUnitId ?? base.scopeUnitId;
         return Object.freeze({
           ...base,

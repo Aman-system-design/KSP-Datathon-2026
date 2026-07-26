@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "ec14f1a60cf0dbddd03403b67cc34f1104ef0449c6020f44a2c30f54e7de78d0",
-      "bytes": 2434
+      "sha256": "c9a2df4e18b46efbb47aea931b12b025242e3d923fb83353d140afda5b10cc53",
+      "bytes": 2439
     },
     {
       "path": "data/synthetic-demo-input.json",
@@ -60,8 +60,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "a6feab72a5d584857ee19181c169094b781976ec2566ddafdb7976f48e7a1b45",
-      "bytes": 98405
+      "sha256": "9b70b05653ace97849f2c4cfd8bc8ab6fc03fa74270aa3a4a8fe8e3f4b747998",
+      "bytes": 98581
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
