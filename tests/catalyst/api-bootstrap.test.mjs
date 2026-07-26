@@ -83,6 +83,32 @@ test('API composition serves the role workspace and governed report sources', as
   assert.equal(sources.body.data.length, 7);
 });
 
+test('API composition serves utility categories and one utility definition', async () => {
+  const { application } = harness();
+
+  const categories = await application({ method: 'GET', url: '/v1/utilities/categories', headers: {}, body: null });
+  assert.equal(categories.status, 200);
+  assert.deepEqual(categories.body.data, [
+    'patterns-networks', 'spatial-intelligence', 'trends-anomalies', 'risk-prioritization',
+  ]);
+
+  const utility = await application({ method: 'GET', url: '/v1/utilities/area-attention', headers: {}, body: null });
+  assert.equal(utility.status, 200);
+  assert.equal(utility.body.data.key, 'area-attention');
+  assert.equal(utility.body.data.alertPolicy.enabled, false);
+});
+
+test('API composition returns stable NOT_FOUND for an unknown utility', async () => {
+  const { application } = harness();
+
+  const response = await application({ method: 'GET', url: '/v1/utilities/unknown', headers: {}, body: null });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'NOT_FOUND');
+  assert.equal(response.body.error.message, 'The requested resource was not found.');
+  assert.match(response.body.error.requestId, /^REQ-\d+$/u);
+});
+
 test('read-only requests do not initialize Catalyst Job Scheduling', async () => {
   const { application } = harness({
     schedulerFactory: () => { throw new Error('Job Scheduling is unavailable'); },
