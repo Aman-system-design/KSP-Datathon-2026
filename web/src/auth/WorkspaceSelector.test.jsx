@@ -16,6 +16,8 @@ test('renders only personas returned by the backend', () => {
   expect(screen.getByRole('radio', { name: /Command Centre/i })).toBeVisible();
   expect(screen.queryByRole('radio', { name: /Station Operations/i })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Select workspace' })).toBeVisible();
+  expect(screen.queryByText(/authorized (access|workspace)/i)).not.toBeInTheDocument();
+  expect(screen.getByRole('radiogroup', { name: 'Available workspaces' })).toBeVisible();
   expect(screen.getByText('Karnataka State Police')).toBeVisible();
   expect(screen.getByText('Analytics · Crime · Enforcement')).toBeVisible();
   expect(screen.getByText('KSP Intelligence')).toBeVisible();
@@ -62,9 +64,10 @@ test('renders the allowlisted Command Centre workspace exactly once', () => {
   expect(screen.getAllByRole('radio')).toHaveLength(2);
 });
 
-test('fails closed when persona switching is not authorized', () => {
+test('fails closed without exposing backend authorization language', () => {
   render(<WorkspaceSelector workspace={{ personaSwitch: { allowed: false, personas: [] } }} onSelect={() => {}} onSignOut={() => {}} />);
 
-  expect(screen.getByRole('alert')).toHaveTextContent('No demonstration workspace is authorized');
+  expect(screen.getByRole('alert')).toHaveTextContent('No workspace is available');
+  expect(screen.getByRole('alert')).not.toHaveTextContent(/authorized/i);
   expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
 });

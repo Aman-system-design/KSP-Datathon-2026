@@ -54,7 +54,7 @@ const roleDefinitions = Object.freeze({
 });
 
 const unavailable = Object.freeze({
-  workspaceLabel: 'Authorized Workspace', home: '/', modules: [{ to: '/', label: 'Home', icon: 'home' }],
+  workspaceLabel: 'Workspace', home: '/', modules: [{ to: '/', label: 'Home', icon: 'home' }],
 });
 
 export function getWorkspaceNavigation({ role } = {}) {
@@ -90,9 +90,9 @@ const personaPresentationByRole = new Map(
 export function getPersonaPresentation(role) {
   return personaPresentationByRole.get(role) ?? {
     role,
-    label: 'Authorized workspace',
-    workspace: 'Role workspace',
-    scope: 'Backend-authorized scope',
+    label: 'Workspace',
+    workspace: 'Operational view',
+    scope: 'Assigned scope',
     icon: 'home',
   };
 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { getWorkspaceNavigation } from './workspace-navigation.js';
+import { getPersonaPresentation, getWorkspaceNavigation } from './workspace-navigation.js';
 
 const paths = role => getWorkspaceNavigation({ role }).modules.map(item => item.to);
 
@@ -40,4 +40,11 @@ test('demo presenter starts at the safe persona directory and cannot invent a pr
   const navigation = getWorkspaceNavigation({ role: 'DEMO_PRESENTER' });
   expect(navigation.home).toBe('/admin/personas');
   expect(navigation.modules.map(item => item.to)).toEqual(['/admin/personas', '/?persona=COMMAND_CENTER']);
+});
+
+test('unknown roles use neutral UI copy while backend access remains fail-closed', () => {
+  expect(getWorkspaceNavigation({ role: 'UNKNOWN' }).workspaceLabel).toBe('Workspace');
+  expect(getPersonaPresentation('UNKNOWN')).toEqual(expect.objectContaining({
+    label: 'Workspace', workspace: 'Operational view', scope: 'Assigned scope',
+  }));
 });

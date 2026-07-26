@@ -13,6 +13,8 @@ test('searches authorized dashboards and selects one in place', () => {
     { id: 'D-3', name: 'Election watch', relationship: 'SHARED' },
   ]} onSelect={onSelect} onClose={() => {}} onOpenAll={() => {}} />);
   expect(screen.getByRole('dialog', { name: 'Dashboards' })).toBeInTheDocument();
+  expect(screen.getByText('Operational dashboards')).toBeVisible();
+  expect(screen.queryByText(/authorized/i)).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search dashboards' }), { target: { value: 'night' } });
   expect(screen.queryByRole('button', { name: 'State overview' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Night crime' }));

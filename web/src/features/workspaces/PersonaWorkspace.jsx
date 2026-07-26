@@ -106,5 +106,5 @@ export function PersonaWorkspace({ role, data = {} }) {
   if (role === 'STATION_OPERATIONS') return <StationWorkspace data={data} />;
   if (role === 'INVESTIGATOR') return <InvestigatorWorkspace data={data} />;
   if (['PLATFORM_ADMIN', 'AUDITOR'].includes(role)) return <GovernanceWorkspace role={role} />;
-  return <DataState title="Authorized workspace unavailable" message="No role home is configured for this access profile." />;
+  return <DataState title="Workspace unavailable" message="No home view is configured for this profile." />;
 }

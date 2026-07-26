@@ -42,7 +42,7 @@ export function DashboardWorkspace({ api, dashboard, EmbeddedMapComponent = Lazy
   const executionManager = useMemo(() => typeof api?.get === 'function' && typeof api?.post === 'function'
     ? createEmbeddedExecutionManager(api) : null, [api]);
   return <section className="feature-page">
-    <div className="page-heading"><div><span className="eyebrow">Role workspace</span><h1>{dashboard?.name ?? 'Command workspace'}</h1><p>Reusable intelligence widgets. Every result is recalculated within the current viewer’s authorized geography.</p></div></div>
+    <div className="page-heading"><div><span className="eyebrow">Workspace</span><h1>{dashboard?.name ?? 'Command workspace'}</h1><p>Reusable intelligence widgets. Every result is recalculated for the current viewer’s assigned geography.</p></div></div>
     <div className="dashboard-grid">{(dashboard?.items ?? []).map(item => <Widget
       key={item.id} api={api} item={item} EmbeddedMapComponent={EmbeddedMapComponent}
       location={location} executionManager={executionManager}

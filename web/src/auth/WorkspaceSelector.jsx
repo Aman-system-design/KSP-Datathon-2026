@@ -32,8 +32,8 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
       <main className="grid min-h-screen place-items-center bg-muted/40 p-6">
         <Card className="w-full max-w-lg" role="alert">
           <CardHeader>
-            <CardTitle>No demonstration workspace is authorized</CardTitle>
-            <CardDescription>Your authenticated profile has no available persona workspaces.</CardDescription>
+            <CardTitle>No workspace is available</CardTitle>
+            <CardDescription>Your profile has no operational workspace available for this session.</CardDescription>
           </CardHeader>
           <CardFooter>
             <Button variant="outline" onClick={onSignOut}>Sign out</Button>
@@ -52,11 +52,11 @@ export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {
       </header>
       <section className="workspace-entry__panel">
         <header>
-          <span>Authorized access</span>
+          <span>Workspace</span>
           <h1>Select workspace</h1>
           <p>Choose the operational view required for this session.</p>
         </header>
-        <div className="workspace-entry__list" role="radiogroup" aria-label="Authorized workspaces">
+        <div className="workspace-entry__list" role="radiogroup" aria-label="Available workspaces">
             {workspaces.map(presentation => {
               const selected = selectedKey === presentation.role;
               return (
