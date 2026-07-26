@@ -52,6 +52,8 @@
 .station-filter svg { width: 13px; height: 13px; }
 .station-refresh { color: #376b95; }
 .station-operations__loading { display: grid; min-height: 360px; place-content: center; color: #61758c; font-size: 13px; }
+.station-operations__setup { display: grid; min-height: 300px; place-content: center; gap: 6px; color: #61758c; text-align: center; }
+.station-operations__setup strong { color: #294660; }
 .station-operations > .command-center-dashboard-canvas { min-height: 1168px; padding: 12px 14px 28px; overflow: visible; }
 .station-operations .command-center-dashboard-placement { padding: 5px; }
 .station-operations .command-center-report { border-color: #dbe3eb; border-radius: 9px; box-shadow: 0 1px 3px rgb(22 46 75 / 6%); }
@@ -63,8 +65,12 @@
 @media (max-width: 1024px) {
   .station-operations__header { align-items: flex-start; }
   .station-operations__actions { flex-wrap: wrap; }
-  .station-operations > .command-center-dashboard-canvas { display: grid; grid-template-columns: 1fr; gap: 10px; min-height: 0; }
-  .station-operations .command-center-dashboard-placement { position: relative; top: auto !important; left: auto !important; width: auto !important; height: min(430px, 58vh) !important; }
+  .station-operations > .command-center-dashboard-canvas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; min-height: 0; }
+  .station-operations .command-center-dashboard-placement { position: relative; top: auto !important; left: auto !important; width: auto !important; min-width: 0; }
+  .station-operations .station-placement--metric { grid-column: span 1; height: 112px !important; order: 1; }
+  .station-operations .station-placement--ageing { grid-column: span 2; height: 330px !important; order: 2; }
+  .station-operations .station-placement--register { grid-column: span 2; height: 330px !important; order: 3; }
+  .station-operations .station-placement--detail { grid-column: span 2; height: 320px !important; order: 4; }
 }
 
 @media (max-width: 768px) {
@@ -72,6 +78,11 @@
   .station-operations__actions { justify-content: space-between; }
   .station-operations__status-row { padding-inline: 14px; }
   .station-operations > .command-center-dashboard-canvas { padding: 8px 9px 22px; }
+  .station-operations > .command-center-dashboard-canvas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .station-operations .station-placement--metric { height: 104px !important; }
+  .station-operations .station-placement--ageing,
+  .station-operations .station-placement--register,
+  .station-operations .station-placement--detail { grid-column: 1 / -1; height: 300px !important; }
 }
 
 @media (max-width: 420px) {
@@ -82,6 +93,11 @@
   .station-period button { min-width: 0; flex: 1; min-height: 44px; }
   .station-edit-button { width: 100%; }
   .station-operations__status-row { align-items: flex-start; flex-direction: column; }
+  .station-operations > .command-center-dashboard-canvas { grid-template-columns: 1fr; }
+  .station-operations .station-placement--metric { grid-column: 1; height: 100px !important; }
+  .station-operations .station-placement--ageing,
+  .station-operations .station-placement--detail { height: 280px !important; }
+  .station-operations .station-placement--register { height: 340px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

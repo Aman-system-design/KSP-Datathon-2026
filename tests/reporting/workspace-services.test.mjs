@@ -132,6 +132,26 @@ test('workspace projects only safe display metadata for the scoped unit', async 
   assert.equal(workspace.data.scopeUnit.id, undefined);
 });
 
+test('station workspace ignores a personal state dashboard in favor of its role default', async () => {
+  let id = 0;
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-${++id}`,
+  });
+  const station = { ...analyst, actualUserId: 'CAT-STATION', role: 'STATION_OPERATIONS', actualRole: 'STATION_OPERATIONS' };
+  const admin = { ...analyst, actualUserId: 'CAT-ADMIN', role: 'PLATFORM_ADMIN', actions: ['MANAGE_GLOBAL_CONTENT'] };
+  const personal = await services.createDashboard({ access: station, body: { name: 'State Intelligence' } });
+  await services.setLandingDashboard({ access: station, body: { dashboardId: personal.data.id } });
+  const stationDefault = await services.createDashboard({ access: admin, body: { name: 'Station Operations' } });
+  await services.setRoleDefault({ access: admin, params: { dashboardId: stationDefault.data.id }, body: { role: 'STATION_OPERATIONS' } });
+
+  const workspace = await services.getWorkspace({ access: station });
+
+  assert.equal(workspace.data.landingDashboard.id, stationDefault.data.id);
+  assert.notEqual(workspace.data.landingDashboard.id, personal.data.id);
+});
+
 test('workspace case resources delegate access, query, and detail parameters unchanged', async () => {
   const calls = [];
   const caseService = {

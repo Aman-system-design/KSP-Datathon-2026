@@ -43,7 +43,8 @@ test('renders a focused branded shell without report-level status clutter', () =
   expect(screen.queryByRole('button', { name: 'Support' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /^alerts$/i }).length).toBeGreaterThan(0);
-  expect(screen.getByText('Unit 101')).toBeInTheDocument();
+  expect(screen.getAllByText('Analyst Workbench').length).toBeGreaterThan(0);
+  expect(screen.queryByText('Unit 101')).not.toBeInTheDocument();
   expect(screen.queryByText('Intelligence freshness')).not.toBeInTheDocument();
   expect(screen.queryByText('21 Jul 2026, 23:15 IST')).not.toBeInTheDocument();
   expect(screen.queryByText('Data mode')).not.toBeInTheDocument();

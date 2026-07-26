@@ -72,7 +72,11 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
         alertPromise, repository.getUnits(),
       ]);
       const landingDashboard = landingResult.status === 'fulfilled' ? landingResult.value : undefined;
-      const availableDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
+      const allDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
+      const availableDashboards = access.role === 'STATION_OPERATIONS'
+        ? allDashboards.filter(row => row.defaultRole === 'STATION_OPERATIONS'
+          || (row.relationship === 'OWNED' && row.name === 'Station Operations'))
+        : allDashboards;
       const availableReports = reportsResult.status === 'fulfilled' ? reportsResult.value : [];
       const alertResult = alertsResult.status === 'fulfilled' ? alertsResult.value : { data: { items: [] } };
       const scopedUnit = unitsResult.status === 'fulfilled'

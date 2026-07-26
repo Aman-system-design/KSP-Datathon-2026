@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Icon } from '../components/icons.jsx';
 import { roleLabel } from './workspace-labels.js';
+import { getWorkspaceNavigation } from './workspace-navigation.js';
 
 export function AccountMenu({ workspace, auth, onPersonaChange }) {
   const [open, setOpen] = useState(false);
   const currentRoleLabel = roleLabel(workspace?.role);
   const identity = workspace?.identity ?? {};
-  const unitLabel = workspace?.scopeUnit?.name || (workspace?.scopeUnitId ? `Unit ${workspace.scopeUnitId}` : 'Configured scope');
+  const unitLabel = workspace?.scopeUnit?.name?.trim()
+    || (workspace?.role === 'STATION_OPERATIONS' ? 'Local station' : getWorkspaceNavigation(workspace).workspaceLabel);
   const choosePersona = persona => { setOpen(false); onPersonaChange(persona); };
   return <div className="account-menu">
     <button type="button" className="account-trigger" aria-expanded={open} aria-label={`Account: ${currentRoleLabel}`} onClick={() => setOpen(value => !value)}>

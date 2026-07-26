@@ -6,12 +6,15 @@ const defaultRoles = new Set([
   'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP',
   'CRIME_ANALYST', 'STATION_OPERATIONS', 'DEMO_PRESENTER', 'PLATFORM_ADMIN', 'AUDITOR',
 ]);
+const STATION_DASHBOARD_NAME = 'Station Operations';
+const STATION_REPORT_SOURCES = new Set(['stationCases', 'alerts']);
 const validLayout = ({ column, row, width, height } = {}) => [column, row, width, height].every(Number.isInteger)
   && column >= 1 && row >= 1 && width >= 1 && height >= 1 && column + width - 1 <= 12;
 
 export function createDashboardService({ repository, now, idFactory }) {
   async function canViewReport(report, access) {
     if (!report) return false;
+    if (access?.role === 'STATION_OPERATIONS' && !STATION_REPORT_SOURCES.has(report.definition?.sourceKey)) return false;
     if (owns(report, access) || report.visibility === 'GLOBAL') return true;
     const shares = await repository.listContentShares('REPORT', report.id);
     return shares.some(row => row.targetUserId === access.actualUserId || row.targetRole === access.role
@@ -47,7 +50,13 @@ export function createDashboardService({ repository, now, idFactory }) {
     },
     async get({ access, dashboardId }) {
       const dashboard = await requireVisible(dashboardId, access);
-      return { ...dashboard, items: await repository.listDashboardItems(dashboardId) };
+      const items = await repository.listDashboardItems(dashboardId);
+      if (access.role !== 'STATION_OPERATIONS') return { ...dashboard, items };
+      const allowedItems = [];
+      for (const item of items) {
+        if (await canViewReport(await repository.getReport(item.reportId), access)) allowedItems.push(item);
+      }
+      return { ...dashboard, items: allowedItems };
     },
     async list({ access }) {
       const dashboards = await repository.listDashboards();
@@ -136,6 +145,14 @@ export function createDashboardService({ repository, now, idFactory }) {
     },
     async resolveLanding({ access }) {
       const preference = await repository.getUserPreference(access.actualUserId);
+      if (access.role === 'STATION_OPERATIONS') {
+        const dashboards = await repository.listDashboards();
+        const roleDefault = dashboards.find(row => row.defaultRole === 'STATION_OPERATIONS');
+        if (roleDefault) return roleDefault;
+        if (!preference?.landingDashboardId) return undefined;
+        const personal = await requireVisible(preference.landingDashboardId, access);
+        return owns(personal, access) && personal.name === STATION_DASHBOARD_NAME ? personal : undefined;
+      }
       if (preference?.landingDashboardId) return requireVisible(preference.landingDashboardId, access);
       const roleDefault = (await repository.listDashboards()).find(row => row.defaultRole === access.role);
       if (roleDefault) return roleDefault;

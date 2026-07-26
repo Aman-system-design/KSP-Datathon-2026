@@ -17,7 +17,7 @@ const workspace = {
   role: 'STATION_OPERATIONS', scopeUnitId: 1001,
   scopeUnit: { name: 'Central Police Station', type: 'Police station' },
   landingDashboard: { id: 'D-STATION' },
-  availableDashboards: [{ id: 'D-STATION', name: 'Station Operations', relationship: 'SYSTEM' }],
+  availableDashboards: [{ id: 'D-STATION', name: 'Station Operations', relationship: 'SYSTEM', defaultRole: 'STATION_OPERATIONS' }],
   availableReports: Object.entries(reportDefinitions).map(([id, definition]) => ({ id, name: definition.name, definition })),
 };
 
@@ -66,6 +66,41 @@ test('renders the station identity and role dashboard without internal or state-
   expect(screen.getByLabelText('Station reporting period')).toBeInTheDocument();
   expect(screen.queryByText(/authorized workspace|scopeunit|unit 1001|backend/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/FIRs by Karnataka District|State Intelligence/i)).not.toBeInTheDocument();
+});
+
+test('ignores personal and state dashboards and shows an honest setup state', async () => {
+  const api = apiHarness();
+  const unsafeWorkspace = {
+    ...workspace,
+    landingDashboard: { id: 'D-STATE' },
+    availableDashboards: [{ id: 'D-STATE', name: 'State Intelligence', relationship: 'OWNED' }],
+  };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={unsafeWorkspace} /></MemoryRouter>);
+
+  expect(await screen.findByText('Station dashboard is not configured yet.')).toBeInTheDocument();
+  expect(api.get).not.toHaveBeenCalledWith('/v1/dashboards/D-STATE');
+  expect(screen.getByRole('button', { name: 'Edit dashboard' })).toBeDisabled();
+});
+
+test('does not execute or render non-station report items from a loaded dashboard', async () => {
+  const api = apiHarness();
+  api.get.mockImplementation(async path => {
+    if (path === '/v1/dashboards/D-STATION') return { data: { id: 'D-STATION', items: [
+      { id: 'I-1', reportId: 'R-OPEN', column: 1, row: 1, width: 3, height: 2 },
+      { id: 'I-STATE', reportId: 'R-STATE', column: 1, row: 3, width: 12, height: 5 },
+    ] } };
+    if (path === '/v1/reports') return { data: [] };
+    throw new Error(`Unexpected request ${path}`);
+  });
+  const guardedWorkspace = { ...workspace, availableReports: [
+    ...workspace.availableReports,
+    { id: 'R-STATE', name: 'Karnataka district map', definition: { sourceKey: 'hotspots', visualization: { type: 'map' } } },
+  ] };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={guardedWorkspace} /></MemoryRouter>);
+
+  expect(await screen.findByText('Open Cases')).toBeInTheDocument();
+  expect(api.post).not.toHaveBeenCalledWith('/v1/reports/R-STATE/execute', expect.anything());
+  expect(screen.queryByText('Karnataka district map')).not.toBeInTheDocument();
 });
 
 test('period selection performs validated ephemeral station-case executions and updates the metric', async () => {

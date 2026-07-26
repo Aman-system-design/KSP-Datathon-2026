@@ -136,7 +136,9 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     <Route path="/reports" element={<ReportLibrary api={api} />} />
     <Route path="/reports/new" element={<ReportBuilder api={api} />} />
     <Route path="/reports/:reportId" element={<ReportBuilder api={api} />} />
-    <Route path="/dashboards" element={<DashboardLibrary workspace={workspace} />} />
+    <Route path="/dashboards" element={workspace.role === 'STATION_OPERATIONS'
+      ? <Suspense fallback={<Busy label="Loading station operationsâ€¦" />}><StationOperationsShell api={api} workspace={workspace} /></Suspense>
+      : <DashboardLibrary workspace={workspace} />} />
     <Route path="/dashboards/:dashboardId" element={<RoutedDashboardPage api={api} />} />
     <Route path="/alerts" element={<AlertsPage api={api} />} />
     <Route path="/alerts/:alertId" element={<AlertPage api={api} />} />

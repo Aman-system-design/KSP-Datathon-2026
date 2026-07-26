@@ -109,3 +109,28 @@ test('visible dashboards expose a safe owned shared or system relationship', asy
   );
   assert.equal(visible.some(item => 'shareTargets' in item), false);
 });
+
+test('station dashboards reject and filter reports outside station cases and alerts', async () => {
+  const { service, repository } = harness();
+  const station = access('STATION-OWNER', 'STATION_OPERATIONS');
+  const dashboard = await service.create({ access: station, input: { name: 'Station Operations' } });
+  await repository.createReport({
+    id: 'R-STATION', ownerUserId: station.actualUserId, name: 'Open cases', version: 1, visibility: 'PRIVATE',
+    definition: { sourceKey: 'stationCases' },
+  });
+  await repository.createReport({
+    id: 'R-STATE', ownerUserId: station.actualUserId, name: 'State map', version: 1, visibility: 'PRIVATE',
+    definition: { sourceKey: 'hotspots' },
+  });
+  const layout = { column: 1, row: 1, width: 4, height: 2 };
+
+  await service.addItem({ access: station, dashboardId: dashboard.id, reportId: 'R-STATION', layout });
+  await assert.rejects(
+    service.addItem({ access: station, dashboardId: dashboard.id, reportId: 'R-STATE', layout }),
+    { code: 'INVALID_REQUEST' },
+  );
+  await repository.createDashboardItem({ id: 'LEGACY-STATE', dashboardId: dashboard.id, reportId: 'R-STATE', ...layout, version: 1 });
+
+  const loaded = await service.get({ access: station, dashboardId: dashboard.id });
+  assert.deepEqual(loaded.items.map(item => item.reportId), ['R-STATION']);
+});

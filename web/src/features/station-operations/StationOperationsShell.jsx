@@ -9,6 +9,7 @@ import { useCommandCenterDashboard } from '../command-center/useCommandCenterDas
 import './station-operations.css';
 
 const PERIODS = [7, 30, 90];
+const STATION_REPORT_SOURCES = new Set(['stationCases', 'alerts']);
 const FIELD_LABELS = Object.freeze({
   ageingBucket: 'Ageing', status: 'Status', majorHead: 'Crime category', incidentHour: 'Incident hour',
 });
@@ -41,12 +42,28 @@ function filtered(item, filter) {
   return { ...item, data: item.data.filter(row => String(row[filter.field]) === String(filter.value)) };
 }
 
+const isStationReport = report => STATION_REPORT_SOURCES.has(report?.definition?.sourceKey);
+const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
+  || (dashboard?.relationship === 'OWNED' && dashboard?.name === 'Station Operations');
+const stationPlacementClass = item => item.definition?.visualization?.type === 'number' ? 'station-placement--metric'
+  : item.title === 'Case Ageing' ? 'station-placement--ageing'
+    : item.title === 'Open Case Register' ? 'station-placement--register' : 'station-placement--detail';
+
 export function StationOperationsShell({ api, workspace, onOpenCase }) {
   const [periodDays, setPeriodDays] = useState(30);
   const [stationFilter, setStationFilter] = useState(null);
   const [reportDrawerOpen, setReportDrawerOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const stationDashboard = useMemo(() => {
+    const dashboards = (workspace?.availableDashboards ?? []).filter(isStationDashboard);
+    return dashboards.find(item => item.id === workspace?.landingDashboard?.id) ?? dashboards[0] ?? null;
+  }, [workspace?.availableDashboards, workspace?.landingDashboard?.id]);
+  const stationWorkspace = useMemo(() => ({
+    ...workspace,
+    landingDashboard: stationDashboard ?? undefined,
+    availableDashboards: stationDashboard ? [stationDashboard] : [],
+  }), [workspace, stationDashboard]);
   const periodReportIds = useMemo(() => new Set(
     (workspace?.availableReports ?? [])
       .filter(report => report.definition?.sourceKey === 'stationCases'
@@ -57,7 +74,8 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
     runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: periodDays }],
   } : {}, [periodDays, periodReportIds]);
   const controller = useCommandCenterDashboard({
-    api, workspace, executionBody, reloadKey: periodDays,
+    api, workspace: stationWorkspace, requestedDashboardId: stationDashboard?.id ?? null,
+    executionBody, reloadKey: periodDays, reportPredicate: isStationReport,
   });
   const dashboard = useMemo(() => transformItems(
     controller.dashboard,
@@ -105,7 +123,8 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
 
     {controller.loading && !controller.dashboard ? <div className="station-operations__loading" role="status">Loading station operations…</div>
       : controller.error && !controller.dashboard ? <div className="station-operations__loading" role="alert">Station dashboard is unavailable.</div>
-        : <CommandCenterDashboardCanvas
+        : !stationDashboard ? <div className="station-operations__setup" role="status"><strong>Station dashboard is not configured yet.</strong><span>Your station reports will appear here after setup is complete.</span></div>
+          : <CommandCenterDashboardCanvas
           dashboard={dashboard}
           activeTab={controller.activeTab}
           editing={controller.editing}
@@ -113,12 +132,14 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
           onSelect={select}
           allowRemove
           showPreviewMeta={false}
+          getPlacementClassName={stationPlacementClass}
         />}
     <CommandCenterAddReportDrawer
       api={api}
       open={controller.editing && reportDrawerOpen}
       onAdd={async report => { await controller.addReport(report); setReportDrawerOpen(false); }}
       onClose={() => setReportDrawerOpen(false)}
+      reportPredicate={isStationReport}
     />
   </section>;
 }

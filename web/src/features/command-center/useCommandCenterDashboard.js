@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeDashboard } from './command-center-dashboard-model.js';
 
 const EMPTY_EXECUTION_BODY = () => ({});
+const INCLUDE_ALL_REPORTS = () => true;
 
 function executedItem(item, result) {
   if (result.status === 'rejected') return {
@@ -29,7 +30,7 @@ function executedItem(item, result) {
   };
 }
 
-export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null, executionBody = EMPTY_EXECUTION_BODY, reloadKey = null }) {
+export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null, executionBody = EMPTY_EXECUTION_BODY, reloadKey = null, reportPredicate = INCLUDE_ALL_REPORTS }) {
   const initialId = requestedDashboardId ?? workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState(initialId);
   const [dashboard, setDashboard] = useState(null);
@@ -49,7 +50,9 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
     setLoading(true); setError(null);
     try {
       const definition = (await api.get(`/v1/dashboards/${id}`)).data;
-      const placements = Array.isArray(definition?.items) ? definition.items : [];
+      const reportsById = new Map((workspace?.availableReports ?? []).map(report => [report.id, report]));
+      const placements = (Array.isArray(definition?.items) ? definition.items : [])
+        .filter(item => reportPredicate(reportsById.get(item.reportId), item.reportId));
       const executions = await Promise.allSettled(placements.map(item => api.post(
         `/v1/reports/${item.reportId}/execute`, executionBody(item.reportId) ?? {},
       )));
@@ -62,7 +65,7 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
       if (generation !== loadGeneration.current) return;
       setError(loadError); setStale(Boolean(dashboard));
     } finally { if (generation === loadGeneration.current) setLoading(false); }
-  }, [api, dashboard, executionBody]);
+  }, [api, dashboard, executionBody, reportPredicate, workspace?.availableReports]);
 
   useEffect(() => { load(selectedId); }, [selectedId, reloadKey]); // load is intentionally keyed by dashboard and explicit execution context
 
@@ -79,7 +82,7 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
     } finally { setSaving(false); }
   };
   const addReport = async report => {
-    if (!dashboard || !report?.id) return;
+    if (!dashboard || !report?.id || !reportPredicate(report, report.id)) return;
     const row = items.reduce((bottom, item) => Math.max(bottom, item.row + item.height), 1);
     const placement = {
       id: `pending-${report.id}-${items.length}`, reportId: report.id,
