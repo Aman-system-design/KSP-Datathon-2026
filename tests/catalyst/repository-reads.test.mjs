@@ -161,6 +161,29 @@ test('reads access profile, unit hierarchy and alerts without exposing Catalyst 
   assert.equal(JSON.stringify(await repository.getUnits()).includes('ROWID'), false);
 });
 
+test('pattern and anomaly reads stay on the explicitly captured Catalyst run group', async () => {
+  const fixture = catalystRows();
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+  const captured = await repository.getCurrentRunGroup();
+  fixture.tables.INT_Pattern.push({
+    ...fixture.tables.INT_Pattern[0], ROWID: 'PAT-NEW', PatternID: 'PATTERN-NEW', AnalysisRunRef: 'RUN-PAT-NEW',
+  });
+  fixture.tables.INT_Anomaly.push({
+    ...fixture.tables.INT_Anomaly[0], ROWID: 'ANOM-NEW', AnomalyID: 'ANOMALY-NEW', AnalysisRunRef: 'RUN-ANOM-NEW',
+  });
+  const nextRuns = JSON.parse(fixture.tables.INT_PublicationState[0].CurrentRunsJSON).map(run => ({
+    ...run,
+    ...(run.AnalysisType === 'PATTERN' ? { ROWID: 'RUN-PAT-NEW', AnalysisRunRef: 'RUN-PAT-NEW' } : {}),
+    ...(run.AnalysisType === 'ANOMALY' ? { ROWID: 'RUN-ANOM-NEW', AnalysisRunRef: 'RUN-ANOM-NEW' } : {}),
+  }));
+  fixture.tables.INT_PublicationState[0].CurrentRunsJSON = JSON.stringify(nextRuns);
+
+  assert.equal((await repository.listPatterns({ runGroup: captured })).data[0].id, fixture.state.patterns[0].id);
+  assert.equal((await repository.listAnomalies({ runGroup: captured })).data[0].id,
+    fixture.state.anomalies.find(row => row.isAnomaly).id);
+});
+
 test('reads cloned physical utility rules with indexed filters and safe row mapping', async () => {
   const fixture = catalystRows();
   fixture.tables.CFG_UtilityAlertRule.push({

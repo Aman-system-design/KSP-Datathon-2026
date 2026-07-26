@@ -139,7 +139,12 @@ export class MemoryIntelligenceRepository {
   }
 
   async getBrief() { return clone(this.#state.brief); }
-  async listPatterns(options = {}) { return this.#page(this.#state.patterns, options); }
+  async listPatterns(options = {}) {
+    const rows = options.runGroup
+      ? this.#state.findingsByRunGroup?.[options.runGroup.RunGroupID]?.patterns ?? []
+      : this.#state.patterns;
+    return this.#page(rows, options);
+  }
   async getPattern(id) { return clone(this.#state.patterns.find(row => row.id === id)); }
   async listHotspots(options = {}) {
     const rows = options.runGroup
@@ -147,7 +152,12 @@ export class MemoryIntelligenceRepository {
       : this.#state.hotspots;
     return this.#page(rows, options);
   }
-  async listAnomalies(options = {}) { return this.#page(this.#state.anomalies, options); }
+  async listAnomalies(options = {}) {
+    const rows = options.runGroup
+      ? this.#state.findingsByRunGroup?.[options.runGroup.RunGroupID]?.anomalies ?? []
+      : this.#state.anomalies;
+    return this.#page(rows, options);
+  }
   async getAreaRisk() { return clone(this.#state.areaRisks[0]); }
   async getNetwork(id) { return clone(this.#state.networks.find(({ node }) => node.id === id)); }
   async getDistrictContext(unitId) { return clone(this.#state.districtContexts.filter(row => !unitId || row.unitId === unitId)); }
@@ -311,6 +321,35 @@ export class MemoryIntelligenceRepository {
   async getUnits() { return clone(this.#state.units); }
   async getAlert(alertId) { return clone(this.#state.alerts.find(row => row.AlertID === alertId)); }
   async listAlerts() { return clone(this.#state.alerts); }
+  async createAlertIfAbsent(alert) {
+    const existing = this.#state.alerts.find(row => row.AlertID === alert.AlertID);
+    if (existing) return { alert: clone(existing), created: false };
+    this.#state.alerts.push(clone(alert));
+    return { alert: clone(alert), created: true };
+  }
+  async createAlertsIfAbsent({ alerts, ruleGuard }) {
+    const rule = this.#state.utilityRules.find(row => row.RuleID === ruleGuard?.ruleId);
+    if (!rule || rule.Version !== ruleGuard.expectedVersion || rule.Enabled !== true
+      || rule.ScopeUnitID !== ruleGuard.scopeUnitId || rule.UtilityVersion !== ruleGuard.utilityVersion) {
+      const error = new Error('utility rule changed before alert commit');
+      error.code = 'VERSION_CONFLICT';
+      throw error;
+    }
+    if (!Array.isArray(alerts) || new Set(alerts.map(row => row.AlertID)).size !== alerts.length) {
+      throw invalidRequest('alert batch must contain unique alert IDs');
+    }
+    const existingById = new Map(this.#state.alerts.map(row => [row.AlertID, row]));
+    const results = alerts.map((alert) => {
+      const existing = existingById.get(alert.AlertID);
+      if (existing && (existing.FindingType !== alert.FindingType
+        || existing.FindingBusinessID !== alert.FindingBusinessID
+        || String(existing.AnalysisRunRef) !== String(alert.AnalysisRunRef))) throw conflict('alert identity conflict');
+      return existing ? { alert: clone(existing), created: false } : { alert: clone(alert), created: true };
+    });
+    this.#failureInjector('beforeAlertBatchCommit');
+    this.#state.alerts = [...this.#state.alerts, ...results.filter(item => item.created).map(item => clone(item.alert))];
+    return results;
+  }
 
   async createCommand(command) {
     if (this.#state.commands.some(row => row.CommandID === command.CommandID

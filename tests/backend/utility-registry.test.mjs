@@ -123,16 +123,16 @@ test('only patterns, hotspots and anomalies enable alert policies with bounded f
   );
 
   assert.deepEqual(getUtility('patterns').alertPolicy.fields, {
-    threshold: { min: 0.65, max: 1 },
-    evaluationWindowDays: { min: 1, max: 180 },
+    threshold: { kind: 'number', min: 0.65, max: 1 },
+    evaluationWindowDays: { kind: 'integer', min: 1, max: 180 },
   });
   assert.deepEqual(getUtility('hotspots').alertPolicy.fields, {
-    minimumCases: { min: 2, max: 50 },
-    evaluationWindowDays: { min: 1, max: 180 },
+    minimumCases: { kind: 'integer', min: 2, max: 50 },
+    evaluationWindowDays: { kind: 'integer', min: 1, max: 180 },
   });
   assert.deepEqual(getUtility('anomalies').alertPolicy.fields, {
-    deviation: { min: 1, max: 10 },
-    evaluationWindowDays: { min: 1, max: 180 },
+    deviation: { kind: 'number', min: 1, max: 10 },
+    evaluationWindowDays: { kind: 'integer', min: 1, max: 180 },
   });
   assert.deepEqual(getUtility('area-attention').alertPolicy.fields, {});
 });

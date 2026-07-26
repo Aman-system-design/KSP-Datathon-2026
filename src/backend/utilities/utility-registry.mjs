@@ -14,7 +14,7 @@ const lifecycle = (labels) => [
   { stage: 'Deliver', label: labels.deliver },
 ];
 
-const windowField = () => ({ min: 1, max: 180 });
+const windowField = () => ({ kind: 'integer', min: 1, max: 180 });
 
 const definitions = deepFreeze([
   {
@@ -39,7 +39,7 @@ const definitions = deepFreeze([
     limitations: ['SIMILARITY_IS_NOT_PROOF', 'REQUIRES_HUMAN_REVIEW'],
     alertPolicy: {
       enabled: true,
-      fields: { threshold: { min: 0.65, max: 1 }, evaluationWindowDays: windowField() },
+      fields: { threshold: { kind: 'number', min: 0.65, max: 1 }, evaluationWindowDays: windowField() },
     },
   },
   {
@@ -64,7 +64,7 @@ const definitions = deepFreeze([
     limitations: ['CLUSTERS_ARE_TIME_AND_RADIUS_DEPENDENT', 'REQUIRES_HUMAN_REVIEW'],
     alertPolicy: {
       enabled: true,
-      fields: { minimumCases: { min: 2, max: 50 }, evaluationWindowDays: windowField() },
+      fields: { minimumCases: { kind: 'integer', min: 2, max: 50 }, evaluationWindowDays: windowField() },
     },
   },
   {
@@ -89,7 +89,7 @@ const definitions = deepFreeze([
     limitations: ['DEVIATION_IS_NOT_CAUSATION', 'REQUIRES_HUMAN_REVIEW'],
     alertPolicy: {
       enabled: true,
-      fields: { deviation: { min: 1, max: 10 }, evaluationWindowDays: windowField() },
+      fields: { deviation: { kind: 'number', min: 1, max: 10 }, evaluationWindowDays: windowField() },
     },
   },
   {

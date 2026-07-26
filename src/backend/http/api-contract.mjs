@@ -15,6 +15,7 @@ export const API_OPERATIONS = Object.freeze([
   Object.freeze({ method: 'GET', path: '/v1/utility-alert-rules', kind: 'resource', service: 'listUtilityAlertRules' }),
   Object.freeze({ method: 'POST', path: '/v1/utility-alert-rules', kind: 'resource', service: 'createUtilityAlertRule' }),
   Object.freeze({ method: 'PATCH', path: '/v1/utility-alert-rules/{ruleId}', kind: 'resource', service: 'updateUtilityAlertRule' }),
+  Object.freeze({ method: 'POST', path: '/v1/utility-alert-rules/{ruleId}/evaluate', kind: 'resource', service: 'evaluateUtilityAlertRule' }),
   Object.freeze({ method: 'GET', path: '/v1/geospatial/datasets', kind: 'resource', service: 'listGeospatialDatasets', auditEventType: 'SENSITIVE_READ' }),
   Object.freeze({ method: 'POST', path: '/v1/geospatial/layers/execute', kind: 'resource', service: 'executeGeospatialLayer', auditEventType: 'SENSITIVE_READ' }),
   Object.freeze({ method: 'GET', path: '/v1/geospatial/freshness', kind: 'resource', service: 'getGeospatialFreshness', auditEventType: 'SENSITIVE_READ' }),

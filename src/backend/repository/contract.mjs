@@ -44,6 +44,8 @@ export const repositoryMethods = Object.freeze([
   'getUnits',
   'getAlert',
   'listAlerts',
+  'createAlertIfAbsent',
+  'createAlertsIfAbsent',
   'createCommand',
   'getCommand',
   'getCommandByIdempotencyHash',

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { buildDemoState } from '../../src/backend/repository/build-demo-state.mjs';
+import { MemoryIntelligenceRepository } from '../../src/backend/repository/memory-repository.mjs';
 import { createUtilityServices } from '../../src/backend/utilities/utility-services.mjs';
 
 const services = createUtilityServices();
@@ -293,4 +295,102 @@ test('rule patch reconciles an identical committed retry and re-authorizes a con
   await assert.rejects(service.updateUtilityAlertRule({
     access, params: { ruleId: 'URULE-A' }, body: { expectedVersion: 1, enabled: false },
   }), { code: 'FORBIDDEN_SCOPE' });
+});
+
+test('manual evaluation uses current published findings and replays the deterministic alert', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  await repository.createUtilityRule({
+    RuleID: 'URULE-EVAL-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
+    UtilityKey: 'hotspots', UtilityVersion: '1.0.0', Enabled: true, ScopeUnitID: 101,
+    ThresholdsJSON: '{"minimumCases":5}', EvaluationWindowDays: 30, Severity: 'HIGH',
+    RecipientRolesJSON: '["DISTRICT_LEADERSHIP","CRIME_ANALYST"]', Version: 1,
+    CreatedByUserID: 'CAT-ANALYST', CreatedAt: '2026-07-26T09:00:00.000Z',
+    UpdatedAt: '2026-07-26T09:00:00.000Z', SyntheticData: true,
+  });
+  const evaluationAccess = {
+    ...access, actions: ['READ_UTILITY', 'RUN_UTILITY_EVALUATION'], authorizedUnitIds: new Set([101]),
+  };
+  const evaluation = createUtilityServices({
+    repository, idFactory: prefix => `${prefix}-1`, now: () => '2026-07-26T10:00:00.000Z',
+  });
+
+  const first = await evaluation.evaluateUtilityAlertRule({
+    access: evaluationAccess, params: { ruleId: 'URULE-EVAL-1' }, query: {}, body: { expectedVersion: 1 },
+  });
+  const replay = await evaluation.evaluateUtilityAlertRule({
+    access: evaluationAccess, params: { ruleId: 'URULE-EVAL-1' }, query: {}, body: { expectedVersion: 1 },
+  });
+
+  assert.equal(first.data.ruleId, 'URULE-EVAL-1');
+  assert.equal(first.data.ruleVersion, 1);
+  assert.equal(first.data.findingType, 'HOTSPOT');
+  assert.equal(first.data.matched, 1);
+  assert.equal(first.data.created, 1);
+  assert.equal(first.data.existing, 0);
+  assert.equal(replay.data.created, 0);
+  assert.equal(replay.data.existing, 1);
+  assert.deepEqual(replay.data.alertIds, first.data.alertIds);
+});
+
+test('manual evaluation aggregates multiple qualifying findings into one atomic rule-run alert', async () => {
+  const state = buildDemoState();
+  const duplicate = { ...state.hotspots[0], id: `${state.hotspots[0].id}-SECOND` };
+  state.hotspots.push(duplicate);
+  state.findingsByRunGroup[state.runGroups[0].RunGroupID].hotspots.push(duplicate);
+  const repository = new MemoryIntelligenceRepository(state);
+  const stored = {
+    RuleID: 'URULE-AGG-1', IdempotencyKeyHash: 'e'.repeat(64), RequestHash: 'f'.repeat(64),
+    UtilityKey: 'hotspots', UtilityVersion: '1.0.0', Enabled: true, ScopeUnitID: 101,
+    ThresholdsJSON: '{"minimumCases":5}', EvaluationWindowDays: 30, Severity: 'HIGH',
+    RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1, CreatedByUserID: 'CAT-ANALYST',
+    CreatedAt: '2026-07-26T09:00:00.000Z', UpdatedAt: '2026-07-26T09:00:00.000Z', SyntheticData: true,
+  };
+  await repository.createUtilityRule(stored);
+  const evaluation = createUtilityServices({ repository, now: () => '2026-07-26T10:00:00.000Z' });
+  const result = await evaluation.evaluateUtilityAlertRule({
+    access: { ...access, actions: ['RUN_UTILITY_EVALUATION'], authorizedUnitIds: new Set([101]) },
+    params: { ruleId: stored.RuleID }, body: { expectedVersion: 1 },
+  });
+
+  const expectedIds = state.findingsByRunGroup[state.runGroups[0].RunGroupID].hotspots
+    .filter(item => Object.values(item.evidenceUnits ?? {}).filter(unitId => unitId === 101).length >= 5)
+    .map(item => item.id).sort();
+  assert.equal(result.data.matched, expectedIds.length);
+  assert.equal(result.data.created, 1);
+  assert.equal(result.data.alertIds.length, 1);
+  const alert = await repository.getAlert(result.data.alertIds[0]);
+  assert.deepEqual(JSON.parse(alert.OriginalFindingJSON).evaluationSummary, {
+    matchedFindingCount: expectedIds.length,
+    matchedFindingIds: expectedIds,
+    aggregation: 'ONE_ALERT_PER_RULE_RUN',
+  });
+});
+
+test('manual evaluation rejects unauthorized, disabled and stale rule execution', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const base = {
+    RuleID: 'URULE-EVAL-2', IdempotencyKeyHash: 'c'.repeat(64), RequestHash: 'd'.repeat(64),
+    UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true, ScopeUnitID: 101,
+    ThresholdsJSON: '{"threshold":0.99}', EvaluationWindowDays: 30, Severity: 'HIGH',
+    RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 2, CreatedByUserID: 'CAT-ANALYST',
+    CreatedAt: '2026-07-26T09:00:00.000Z', UpdatedAt: '2026-07-26T09:00:00.000Z', SyntheticData: true,
+  };
+  await repository.createUtilityRule(base);
+  const evaluation = createUtilityServices({ repository, now: () => '2026-07-26T10:00:00.000Z' });
+  const canRun = { ...access, actions: ['RUN_UTILITY_EVALUATION'], authorizedUnitIds: new Set([101]) };
+
+  await assert.rejects(evaluation.evaluateUtilityAlertRule({
+    access: { ...canRun, actions: [] }, params: { ruleId: base.RuleID }, body: { expectedVersion: 2 },
+  }), { code: 'FORBIDDEN_ACTION' });
+  await assert.rejects(evaluation.evaluateUtilityAlertRule({
+    access: { ...canRun, authorizedUnitIds: new Set([999]) }, params: { ruleId: base.RuleID }, body: { expectedVersion: 2 },
+  }), { code: 'FORBIDDEN_SCOPE' });
+  await assert.rejects(evaluation.evaluateUtilityAlertRule({
+    access: canRun, params: { ruleId: base.RuleID }, body: { expectedVersion: 1 },
+  }), { code: 'VERSION_CONFLICT' });
+
+  await repository.updateUtilityRule(base.RuleID, 2, { Enabled: false, UpdatedAt: '2026-07-26T10:00:00.000Z' });
+  await assert.rejects(evaluation.evaluateUtilityAlertRule({
+    access: canRun, params: { ruleId: base.RuleID }, body: { expectedVersion: 3 },
+  }), { code: 'INVALID_STATE' });
 });

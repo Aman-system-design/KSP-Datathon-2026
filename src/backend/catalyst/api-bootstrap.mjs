@@ -118,6 +118,7 @@ export function createApiApplication({
         listUtilityAlertRules: utilityRuleServices.listUtilityAlertRules,
         createUtilityAlertRule: utilityRuleServices.createUtilityAlertRule,
         updateUtilityAlertRule: utilityRuleServices.updateUtilityAlertRule,
+        evaluateUtilityAlertRule: utilityRuleServices.evaluateUtilityAlertRule,
         listGeospatialDatasets: geospatialServices.listDatasets,
         executeGeospatialLayer: geospatialServices.executeLayer,
         getGeospatialFreshness: geospatialServices.getFreshness,

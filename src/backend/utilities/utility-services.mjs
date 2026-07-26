@@ -8,6 +8,7 @@ import {
   listUtilityCategories as listRegistryCategories,
 } from './utility-registry.mjs';
 import { normalizeUtilityRuleInput, normalizeUtilityRulePatch } from './rule-contract.mjs';
+import { evaluateUtilityFinding } from './utility-evaluator.mjs';
 
 const envelope = data => ({ data });
 const sha256 = value => createHash('sha256').update(value).digest('hex');
@@ -136,6 +137,23 @@ function invalidRequest(error) {
   throw error;
 }
 
+async function currentFindings(repository, utilityKey, runGroup) {
+  const method = {
+    patterns: 'listPatterns', hotspots: 'listHotspots', anomalies: 'listAnomalies',
+  }[utilityKey];
+  if (!method || typeof repository?.[method] !== 'function') fail('DATA_NOT_READY');
+  const findings = [];
+  let nextToken;
+  for (let pageNumber = 0; pageNumber < 5; pageNumber += 1) {
+    const page = await repository[method]({ runGroup, limit: 200, ...(nextToken ? { nextToken } : {}) });
+    if (!page || !Array.isArray(page.data)) fail('DATA_NOT_READY');
+    findings.push(...page.data);
+    nextToken = page.nextToken;
+    if (!nextToken) return findings;
+  }
+  fail('DATA_NOT_READY');
+}
+
 export function createUtilityServices({ repository, idFactory, now } = {}) {
   return Object.freeze({
     async listUtilities({ access, query = {} } = {}) {
@@ -243,6 +261,66 @@ export function createUtilityServices({ repository, idFactory, now } = {}) {
       }
       if (!updated) fail('NOT_FOUND');
       return envelope(publicRule(updated));
+    },
+    async evaluateUtilityAlertRule({ access, params, query = {}, body } = {}) {
+      requireAction(access, 'RUN_UTILITY_EVALUATION');
+      exactKeys(query, noQueryKeys);
+      exactKeys(body, new Set(['expectedVersion']));
+      if (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1) fail('INVALID_REQUEST');
+      const rule = await repository.getUtilityRule(params?.ruleId);
+      if (!rule) fail('NOT_FOUND');
+      requireScope(access, rule.ScopeUnitID);
+      if (rule.Version !== body.expectedVersion || rule.UtilityVersion !== getUtilityDefinition(rule.UtilityKey)?.version) {
+        fail('VERSION_CONFLICT');
+      }
+      if (rule.Enabled !== true) fail('INVALID_STATE');
+      const runGroup = await repository.getCurrentRunGroup();
+      const utility = getUtilityDefinition(rule.UtilityKey);
+      const analysisRun = runGroup?.runs?.find(item => item.AnalysisType === utility?.findingType);
+      if (!analysisRun || analysisRun.PublishStatus !== 'PUBLISHED') fail('DATA_NOT_READY');
+      const findings = await currentFindings(repository, rule.UtilityKey, runGroup);
+      const results = [];
+      const candidates = [];
+      let evaluated = 0;
+      let suppressed = 0;
+      for (const finding of findings) {
+        const candidate = evaluateUtilityFinding({ rule, finding, analysisRun, now: now() });
+        if (!candidate.matched) {
+          if (candidate.reason !== 'OUT_OF_SCOPE') {
+            evaluated += 1;
+            suppressed += 1;
+          }
+          continue;
+        }
+        evaluated += 1;
+        candidates.push(candidate.alert);
+      }
+      if (candidates.length) {
+        candidates.sort((left, right) => left.AlertID.localeCompare(right.AlertID));
+        const selected = structuredClone(candidates[0]);
+        const original = JSON.parse(selected.OriginalFindingJSON);
+        original.evaluationSummary = {
+          matchedFindingCount: candidates.length,
+          matchedFindingIds: candidates.map(item => item.FindingBusinessID).sort(),
+          aggregation: 'ONE_ALERT_PER_RULE_RUN',
+        };
+        selected.OriginalFindingJSON = canonicalStringify(original);
+        results.push(...await repository.createAlertsIfAbsent({
+          alerts: [selected],
+          ruleGuard: {
+            ruleId: rule.RuleID, expectedVersion: rule.Version,
+            scopeUnitId: rule.ScopeUnitID, utilityVersion: rule.UtilityVersion,
+          },
+        }));
+      }
+      return envelope({
+        ruleId: rule.RuleID, ruleVersion: rule.Version, utilityKey: rule.UtilityKey,
+        findingType: utility.findingType, analysisRunId: analysisRun.AnalysisRunID,
+        runGroupId: analysisRun.RunGroupID, evaluated, matched: candidates.length, suppressed,
+        created: results.filter(item => item.created).length,
+        existing: results.filter(item => !item.created).length,
+        alertIds: results.map(item => item.alert.AlertID), syntheticData: true,
+      });
     },
   });
 }

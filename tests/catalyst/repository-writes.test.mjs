@@ -182,6 +182,53 @@ test('Catalyst run requests persist idempotency and controlled status transition
   assert.equal(fake.tables.get('OPS_IntelligenceRunRequest')[0].RequestedAt, '2026-07-22 01:00:00');
 });
 
+test('Catalyst deterministic alert insertion returns the existing row on replay', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const alert = {
+    AlertID: 'ALT-UTIL-1', AnalysisRunRef: '3001', FindingType: 'HOTSPOT',
+    FindingBusinessID: 'HOT-1', ScopeUnitID: 101, Status: 'GENERATED', AlertVersion: 0,
+    LastCommandID: null, Severity: 0.75, OriginalFindingJSON: '{"schemaVersion":"1.0.0"}',
+    MethodVersion: '1.0.0', CreatedAt: '2026-07-26T10:00:00.000Z', SyntheticData: true,
+  };
+
+  const first = await repository.createAlertIfAbsent(alert);
+  const replay = await repository.createAlertIfAbsent({ ...alert, CreatedAt: '2026-07-26T11:00:00.000Z' });
+
+  assert.equal(first.created, true);
+  assert.equal(replay.created, false);
+  assert.equal(replay.alert.AlertID, alert.AlertID);
+  assert.equal(fake.tables.get('WF_Alert').filter(row => row.AlertID === alert.AlertID).length, 1);
+});
+
+test('Catalyst aggregated alert commit revalidates the exact rule snapshot', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const rule = {
+    RuleID: 'RULE-GUARD-1', IdempotencyKeyHash: '1'.repeat(64), RequestHash: '2'.repeat(64),
+    UtilityKey: 'hotspots', UtilityVersion: '1.0.0', Enabled: true, ScopeUnitID: 101,
+    ThresholdsJSON: '{"minimumCases":5}', EvaluationWindowDays: 30, Severity: 'HIGH',
+    RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1, CreatedByUserID: 'CAT-1',
+    CreatedAt: '2026-07-26T10:00:00.000Z', UpdatedAt: '2026-07-26T10:00:00.000Z', SyntheticData: true,
+  };
+  await repository.createUtilityRule(rule);
+  const alert = {
+    AlertID: 'ALT-AGG-1', AnalysisRunRef: '3001', FindingType: 'HOTSPOT', FindingBusinessID: 'HOT-1',
+    ScopeUnitID: 101, Status: 'GENERATED', AlertVersion: 0, Severity: 0.75,
+    OriginalFindingJSON: '{}', MethodVersion: '1.0.0', CreatedAt: '2026-07-26T10:00:00.000Z', SyntheticData: true,
+  };
+  const committed = await repository.createAlertsIfAbsent({
+    alerts: [alert],
+    ruleGuard: { ruleId: rule.RuleID, expectedVersion: 1, scopeUnitId: 101, utilityVersion: '1.0.0' },
+  });
+  assert.equal(committed[0].created, true);
+  await assert.rejects(repository.createAlertsIfAbsent({
+    alerts: [{ ...alert, AlertID: 'ALT-AGG-STALE' }],
+    ruleGuard: { ruleId: rule.RuleID, expectedVersion: 2, scopeUnitId: 101, utilityVersion: '1.0.0' },
+  }), { code: 'VERSION_CONFLICT' });
+  assert.equal(fake.tables.get('WF_Alert').some(row => row.AlertID === 'ALT-AGG-STALE'), false);
+});
+
 test('Catalyst utility rules preserve physical JSON, datetime and optimistic update semantics', async () => {
   const fake = fakeApplication();
   const repository = new CatalystIntelligenceRepository({ application: fake.application });
@@ -397,6 +444,10 @@ test('refresh run publication is durable, seven-type coherent and retryable by b
   const publishedHotspot = (await repository.listHotspots()).data[0];
   assert.deepEqual(publishedHotspot.evidenceCaseIds, buildDemoState().hotspots[0].evidenceCaseIds);
   assert.deepEqual(publishedHotspot.evidenceUnits, buildDemoState().hotspots[0].evidenceUnits);
+  const publishedAnomaly = (await repository.listAnomalies()).data[0];
+  const expectedAnomaly = buildDemoState().anomalies.find(row => row.id === publishedAnomaly.id);
+  assert.deepEqual(publishedAnomaly.evidenceCaseIds, expectedAnomaly.evidenceCaseIds);
+  assert.deepEqual(publishedAnomaly.evidenceUnits, expectedAnomaly.evidenceUnits);
   const freshness = await repository.getRefreshStatus();
   assert.equal(freshness.currentRunGroup.RunGroupID, 'GROUP-1');
   assert.equal(freshness.latestAttempt.status, 'COMPLETED');

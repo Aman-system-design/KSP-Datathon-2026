@@ -165,6 +165,32 @@ test('API composition creates, lists and optimistically updates authorized utili
   assert.equal(stale.body.error.code, 'VERSION_CONFLICT');
 });
 
+test('API composition manually evaluates a current utility rule without duplicate alerts', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' } });
+  const created = await application({
+    method: 'POST', url: '/v1/utility-alert-rules', headers: { 'Idempotency-Key': 'evaluate-one' },
+    body: {
+      utilityKey: 'hotspots', enabled: true, scopeUnitId: 101,
+      thresholds: { minimumCases: 5 }, evaluationWindowDays: 30,
+      severity: 'HIGH', recipientRoles: ['CRIME_ANALYST'],
+    },
+  });
+  assert.equal(created.status, 200);
+  const request = {
+    method: 'POST', url: `/v1/utility-alert-rules/${created.body.data.id}/evaluate`,
+    headers: {}, body: { expectedVersion: 1 },
+  };
+  const first = await application(request);
+  const replay = await application(request);
+
+  assert.equal(first.status, 200);
+  assert.equal(first.body.data.created, 1);
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.data.created, 0);
+  assert.equal(replay.body.data.existing, 1);
+  assert.deepEqual(replay.body.data.alertIds, first.body.data.alertIds);
+});
+
 test('POST rule retries after audit failure without duplicating durable state', async () => {
   let failConfigurationAudit = true;
   const { application, repository } = harness({
