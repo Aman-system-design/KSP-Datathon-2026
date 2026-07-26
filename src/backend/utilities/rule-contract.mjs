@@ -12,6 +12,11 @@ const recipientRoleOrder = Object.freeze([
 const recipientRoles = new Set(recipientRoleOrder);
 const supportedUtilities = new Set(['patterns', 'hotspots', 'anomalies']);
 
+export const isValidUtilityRecipientRoles = value => Array.isArray(value)
+  && value.length > 0
+  && new Set(value).size === value.length
+  && value.every(role => recipientRoles.has(role));
+
 const fail = message => { throw new TypeError(message); };
 const isPlainObject = value => value !== null
   && typeof value === 'object'

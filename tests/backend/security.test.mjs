@@ -80,7 +80,7 @@ test('Command Center is a Development-only synthetic persona with an exact read 
   const expectedActions = [
     'READ_BRIEF', 'READ_PATTERN', 'READ_HOTSPOT', 'READ_ANOMALY', 'READ_AREA_RISK',
     'READ_NETWORK', 'READ_DISTRICT_CONTEXT', 'READ_ALERT', 'READ_INTELLIGENCE_RUNS',
-    'READ_UTILITY', 'MANAGE_UTILITY_RULE', 'RUN_UTILITY_EVALUATION',
+    'READ_UTILITY',
   ];
   const access = resolveAccess({
     currentUser: user, profile: presenter, requestedPersona: 'COMMAND_CENTER',
