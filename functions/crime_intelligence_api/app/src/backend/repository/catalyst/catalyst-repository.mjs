@@ -41,6 +41,7 @@ const SOURCE_TABLES = Object.freeze({
   CaseMaster: 'SRC_CaseMaster', ComplainantDetails: 'SRC_ComplainantDetails', ActSectionAssociation: 'SRC_ActSectionAssociation',
   Victim: 'SRC_Victim', Accused: 'SRC_Accused', ArrestSurrender: 'SRC_ArrestSurrender', Act: 'SRC_Act', Section: 'SRC_Section',
   CrimeHeadActSection: 'SRC_CrimeHeadActSection', CrimeHead: 'SRC_CrimeHead', CrimeSubHead: 'SRC_CrimeSubHead',
+  CrimeMajorHeadMaster: 'SRC_CrimeHead', CrimeMinorHeadMaster: 'SRC_CrimeSubHead',
   CasteMaster: 'SRC_CasteMaster', ReligionMaster: 'SRC_ReligionMaster', OccupationMaster: 'SRC_OccupationMaster',
   CaseStatusMaster: 'SRC_CaseStatusMaster', Court: 'SRC_Court', District: 'SRC_District', State: 'SRC_State', Unit: 'SRC_Unit',
   UnitType: 'SRC_UnitType', Rank: 'SRC_Rank', Designation: 'SRC_Designation', Employee: 'SRC_Employee',
@@ -48,6 +49,8 @@ const SOURCE_TABLES = Object.freeze({
 });
 const CONTROL_TABLES = Object.freeze(['TRN_IngestionBatch', 'TRN_RejectedRecord', 'TRN_SourceKeyMap']);
 const ALLOWED_TABLES = new Set([...Object.values(TABLES), ...Object.values(SOURCE_TABLES), ...CONTROL_TABLES]);
+const STATION_CASE_READ_LIMIT = 5000;
+const STATION_CASE_RAW_SCAN_LIMIT = 10_000;
 const DATETIME_COLUMNS = Object.freeze({
   INT_AnalysisRun: ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt'],
   INT_PublicationState: ['PublishedAt', 'LatestAttemptAt'],
@@ -273,6 +276,54 @@ export class CatalystIntelligenceRepository {
       if (pageRows.length < pageSize) return rows;
     }
     fail('DATA_NOT_READY', `${tableName} indexed result exceeds its governed read limit.`);
+  }
+
+  async #scanEligibleStationCases(unitId, batchRefs, { eligibleLimit, rawLimit }) {
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
+      const rawRows = (await this.#read(SOURCE_TABLES.CaseMaster))
+        .filter(row => Number(row.PoliceStationID) === unitId);
+      if (rawRows.length > rawLimit) {
+        fail('DATA_NOT_READY', 'Station case eligibility exceeds its governed raw scan limit.');
+      }
+      return {
+        rows: this.#acceptedSyntheticSourceRows(rawRows, batchRefs).slice(0, eligibleLimit),
+        rawCount: rawRows.length,
+      };
+    }
+    const rows = [];
+    let rawCount = 0;
+    while (true) {
+      const remainingRaw = rawLimit - rawCount;
+      const pageSize = remainingRaw > 0 ? Math.min(200, remainingRaw) : 1;
+      let result;
+      try {
+        result = await this.#zcql.executeZCQLQuery(
+          `SELECT * FROM ${SOURCE_TABLES.CaseMaster} WHERE PoliceStationID = ${unitId} LIMIT ${rawCount}, ${pageSize}`,
+        );
+      } catch (error) {
+        throw sanitizeCatalystSdkError(error, { operation: `QUERY_${SOURCE_TABLES.CaseMaster}_PoliceStationID` });
+      }
+      const values = Array.isArray(result) ? result : result?.data ?? [];
+      const pageRows = values.map(item => mapCatalystRow(
+        item?.[SOURCE_TABLES.CaseMaster] ?? item,
+        { includeRowId: true },
+      ));
+      if (pageRows.length > pageSize) {
+        fail('DATA_NOT_READY', 'Station case eligibility exceeds its governed raw scan limit.');
+      }
+      if (remainingRaw === 0) {
+        if (pageRows.length > 0) {
+          fail('DATA_NOT_READY', 'Station case eligibility exceeds its governed raw scan limit.');
+        }
+        return { rows, rawCount };
+      }
+      rawCount += pageRows.length;
+      for (const row of this.#acceptedSyntheticSourceRows(pageRows, batchRefs)) {
+        rows.push(row);
+        if (rows.length === eligibleLimit) return { rows, rawCount };
+      }
+      if (pageRows.length < pageSize) return { rows, rawCount };
+    }
   }
 
   #invalidate(...tableNames) {
@@ -1000,6 +1051,9 @@ export class CatalystIntelligenceRepository {
     for (const item of await this.#read(TABLES.dashboardItems)) {
       if (String(item.DashboardRef) === String(row.ROWID)) await this.#delete(TABLES.dashboardItems, item.ROWID);
     }
+    for (const preference of await this.#read(TABLES.userPreferences)) {
+      if (String(preference.LandingDashboardRef) === String(row.ROWID)) await this.#delete(TABLES.userPreferences, preference.ROWID);
+    }
     await this.#delete(TABLES.dashboards, row.ROWID);
     return true;
   }
@@ -1049,6 +1103,28 @@ export class CatalystIntelligenceRepository {
     return true;
   }
   async replaceDashboardItems(dashboardId, items) {
+    if (items.length > 0 && items.every(item => String(item.id).startsWith('DASHITEM-IDEMP-'))) {
+      const same = (left, right) => ['id', 'dashboardId', 'reportId', 'column', 'row', 'width', 'height', 'displayOrder']
+        .every(field => left?.[field] === right?.[field]);
+      for (const item of items) {
+        let existing = (await this.listDashboardItems(dashboardId)).find(row => row.id === item.id);
+        if (!existing) {
+          try { existing = await this.createDashboardItem(item); }
+          catch (error) {
+            if (error.code !== 'UNIQUE_CONFLICT') throw error;
+            existing = (await this.listDashboardItems(dashboardId)).find(row => row.id === item.id);
+          }
+        }
+        if (!same(existing, item)) fail('IDEMPOTENCY_CONFLICT');
+      }
+      const expected = new Set(items.map(item => item.id));
+      for (const current of await this.listDashboardItems(dashboardId)) {
+        if (!expected.has(current.id)) await this.deleteDashboardItem(current.id);
+      }
+      const persisted = await this.listDashboardItems(dashboardId);
+      if (persisted.length !== items.length || items.some(item => !persisted.some(row => same(row, item)))) fail('DATA_NOT_READY');
+      return persisted.sort((left, right) => left.displayOrder - right.displayOrder);
+    }
     for (const current of await this.listDashboardItems(dashboardId)) await this.deleteDashboardItem(current.id);
     const result = [];
     for (const item of items) result.push(await this.createDashboardItem(item));
@@ -1106,6 +1182,12 @@ export class CatalystIntelligenceRepository {
     else await this.#insert(TABLES.userPreferences, values);
     return this.getUserPreference(preference.userId);
   }
+  async deleteUserPreference(userId) {
+    const current = (await this.#read(TABLES.userPreferences)).find(row => row.CatalystUserID === userId);
+    if (!current) return false;
+    await this.#delete(TABLES.userPreferences, current.ROWID);
+    return true;
+  }
 
   async getAccessProfile(userId) {
     const row = (await this.#read(TABLES.profiles)).find(item => String(item.CatalystUserID) === String(userId));
@@ -1120,6 +1202,79 @@ export class CatalystIntelligenceRepository {
       IsSynthetic, SourceRecordHash, ValidationStatus, UnitTypeRef, ParentUnitRef,
       StateRef, DistrictRef, ...unit
     }) => unit);
+  }
+
+  async #completedSyntheticSourceBatchRefs() {
+    const rows = await this.#queryIndexed('TRN_IngestionBatch', 'Status', 'COMPLETED', {
+      maxRows: STATION_CASE_READ_LIMIT,
+    });
+    return new Set(rows.filter(row => row.IsSynthetic === true && row.CompletedAt
+      && Number(row.SourceRowCount) === Number(row.AcceptedRowCount) + Number(row.RejectedRowCount))
+      .map(row => String(row.ROWID)));
+  }
+
+  #acceptedSyntheticSourceRows(rows, batchRefs) {
+    return rows.filter(row => row.IsSynthetic === true && row.ValidationStatus === 'ACCEPTED'
+      && batchRefs.has(String(row.SourceBatchRef)));
+  }
+
+  async #projectStationCaseRows(cases, batchRefs) {
+    if (cases.length === 0) return [];
+    const [unitRows, statusRows, majorRows, minorRows] = (await Promise.all([
+      this.#read(SOURCE_TABLES.Unit),
+      this.#read(SOURCE_TABLES.CaseStatusMaster),
+      this.#read(SOURCE_TABLES.CrimeMajorHeadMaster),
+      this.#read(SOURCE_TABLES.CrimeMinorHeadMaster),
+    ])).map(rows => this.#acceptedSyntheticSourceRows(rows, batchRefs));
+    const units = new Map(unitRows.map(row => [Number(row.UnitID), row.UnitName]));
+    const statuses = new Map(statusRows.map(row => [Number(row.CaseStatusID), row.CaseStatusName]));
+    const majors = new Map(majorRows.map(row => [Number(row.CrimeHeadID), row.CrimeGroupName]));
+    const minors = new Map(minorRows.map(row => [Number(row.CrimeSubHeadID), row.CrimeHeadName]));
+    return cases.map(row => ({
+      caseId: String(row.CaseMasterID),
+      caseNumber: row.CaseNo ?? row.CrimeNo,
+      unitId: Number(row.PoliceStationID),
+      unitName: units.get(Number(row.PoliceStationID)) ?? 'Unknown',
+      status: statuses.get(Number(row.CaseStatusID)) ?? 'Unknown',
+      registeredAt: row.FIRDate ?? row.CrimeRegisteredDate ?? row.InfoReceivedPSDate,
+      incidentAt: row.IncidentFromDate,
+      majorHead: majors.get(Number(row.CrimeMajorHeadID)) ?? 'Unknown',
+      minorHead: minors.get(Number(row.CrimeMinorHeadID)) ?? 'Unknown',
+      syntheticData: true,
+    }));
+  }
+
+  async listStationCaseRows({ unitIds } = {}) {
+    const authorizedUnitIds = [...new Set([...(unitIds ?? [])].map(Number).filter(Number.isSafeInteger))];
+    if (authorizedUnitIds.length === 0) return [];
+    const batchRefs = await this.#completedSyntheticSourceBatchRefs();
+    const cases = [];
+    let rawScanRemaining = STATION_CASE_RAW_SCAN_LIMIT;
+    for (const unitId of authorizedUnitIds) {
+      const remaining = STATION_CASE_READ_LIMIT - cases.length;
+      const scanned = await this.#scanEligibleStationCases(unitId, batchRefs, {
+        eligibleLimit: remaining + 1,
+        rawLimit: rawScanRemaining,
+      });
+      rawScanRemaining -= scanned.rawCount;
+      cases.push(...scanned.rows);
+      if (cases.length > STATION_CASE_READ_LIMIT) {
+        fail('DATA_NOT_READY', 'Station case result exceeds its governed read limit.');
+      }
+    }
+    return this.#projectStationCaseRows(cases, batchRefs);
+  }
+
+  async getStationCaseRow(caseId) {
+    const caseIdText = String(caseId);
+    if (!/^(0|[1-9]\d*)$/u.test(caseIdText) || !Number.isSafeInteger(Number(caseIdText))) return undefined;
+    const queryId = Number(caseIdText);
+    const [batchRefs, rows] = await Promise.all([
+      this.#completedSyntheticSourceBatchRefs(),
+      this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'CaseMasterID', queryId, { maxRows: 1 }),
+    ]);
+    const cases = this.#acceptedSyntheticSourceRows(rows, batchRefs);
+    return (await this.#projectStationCaseRows(cases, batchRefs))[0];
   }
 
   async getAlert(alertId) {

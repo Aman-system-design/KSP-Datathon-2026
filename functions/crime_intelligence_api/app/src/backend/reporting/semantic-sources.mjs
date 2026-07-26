@@ -1,4 +1,8 @@
-const field = (type, options = {}) => Object.freeze({ type, ...options });
+const field = (type, options = {}) => Object.freeze({
+  type,
+  ...options,
+  ...(options.aggregates ? { aggregates: Object.freeze([...options.aggregates]) } : {}),
+});
 const fields = (value) => Object.freeze(value);
 const source = (value) => Object.freeze({
   ...value,
@@ -69,7 +73,7 @@ export const REPORT_SOURCES = Object.freeze({
     fields: {
       unitId: field('string', { dimension: true }), indicator: field('string', { dimension: true }),
       value: field('number', { aggregates: ['sum', 'avg', 'min', 'max', 'count'] }),
-      period: field('date', { dimension: true }),
+      period: field('string', { dimension: true }),
     },
     visualizations: ['number', 'table', 'bar', 'line'],
   }),
@@ -80,8 +84,30 @@ export const REPORT_SOURCES = Object.freeze({
       state: field('string', { dimension: true }), unitId: field('string', { dimension: true }),
       severity: field('number', { aggregates: ['avg', 'min', 'max'] }),
       createdAt: field('date', { dimension: true }),
+      recordCount: field('number', { aggregates: ['sum', 'count'] }),
     },
     visualizations: ['number', 'table', 'bar', 'line'],
+  }),
+  stationCases: source({
+    key: 'stationCases', label: 'Station cases', service: 'listStationCasesForAnalytics',
+    fields: {
+      caseId: field('string', { dimension: true }),
+      caseNumber: field('string', { dimension: true }),
+      unitId: field('number', { dimension: true }),
+      unitName: field('string', { dimension: true }),
+      status: field('string', { dimension: true }),
+      registeredAt: field('date', { dimension: true }),
+      incidentAt: field('date', { dimension: true }),
+      incidentHour: field('number', { dimension: true }),
+      majorHead: field('string', { dimension: true }),
+      minorHead: field('string', { dimension: true }),
+      ageDays: field('number', { aggregates: ['avg', 'min', 'max'] }),
+      registeredAgeDays: field('number', { aggregates: ['avg', 'min', 'max'] }),
+      ageingBucket: field('string', { dimension: true }),
+      isOpen: field('boolean', { dimension: true }),
+      recordCount: field('number', { aggregates: ['sum', 'count'] }),
+    },
+    visualizations: ['number', 'table', 'bar', 'line', 'pie', 'funnel'],
   }),
 });
 
