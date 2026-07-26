@@ -302,7 +302,62 @@ describe('station dashboard template', () => {
     await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
 
     expect(state.dashboards[0].items).toHaveLength(9);
+    expect(api.post).not.toHaveBeenCalled();
     expect(api.patch).not.toHaveBeenCalled();
+    expect(api.idempotentPut).toHaveBeenCalledTimes(1);
+  });
+
+  test('preserves a tenth owned station report and placement on a complete dashboard', async () => {
+    const reports = STATION_REPORTS.map((definition, index) => ({ id: `R-${index + 1}`, name: definition.name, definition: structuredClone(definition), relationship: 'OWNED', visibility: 'PRIVATE' }));
+    const extra = { id: 'R-10', name: 'Investigation Priority', definition: { ...structuredClone(STATION_REPORTS[0]), name: 'Investigation Priority' }, relationship: 'OWNED', visibility: 'PRIVATE' };
+    const items = STATION_LAYOUT.map((layout, index) => ({ id: `I-${index}`, reportId: reports[index].id, ...layout }));
+    items.push({ id: 'I-10', reportId: extra.id, column: 1, row: 12, width: 12, height: 4 });
+    const dashboard = { id: 'D-COMPLETE-EXTRA', name: 'Station Operations', description: STATION_BOOTSTRAP_MARKER, relationship: 'OWNED', visibility: 'PRIVATE', version: 2, items };
+    const state = { reports: [...reports, extra], dashboards: [dashboard], landingDashboard: dashboard.id, nextReport: 11 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.dashboard.items).toEqual(items);
+    expect(result.reports).toHaveLength(10);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+    expect(api.idempotent).not.toHaveBeenCalled();
+    expect(api.idempotentPut).not.toHaveBeenCalled();
+  });
+
+  test('preserves a deliberately removed template placement on a complete dashboard', async () => {
+    const reports = STATION_REPORTS.map((definition, index) => ({ id: `R-${index + 1}`, name: definition.name, definition: structuredClone(definition), relationship: 'OWNED', visibility: 'PRIVATE' }));
+    const items = STATION_LAYOUT.slice(0, 8).map((layout, index) => ({ id: `I-${index}`, reportId: reports[index].id, ...layout }));
+    const dashboard = { id: 'D-COMPLETE-REMOVED', name: 'Station Operations', description: STATION_BOOTSTRAP_MARKER, relationship: 'OWNED', visibility: 'PRIVATE', version: 2, items };
+    const state = { reports, dashboards: [dashboard], landingDashboard: dashboard.id, nextReport: 10 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.dashboard.items).toEqual(items);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+    expect(api.idempotent).not.toHaveBeenCalled();
+    expect(api.idempotentPut).not.toHaveBeenCalled();
+  });
+
+  test('preserves an edited template report on a complete dashboard without creating or replacing', async () => {
+    const reports = STATION_REPORTS.map((definition, index) => ({ id: `R-${index + 1}`, name: definition.name, definition: structuredClone(definition), relationship: 'OWNED', visibility: 'PRIVATE' }));
+    reports[0].definition.filters = [{ field: 'priority', operator: 'eq', value: 'HIGH' }];
+    const items = STATION_LAYOUT.map((layout, index) => ({ id: `I-${index}`, reportId: reports[index].id, ...layout }));
+    const dashboard = { id: 'D-COMPLETE-EDITED', name: 'Station Operations', description: STATION_BOOTSTRAP_MARKER, relationship: 'OWNED', visibility: 'PRIVATE', version: 2, items };
+    const state = { reports, dashboards: [dashboard], landingDashboard: dashboard.id, nextReport: 10 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.dashboard.items).toEqual(items);
+    expect(result.reports).toEqual(reports);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+    expect(api.idempotent).not.toHaveBeenCalled();
+    expect(api.idempotentPut).not.toHaveBeenCalled();
   });
 });
 

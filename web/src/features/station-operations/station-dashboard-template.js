@@ -66,9 +66,16 @@ const samePlacements = (actual, expected) => Array.isArray(actual) && actual.len
     return current && ['reportId', 'column', 'row', 'width', 'height']
       .every(field => current[field] === placement[field]);
   });
-const sameReportSet = (actual, expected) => Array.isArray(actual) && actual.length === expected.length
-  && new Set(actual.map(item => item.reportId)).size === expected.length
-  && expected.every(item => actual.some(current => current.reportId === item.reportId));
+const duplicateRaceRepair = (visibleReports, actual) => {
+  const reports = STATION_REPORTS.map(definition => matchingReport(visibleReports, definition));
+  if (reports.some(reportValue => !reportValue) || new Set(reports.map(reportValue => reportValue.id)).size !== reports.length) return null;
+  const expected = placementsFor(reports);
+  if (!Array.isArray(actual) || actual.length <= expected.length || actual.length % expected.length !== 0) return null;
+  const copies = actual.length / expected.length;
+  const duplicateCount = placement => actual.filter(current => ['reportId', 'column', 'row', 'width', 'height']
+    .every(field => current?.[field] === placement[field])).length;
+  return expected.every(placement => duplicateCount(placement) === copies) ? expected : null;
+};
 
 async function reconcileReport(api, definition, error) {
   const persisted = matchingReport(list(await api.get('/v1/reports')), definition);
@@ -113,6 +120,22 @@ async function performBootstrap({ api, workspace }) {
   }
   let dashboard = bootstrapDashboard(visibleDashboards);
   const wasComplete = dashboard?.description === STATION_BOOTSTRAP_MARKER;
+  if (wasComplete) {
+    let current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+    const repairedItems = duplicateRaceRepair(visibleReports, current?.items);
+    if (repairedItems) {
+      try {
+        await replaceIdempotent(api, `/v1/dashboards/${encodeURIComponent(dashboard.id)}/items`,
+          { items: repairedItems }, `${TEMPLATE_KEY}/dashboard-items/duplicate-race-repair`);
+      } catch (error) {
+        const reconciled = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+        if (!samePlacements(reconciled?.items, repairedItems)) throw error;
+      }
+      current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+      if (!samePlacements(current?.items, repairedItems)) throw new Error('Station dashboard duplicate placements remain');
+    }
+    return { dashboard: { ...dashboard, items: current?.items ?? [] }, reports: visibleReports };
+  }
   const reports = [];
   for (const [index, definition] of STATION_REPORTS.entries()) {
     let persisted = matchingReport(visibleReports, definition);
@@ -158,8 +181,7 @@ async function performBootstrap({ api, workspace }) {
   }
 
   let current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
-  const preserveCompletedLayout = wasComplete && sameReportSet(current?.items, expectedItems);
-  if (!preserveCompletedLayout && !samePlacements(current?.items, expectedItems)) {
+  if (!samePlacements(current?.items, expectedItems)) {
     try {
       await replaceIdempotent(api, `/v1/dashboards/${encodeURIComponent(dashboard.id)}/items`,
         { items: expectedItems }, `${TEMPLATE_KEY}/dashboard-items`);
@@ -171,8 +193,6 @@ async function performBootstrap({ api, workspace }) {
     current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
     if (!samePlacements(current?.items, expectedItems)) throw new Error('Station dashboard placements are incomplete');
   }
-
-  if (wasComplete) return { dashboard: { ...dashboard, items: current.items }, reports };
 
   const currentWorkspace = (await api.get('/v1/workspace')).data;
   if (currentWorkspace?.landingDashboard?.id !== dashboard.id) {
