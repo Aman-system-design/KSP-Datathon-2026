@@ -13,6 +13,7 @@ const TABLES = Object.freeze({
   evidence: 'INT_FindingEvidence', nodes: 'INT_NetworkNode', edges: 'INT_NetworkEdge',
   repeatSignals: 'INT_RepeatOffenderSignal', districtContexts: 'TRN_DistrictContext',
   profiles: 'CFG_UserAccess', units: 'SRC_Unit', alerts: 'WF_Alert',
+  utilityRules: 'CFG_UtilityAlertRule',
   reports: 'CFG_ReportDefinition', dashboards: 'CFG_Dashboard', dashboardItems: 'CFG_DashboardItem',
   contentShares: 'CFG_ContentShare', userPreferences: 'CFG_UserPreference',
   mapViews: 'CFG_MapView', mapViewVersions: 'CFG_MapViewVersion',
@@ -28,6 +29,7 @@ const BUSINESS_ID = Object.freeze({
   INT_Hotspot: 'HotspotID', INT_Anomaly: 'AnomalyID', INT_AreaRisk: 'AreaRiskID',
   INT_NetworkNode: 'NetworkNodeID', INT_NetworkEdge: 'NetworkEdgeID',
   INT_RepeatOffenderSignal: 'RepeatSignalID', WF_Alert: 'AlertID',
+  CFG_UtilityAlertRule: 'RuleID',
   CFG_ReportDefinition: 'ReportDefinitionID', CFG_Dashboard: 'DashboardID',
   CFG_DashboardItem: 'DashboardItemID', CFG_ContentShare: 'ContentShareID',
   CFG_UserPreference: 'UserPreferenceID', CFG_MapView: 'MapViewID',
@@ -58,6 +60,7 @@ const DATETIME_COLUMNS = Object.freeze({
   WF_AuditEvent: ['OccurredAt'],
   CFG_ReportDefinition: ['CreatedAt', 'UpdatedAt'], CFG_Dashboard: ['CreatedAt', 'UpdatedAt'],
   CFG_ContentShare: ['CreatedAt'], CFG_UserPreference: ['UpdatedAt'],
+  CFG_UtilityAlertRule: ['CreatedAt', 'UpdatedAt'],
   CFG_MapView: ['CreatedAt', 'UpdatedAt'], CFG_MapViewVersion: ['PublishedAt', 'CreatedAt'],
   WF_AlertNote: ['CreatedAt'], WF_Escalation: ['EscalatedAt'],
   OPS_IntelligenceRunRequest: ['RequestedAt', 'StartedAt', 'CompletedAt', 'UpdatedAt'],
@@ -70,6 +73,10 @@ const RUN_REQUEST_TRANSITIONS = Object.freeze({
   FAILED_RETRYABLE: new Set(['SUBMITTED']),
   PUBLISHED: new Set(), FAILED_FINAL: new Set(),
 });
+const UTILITY_RULE_MUTABLE_FIELDS = new Set([
+  'Enabled', 'ScopeUnitID', 'ThresholdsJSON', 'EvaluationWindowDays', 'Severity',
+  'RecipientRolesJSON', 'UpdatedAt',
+]);
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const positiveVersion = (value, name) => {
@@ -102,6 +109,28 @@ const mapViewSummary = (version, current) => {
   return { name, visibility };
 };
 const zcqlText = value => value.replaceAll("'", "''");
+const zcqlValue = (value) => {
+  if (value === null) return 'NULL';
+  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string') return `'${zcqlText(value)}'`;
+  fail('INVALID_REQUEST', 'utility rule changes contain invalid field values');
+};
+const validateUtilityRuleUpdatedAt = (changes) => {
+  if (changes === null || typeof changes !== 'object' || !Object.hasOwn(changes, 'UpdatedAt')) return;
+  const match = typeof changes.UpdatedAt === 'string'
+    ? changes.UpdatedAt.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/u) : null;
+  const parts = match?.slice(1).map(Number);
+  const calendar = parts && new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]));
+  if (!match || !Number.isFinite(Date.parse(changes.UpdatedAt))
+    || calendar.getUTCFullYear() !== parts[0] || calendar.getUTCMonth() !== parts[1] - 1
+    || calendar.getUTCDate() !== parts[2] || calendar.getUTCHours() !== parts[3]
+    || calendar.getUTCMinutes() !== parts[4] || calendar.getUTCSeconds() !== parts[5]) {
+    fail('INVALID_REQUEST', 'utility rule UpdatedAt must be a valid datetime');
+  }
+  try { catalystDateTime(changes.UpdatedAt); }
+  catch { fail('INVALID_REQUEST', 'utility rule UpdatedAt must be a valid datetime'); }
+};
 const normalizeMapVersion = (version) => {
   if (!version || typeof version !== 'object') throw new TypeError('Map view version is required.');
   safeId(version.MapViewID, 'MapViewID', 64);
@@ -207,20 +236,27 @@ export class CatalystIntelligenceRepository {
     if (!this.#cache.has(tableName)) {
       this.#cache.set(tableName, readPagedRows({
         table: this.#datastore.table(tableName), maxRows: 200, maxPages: 50,
-      }).then(result => result.rows.map(row => mapCatalystRow(row, { includeRowId: true }))));
+      }).then((result) => {
+        if (result.nextToken !== null) fail('DATA_NOT_READY', `${tableName} exceeds its governed read limit.`);
+        return result.rows.map(row => mapCatalystRow(row, { includeRowId: true }));
+      }));
     }
     return clone(await this.#cache.get(tableName));
   }
 
   async #queryIndexed(tableName, column, value, { maxRows = 5000 } = {}) {
     if (!ALLOWED_TABLES.has(tableName)) throw new TypeError('Table is not allowlisted.');
+    const literal = typeof value === 'string'
+      ? `'${zcqlText(value)}'`
+      : typeof value === 'number' && Number.isFinite(value)
+        ? String(value)
+        : undefined;
+    if (literal === undefined) throw new TypeError('Indexed query value must be text or a finite number.');
     if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
       return (await this.#read(tableName)).filter(row => String(row[column]) === String(value));
     }
     const pageSize = 200;
     const rows = [];
-    const literal = typeof value === 'number' || /^(0|[1-9]\d*)$/u.test(String(value))
-      ? String(value) : `'${zcqlText(String(value))}'`;
     for (let offset = 0; offset <= maxRows; offset += pageSize) {
       let result;
       try {
@@ -787,6 +823,85 @@ export class CatalystIntelligenceRepository {
     if (affected !== undefined && Number(affected) === 0) fail('VERSION_CONFLICT', 'Map view version changed.');
     if (affected !== undefined && Number(affected) === 1) return committed();
     return (await reconcile()) ?? fail('VERSION_CONFLICT', 'Map view version changed.');
+  }
+
+  #mapUtilityRule(row) {
+    return row ? mapCatalystRow(row) : undefined;
+  }
+
+  async listUtilityRules({ utilityKey, createdByUserId } = {}) {
+    const rows = utilityKey !== undefined
+      ? await this.#queryIndexed(TABLES.utilityRules, 'UtilityKey', utilityKey)
+      : createdByUserId !== undefined
+        ? await this.#queryIndexed(TABLES.utilityRules, 'CreatedByUserID', createdByUserId)
+        : await this.#read(TABLES.utilityRules);
+    return rows
+      .filter(row => (utilityKey === undefined || row.UtilityKey === utilityKey)
+        && (createdByUserId === undefined || row.CreatedByUserID === createdByUserId))
+      .map(row => this.#mapUtilityRule(row));
+  }
+
+  async getUtilityRule(ruleId) {
+    const rows = await this.#queryIndexed(TABLES.utilityRules, 'RuleID', ruleId, { maxRows: 2 });
+    if (rows.length > 1) fail('DATA_NOT_READY', 'Utility rule business ID is not unique.');
+    return this.#mapUtilityRule(rows[0]);
+  }
+
+  async createUtilityRule(row) {
+    await this.#insert(TABLES.utilityRules, row);
+    return this.getUtilityRule(row.RuleID);
+  }
+
+  async updateUtilityRule(ruleId, expectedVersion, changes) {
+    validateUtilityRuleUpdatedAt(changes);
+    const rows = await this.#queryIndexed(TABLES.utilityRules, 'RuleID', ruleId, { maxRows: 2 });
+    if (rows.length > 1) fail('DATA_NOT_READY', 'Utility rule business ID is not unique.');
+    const [row] = rows;
+    if (!row) return undefined;
+    if (row.Version !== expectedVersion) return { conflict: true };
+    if (changes === null || typeof changes !== 'object' || Array.isArray(changes)
+      || Object.getPrototypeOf(changes) !== Object.prototype || Object.keys(changes).length === 0
+      || Object.keys(changes).some(key => !UTILITY_RULE_MUTABLE_FIELDS.has(key))) {
+      fail('INVALID_REQUEST', 'utility rule changes contain immutable or unknown fields');
+    }
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
+      fail('DATA_NOT_READY', 'Catalyst compare-and-swap is unavailable.');
+    }
+    const prepared = prepareCatalystRow(TABLES.utilityRules, changes);
+    const rowId = String(row.ROWID);
+    if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Utility rule ROWID is invalid.');
+    const targetVersion = expectedVersion + 1;
+    const assignments = Object.entries(prepared)
+      .map(([name, value]) => `${name} = ${zcqlValue(value)}`)
+      .join(', ');
+    const intended = { ...row, ...prepared, Version: targetVersion };
+    const reconciled = async () => {
+      this.#invalidate(TABLES.utilityRules);
+      const currentRows = await this.#queryIndexed(TABLES.utilityRules, 'RuleID', ruleId, { maxRows: 2 });
+      if (currentRows.length > 1) fail('DATA_NOT_READY', 'Utility rule business ID is not unique.');
+      const [current] = currentRows;
+      return current?.Version === targetVersion
+        && Object.entries(prepared).every(([name, value]) => current[name] === value)
+        ? this.#mapUtilityRule(current) : undefined;
+    };
+    let result;
+    try {
+      result = await this.#zcql.executeZCQLQuery(
+        `UPDATE ${TABLES.utilityRules} SET ${assignments}, Version = ${targetVersion} WHERE ROWID = ${rowId} AND Version = ${expectedVersion}`,
+      );
+    } catch (error) {
+      const committed = await reconciled();
+      if (committed) return committed;
+      throw sanitizeCatalystSdkError(error, { operation: 'UPDATE_CFG_UtilityAlertRule_CAS' });
+    }
+    this.#invalidate(TABLES.utilityRules);
+    const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+    if (affected !== undefined && Number(affected) === 0) return { conflict: true };
+    if (affected !== undefined && Number(affected) === 1) return this.#mapUtilityRule(intended);
+    if (affected !== undefined && Number(affected) !== 1) {
+      fail('DATA_NOT_READY', 'Catalyst utility rule update result is invalid.');
+    }
+    return (await reconciled()) ?? { conflict: true };
   }
 
   #mapReport(row) {

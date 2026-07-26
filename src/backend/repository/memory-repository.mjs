@@ -20,6 +20,19 @@ const utilityRuleMutableFields = new Set([
   'Enabled', 'ScopeUnitID', 'ThresholdsJSON', 'EvaluationWindowDays', 'Severity',
   'RecipientRolesJSON', 'UpdatedAt',
 ]);
+const validateUtilityRuleUpdatedAt = (changes) => {
+  if (changes === null || typeof changes !== 'object' || !Object.hasOwn(changes, 'UpdatedAt')) return;
+  const match = typeof changes.UpdatedAt === 'string'
+    ? changes.UpdatedAt.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/u) : null;
+  const parts = match?.slice(1).map(Number);
+  const calendar = parts && new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]));
+  if (!match || !Number.isFinite(Date.parse(changes.UpdatedAt))
+    || calendar.getUTCFullYear() !== parts[0] || calendar.getUTCMonth() !== parts[1] - 1
+    || calendar.getUTCDate() !== parts[2] || calendar.getUTCHours() !== parts[3]
+    || calendar.getUTCMinutes() !== parts[4] || calendar.getUTCSeconds() !== parts[5]) {
+    throw invalidRequest('utility rule UpdatedAt must be a valid datetime');
+  }
+};
 const runRequestTransitions = Object.freeze({
   QUEUED: new Set(['SUBMITTED', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
   SUBMITTED: new Set(['RUNNING', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
@@ -155,6 +168,7 @@ export class MemoryIntelligenceRepository {
     return clone(row);
   }
   async updateUtilityRule(id, expectedVersion, changes) {
+    validateUtilityRuleUpdatedAt(changes);
     const rule = this.#state.utilityRules.find(row => row.RuleID === id);
     if (!rule) return undefined;
     if (rule.Version !== expectedVersion) return { conflict: true };

@@ -6,11 +6,15 @@ import { buildDemoState } from '../../src/backend/repository/build-demo-state.mj
 import { assertRepository } from '../../src/backend/repository/contract.mjs';
 import { createCommandService } from '../../src/backend/workflow/command-service.mjs';
 
-function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable, failRunUpdateAt } = {}) {
+function fakeApplication({
+  failOnceOnTable, failAfterDurableInsertTable, failRunUpdateAt,
+  failAfterUtilityRuleCas = false, advanceUtilityRuleAfterCas = false,
+} = {}) {
   const tables = new Map(Object.entries({
     WF_Alert: [{ ROWID: '1001', AlertID: 'ALT-1', FindingType: 'PATTERN', FindingBusinessID: 'PAT-1', ScopeUnitID: 101, Status: 'GENERATED', AlertVersion: 0, LastCommandRef: null, Severity: 0.9, OriginalFindingJSON: '{}', MethodVersion: '1.0.0', CreatedAt: '2026-07-20T00:00:00Z', SyntheticData: true }],
     WF_Command: [], WF_Assignment: [], WF_AnalystConclusion: [], WF_Outcome: [], WF_AuditEvent: [],
     OPS_IntelligenceRunRequest: [],
+    CFG_UtilityAlertRule: [],
   }));
   const queries = [];
   let failureInjected = false;
@@ -37,6 +41,7 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable, failRun
         INT_RepeatOffenderSignal: ['RepeatSignalID'], WF_Alert: ['AlertID'],
         INT_PublicationState: ['PublicationStateID'],
         OPS_IntelligenceRunRequest: ['RunRequestID', 'IdempotencyKeyHash'],
+        CFG_UtilityAlertRule: ['RuleID'],
       }[name] ?? [];
       if (rows.some(row => uniqueColumns.some(column => row[column] !== undefined && row[column] === input[column]))) {
         const error = new Error('duplicate row'); error.code = 'DUPLICATE_VALUE'; throw error;
@@ -115,6 +120,28 @@ function fakeApplication({ failOnceOnTable, failAfterDurableInsertTable, failRun
       });
       return [{ affected_rows: 1 }];
     }
+    const utilityRule = query.match(/^UPDATE CFG_UtilityAlertRule SET (.+), Version = (\d+) WHERE ROWID = (\d+) AND Version = (\d+)$/u);
+    if (utilityRule) {
+      const [, assignments, version, rowId, expectedVersion] = utilityRule;
+      const row = (tables.get('CFG_UtilityAlertRule') ?? []).find(item => String(item.ROWID) === rowId
+        && Number(item.Version) === Number(expectedVersion));
+      if (!row) return [{ affected_rows: 0 }];
+      for (const assignment of assignments.match(/[A-Za-z][A-Za-z0-9]* = (?:NULL|true|false|-?\d+(?:\.\d+)?|'(?:''|[^'])*')/gu)) {
+        const [, name, nullValue, booleanValue, numberValue, textValue] = assignment.match(/^([A-Za-z][A-Za-z0-9]*) = (?:(NULL)|(true|false)|(-?\d+(?:\.\d+)?)|'((?:''|[^'])*)')$/u);
+        row[name] = nullValue ? null : booleanValue === undefined
+          ? numberValue === undefined ? textValue.replaceAll("''", "'") : Number(numberValue)
+          : booleanValue === 'true';
+      }
+      row.Version = Number(version);
+      if (failAfterUtilityRuleCas && !failureInjected) {
+        failureInjected = true;
+        throw new Error('injected after durable utility rule CAS');
+      }
+      if (advanceUtilityRuleAfterCas) {
+        Object.assign(row, { Version: Number(version) + 1, Severity: 'N+2' });
+      }
+      return [{ affected_rows: 1 }];
+    }
     const match = query.match(/Status = '([^']+)', AlertVersion = (\d+), LastCommandRef = (\d+) WHERE ROWID = (\d+) AND Status = '([^']+)' AND AlertVersion = (\d+)/u);
     if (!match) throw new Error('unexpected ZCQL');
     const [, target, targetVersion, commandRef, alertRef, expected, expectedVersion] = match;
@@ -153,6 +180,105 @@ test('Catalyst run requests persist idempotency and controlled status transition
   assert.equal((await repository.listRunRequests()).length, 1);
   await assert.rejects(repository.updateRunRequest('RUNREQ-1', { Status: 'PUBLISHED' }), { code: 'INVALID_STATE' });
   assert.equal(fake.tables.get('OPS_IntelligenceRunRequest')[0].RequestedAt, '2026-07-22 01:00:00');
+});
+
+test('Catalyst utility rules preserve physical JSON, datetime and optimistic update semantics', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const rule = {
+    RuleID: 'RULE-1', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    ScopeUnitID: 101, ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30,
+    Severity: 'HIGH', RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1,
+    CreatedByUserID: 'USER-1', CreatedAt: '2026-07-26T00:00:00Z',
+    UpdatedAt: '2026-07-26T00:00:00Z', SyntheticData: true,
+  };
+
+  const created = await repository.createUtilityRule(rule);
+  assert.equal(created.ThresholdsJSON, rule.ThresholdsJSON);
+  assert.equal(fake.tables.get('CFG_UtilityAlertRule')[0].CreatedAt, '2026-07-26 00:00:00');
+  await assert.rejects(repository.createUtilityRule(rule), { code: 'UNIQUE_CONFLICT' });
+  assert.deepEqual(await repository.updateUtilityRule('RULE-1', 2, { Enabled: false }), { conflict: true });
+
+  for (const changes of [{ RuleID: 'RULE-2' }, { Version: 9 }, { CreatedByUserID: 'OTHER' }, { Unknown: true }, {}]) {
+    await assert.rejects(repository.updateUtilityRule('RULE-1', 1, changes), { code: 'INVALID_REQUEST' });
+  }
+  const polluted = Object.create(null);
+  polluted.__proto__ = { polluted: true };
+  await assert.rejects(repository.updateUtilityRule('RULE-1', 1, polluted), { code: 'INVALID_REQUEST' });
+  assert.equal({}.polluted, undefined);
+  for (const UpdatedAt of [null, undefined, 'not-a-date', '2026-02-31T00:00:00Z']) {
+    const before = fake.queries.length;
+    await assert.rejects(
+      repository.updateUtilityRule('RULE-1', 1, { Enabled: false, UpdatedAt }),
+      { code: 'INVALID_REQUEST' },
+    );
+    assert.equal(fake.queries.length, before, 'invalid UpdatedAt must be rejected before Catalyst queries');
+  }
+
+  const updated = await repository.updateUtilityRule('RULE-1', 1, {
+    Enabled: false, ThresholdsJSON: '{"threshold":0.9}', UpdatedAt: '2026-07-26T01:00:00Z',
+  });
+  assert.equal(updated.Version, 2);
+  assert.equal(updated.Enabled, false);
+  assert.equal(updated.ThresholdsJSON, '{"threshold":0.9}');
+  assert.equal(fake.tables.get('CFG_UtilityAlertRule')[0].UpdatedAt, '2026-07-26 01:00:00');
+  assert.equal(await repository.updateUtilityRule('MISSING', 1, {}), undefined);
+});
+
+test('Catalyst utility rule compare-and-swap lets only one concurrent writer advance a version', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createUtilityRule({
+    RuleID: 'RULE-CAS', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    ScopeUnitID: 101, ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30,
+    Severity: 'HIGH', RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1,
+    CreatedByUserID: 'USER-1', CreatedAt: '2026-07-26T00:00:00Z',
+    UpdatedAt: '2026-07-26T00:00:00Z', SyntheticData: true,
+  });
+
+  const results = await Promise.all([
+    repository.updateUtilityRule('RULE-CAS', 1, { Enabled: false, UpdatedAt: '2026-07-26T01:00:00Z' }),
+    repository.updateUtilityRule('RULE-CAS', 1, { Severity: 'CRITICAL', UpdatedAt: '2026-07-26T02:00:00Z' }),
+  ]);
+  assert.equal(results.filter(result => result?.Version === 2).length, 1);
+  assert.equal(results.filter(result => result?.conflict === true).length, 1);
+  assert.equal(fake.tables.get('CFG_UtilityAlertRule')[0].Version, 2);
+});
+
+test('Catalyst utility rule CAS reconciles a durable update after an uncertain exception', async () => {
+  const fake = fakeApplication({ failAfterUtilityRuleCas: true });
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createUtilityRule({
+    RuleID: 'RULE-UNCERTAIN', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    ScopeUnitID: 101, ThresholdsJSON: '{}', EvaluationWindowDays: 30, Severity: 'HIGH',
+    RecipientRolesJSON: '[]', Version: 1, CreatedByUserID: 'USER-1',
+    CreatedAt: '2026-07-26T00:00:00Z', UpdatedAt: '2026-07-26T00:00:00Z', SyntheticData: true,
+  });
+
+  const updated = await repository.updateUtilityRule('RULE-UNCERTAIN', 1, {
+    Enabled: false, UpdatedAt: '2026-07-26T01:00:00Z',
+  });
+  assert.equal(updated.Version, 2);
+  assert.equal(updated.Enabled, false);
+  assert.ok(fake.queries.filter(query => query.includes('WHERE RuleID')).length >= 2);
+});
+
+test('documented utility rule CAS success returns N+1 even if storage advances to N+2', async () => {
+  const fake = fakeApplication({ advanceUtilityRuleAfterCas: true });
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  await repository.createUtilityRule({
+    RuleID: 'RULE-N2', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    ScopeUnitID: 101, ThresholdsJSON: '{}', EvaluationWindowDays: 30, Severity: 'HIGH',
+    RecipientRolesJSON: '[]', Version: 1, CreatedByUserID: 'USER-1',
+    CreatedAt: '2026-07-26T00:00:00Z', UpdatedAt: '2026-07-26T00:00:00Z', SyntheticData: true,
+  });
+
+  const updated = await repository.updateUtilityRule('RULE-N2', 1, {
+    Enabled: false, UpdatedAt: '2026-07-26T01:00:00Z',
+  });
+  assert.equal(updated.Version, 2);
+  assert.equal(updated.Severity, 'HIGH');
+  assert.equal(fake.tables.get('CFG_UtilityAlertRule')[0].Version, 3);
 });
 
 test('Catalyst access audits omit absent optional references', async () => {

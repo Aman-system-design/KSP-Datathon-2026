@@ -47,6 +47,10 @@ test('utility rules support filtered cloned CRUD and optimistic versions', async
     repository.updateUtilityRule('RULE-1', 1, pollutedChanges),
     { code: 'INVALID_REQUEST' },
   );
+  for (const UpdatedAt of [null, undefined, 'not-a-date', '2026-02-31T00:00:00Z']) await assert.rejects(
+    repository.updateUtilityRule('RULE-1', 1, { Enabled: false, UpdatedAt }),
+    { code: 'INVALID_REQUEST' },
+  );
   assert.equal({}.polluted, undefined);
   assert.equal((await repository.getUtilityRule('RULE-1')).RuleID, 'RULE-1');
   assert.equal(await repository.getUtilityRule('RULE-2'), undefined);

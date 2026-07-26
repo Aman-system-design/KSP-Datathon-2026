@@ -46,6 +46,13 @@ function catalystRows() {
       INT_RepeatOffenderSignal: [{ ROWID: 'REPEAT-1', RepeatSignalID: 'REPEAT-1', AnalysisRunRef: runRef('IDENTITY_RESOLUTION'), CanonicalPersonKey: 'PERSON:PERSON-007', ResolutionStatus: 'CONFIRMED', CaseCount: 2, Confidence: 1, EvidenceJSON: JSON.stringify({ evidenceCaseIds: ['CASE-001', 'CASE-021'] }), MethodVersion: '1.0.0', Limitation: 'SOURCE_ID_REQUIRED', SyntheticData: true }],
       TRN_DistrictContext: state.districtContexts.map((row, index) => ({ ROWID: `CTX-${index}`, DistrictContextID: `CTX-${index}`, UnitID: row.unitId, PeriodStart: '2026-04-01', PeriodEnd: '2026-06-30', IndicatorsJSON: JSON.stringify(row), SourceLabel: row.sourceLabel, ContextVersion: '1.0.0', Limitation: row.limitation, SyntheticData: true })),
       CFG_UserAccess: state.profiles.map((row, index) => ({ ROWID: `PROFILE-${index}`, AccessProfileID: `PROFILE-${index}`, ...row })),
+      CFG_UtilityAlertRule: [{
+        ROWID: 'RULE-ROW-1', CREATORID: 'CATALYST-METADATA', RuleID: 'RULE-1',
+        UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true, ScopeUnitID: 101,
+        ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30, Severity: 'HIGH',
+        RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1, CreatedByUserID: 'USER-1',
+        CreatedAt: '2026-07-26 00:00:00', UpdatedAt: '2026-07-26 00:00:00', SyntheticData: true,
+      }],
       SRC_Unit: state.units.map((row, index) => ({ ROWID: `UNIT-${index}`, ...row, IsSynthetic: true })),
       WF_Alert: state.alerts.map((row, index) => ({ ROWID: `ALERT-${index}`, ...row, FindingType: 'PATTERN', FindingBusinessID: row.PatternID, LastCommandRef: 'CMD-ROW-1', MethodVersion: '1.0.0', CreatedAt: '2026-07-01T00:00:00Z' })),
       WF_Command: [{ ROWID: 'CMD-ROW-1', CommandID: 'CMD-1', AlertRef: 'ALERT-0', Status: 'COMPLETED', SyntheticData: true }],
@@ -151,6 +158,66 @@ test('reads access profile, unit hierarchy and alerts without exposing Catalyst 
   assert.deepEqual(assignment.AuthorizedCaseIDs, ['CASE-001']);
   assert.equal((await repository.getAssignmentsForEmployee(9003)).length, 1);
   assert.equal(JSON.stringify(await repository.getUnits()).includes('ROWID'), false);
+});
+
+test('reads cloned physical utility rules with indexed filters and safe row mapping', async () => {
+  const fixture = catalystRows();
+  fixture.tables.CFG_UtilityAlertRule.push({
+    ...fixture.tables.CFG_UtilityAlertRule[0], ROWID: 'RULE-ROW-2', RuleID: '12345',
+    CreatedByUserID: '67890',
+  });
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  const [rule] = await repository.listUtilityRules({ utilityKey: 'patterns', createdByUserId: 'USER-1' });
+  assert.equal(rule.RuleID, 'RULE-1');
+  assert.equal(rule.ThresholdsJSON, '{"threshold":0.8}');
+  assert.equal(Object.hasOwn(rule, 'ROWID'), false);
+  assert.equal(Object.hasOwn(rule, 'CREATORID'), false);
+  rule.Enabled = false;
+  assert.equal((await repository.getUtilityRule('RULE-1')).Enabled, true);
+  assert.equal((await repository.listUtilityRules({ utilityKey: "patterns' OR '1'='1" })).length, 0);
+  await repository.listUtilityRules({ createdByUserId: 'USER-1' });
+  assert.equal((await repository.getUtilityRule('12345')).RuleID, '12345');
+  assert.equal((await repository.listUtilityRules({ createdByUserId: '67890' })).length, 1);
+  assert.ok(app.zcqlCalls.some(query => query.includes('CFG_UtilityAlertRule WHERE UtilityKey')));
+  assert.ok(app.zcqlCalls.some(query => query.includes('CFG_UtilityAlertRule WHERE CreatedByUserID')));
+  assert.ok(app.zcqlCalls.some(query => query.includes('CFG_UtilityAlertRule WHERE RuleID')));
+  assert.ok(app.zcqlCalls.some(query => query.includes("patterns'' OR ''1''=''1")));
+  assert.ok(app.zcqlCalls.some(query => query.includes("WHERE RuleID = '12345'")));
+  assert.ok(app.zcqlCalls.some(query => query.includes("WHERE CreatedByUserID = '67890'")));
+  await assert.rejects(
+    repository.listUtilityRules({ utilityKey: true }),
+    /text or a finite number/u,
+  );
+});
+
+test('indexed numeric values remain unquoted ZCQL literals', async () => {
+  const fixture = catalystRows();
+  const pointer = fixture.tables.INT_PublicationState[0];
+  const runs = JSON.parse(pointer.CurrentRunsJSON);
+  const hotspotRun = runs.find(row => row.AnalysisType === 'HOTSPOT');
+  hotspotRun.ROWID = 9001;
+  pointer.CurrentRunsJSON = JSON.stringify(runs);
+  fixture.tables.INT_Hotspot[0].AnalysisRunRef = 9001;
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  assert.equal((await repository.listHotspots()).data.length, 1);
+  assert.ok(app.zcqlCalls.some(query => query.includes('INT_Hotspot WHERE AnalysisRunRef = 9001')));
+  assert.equal(app.zcqlCalls.some(query => query.includes("INT_Hotspot WHERE AnalysisRunRef = '9001'")), false);
+});
+
+test('unfiltered utility rule reads fail closed at the governed pagination bound', async () => {
+  const fixture = catalystRows();
+  fixture.tables.CFG_UtilityAlertRule = Array.from({ length: 101 }, (_, index) => ({
+    ...fixture.tables.CFG_UtilityAlertRule[0], ROWID: String(index + 1), RuleID: `RULE-${index + 1}`,
+  }));
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  await assert.rejects(repository.listUtilityRules(), { code: 'DATA_NOT_READY' });
+  assert.equal(app.calls.filter(call => call.name === 'CFG_UtilityAlertRule').length, 50);
 });
 
 test('sanitizes Catalyst read failures without leaking SDK details', async () => {
