@@ -1,6 +1,8 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
-import { createStationReports, STATION_LAYOUT, STATION_REPORTS } from './station-dashboard-template.js';
+import {
+  bootstrapStationOperationsDashboard, createStationReports, STATION_LAYOUT, STATION_REPORTS,
+} from './station-dashboard-template.js';
 
 const approvedFields = {
   alerts: new Set(['state', 'recordCount']),
@@ -125,4 +127,133 @@ describe('station dashboard template', () => {
       expect(() => createStationReports({ periodDays })).toThrow(TypeError);
     }
   });
+
+  test('bootstraps the nine reports, private dashboard, placements, and personal landing once', async () => {
+    const state = { reports: [], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+
+    const first = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+    const second = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(first.dashboard).toMatchObject({ id: 'D-STATION', name: 'Station Operations', relationship: 'OWNED' });
+    expect(second.dashboard.id).toBe(first.dashboard.id);
+    expect(state.reports).toHaveLength(9);
+    expect(state.dashboards).toHaveLength(1);
+    expect(state.dashboards[0].items).toEqual(STATION_LAYOUT.map((layout, index) => ({
+      reportId: `R-${index + 1}`, ...layout,
+    })));
+    expect(state.landingDashboard).toBe('D-STATION');
+    expect(api.post.mock.calls.filter(([path]) => path === '/v1/reports')).toHaveLength(9);
+    expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(1);
+    expect(api.put.mock.calls.filter(([path]) => path.endsWith('/items'))).toHaveLength(1);
+  });
+
+  test('recovers write-then-throw report, dashboard, placement, and landing mutations by reconciliation', async () => {
+    const state = { reports: [], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state, { throwAfterWrite: new Set(['report', 'dashboard', 'items', 'landing']) });
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.reports).toHaveLength(9);
+    expect(result.dashboard.id).toBe('D-STATION');
+    expect(state.reports).toHaveLength(9);
+    expect(state.dashboards[0].items).toHaveLength(9);
+    expect(state.landingDashboard).toBe('D-STATION');
+  });
+
+  test('coalesces concurrent setup attempts so remounts cannot duplicate content', async () => {
+    const state = { reports: [], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+
+    const [first, second] = await Promise.all([
+      bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace }),
+      bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace }),
+    ]);
+
+    expect(first.dashboard.id).toBe(second.dashboard.id);
+    expect(state.reports).toHaveLength(9);
+    expect(state.dashboards).toHaveLength(1);
+  });
+
+  test('fails closed for other personas and preserves an existing station role default', async () => {
+    const state = { reports: [], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+    await expect(bootstrapStationOperationsDashboard({
+      api, workspace: { ...emptyStationWorkspace, role: 'STATE_LEADERSHIP' },
+    })).rejects.toThrow('Station Operations');
+    expect(api.get).not.toHaveBeenCalled();
+
+    const system = { id: 'D-SYSTEM', name: 'Station Operations', relationship: 'SYSTEM', defaultRole: 'STATION_OPERATIONS' };
+    const preserved = await bootstrapStationOperationsDashboard({
+      api, workspace: { ...emptyStationWorkspace, landingDashboard: system, availableDashboards: [system] },
+    });
+    expect(preserved.dashboard).toBe(system);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  test('preserves a role default discovered during reconciliation without rewriting it', async () => {
+    const system = { id: 'D-SYSTEM', name: 'Station Operations', relationship: 'SYSTEM', defaultRole: 'STATION_OPERATIONS', items: [] };
+    const state = { reports: [], dashboards: [system], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.dashboard.id).toBe('D-SYSTEM');
+    expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(0);
+    expect(api.put).not.toHaveBeenCalled();
+  });
 });
+
+const emptyStationWorkspace = {
+  role: 'STATION_OPERATIONS', availableReports: [], availableDashboards: [],
+};
+
+function stationBootstrapApi(state, { throwAfterWrite = new Set() } = {}) {
+  const thrown = new Set();
+  const maybeThrow = kind => {
+    if (throwAfterWrite.has(kind) && !thrown.has(kind)) {
+      thrown.add(kind);
+      throw new Error(`${kind} response lost`);
+    }
+  };
+  const api = {
+    get: vi.fn(async path => {
+      if (path === '/v1/reports') return { data: structuredClone(state.reports) };
+      if (path === '/v1/dashboards') return { data: structuredClone(state.dashboards.map(({ items: _items, ...dashboard }) => dashboard)) };
+      if (path === '/v1/workspace') return { data: { landingDashboard: state.dashboards.find(item => item.id === state.landingDashboard) } };
+      if (path === '/v1/dashboards/D-STATION') return { data: structuredClone(state.dashboards[0]) };
+      throw new Error(`Unexpected GET ${path}`);
+    }),
+    post: vi.fn(async (path, body) => {
+      if (path === '/v1/reports') {
+        const report = { id: `R-${state.nextReport++}`, name: body.name, definition: structuredClone(body), relationship: 'OWNED' };
+        state.reports.push(report);
+        maybeThrow('report');
+        return { data: structuredClone(report) };
+      }
+      if (path === '/v1/dashboards') {
+        const dashboard = { id: 'D-STATION', ...body, relationship: 'OWNED', visibility: 'PRIVATE', items: [] };
+        state.dashboards.push(dashboard);
+        maybeThrow('dashboard');
+        const { relationship: _relationship, ...created } = dashboard;
+        return { data: structuredClone(created) };
+      }
+      throw new Error(`Unexpected POST ${path}`);
+    }),
+    put: vi.fn(async (path, body) => {
+      if (path === '/v1/dashboards/D-STATION/items') {
+        state.dashboards[0].items = structuredClone(body.items);
+        maybeThrow('items');
+        return { data: structuredClone(body.items) };
+      }
+      if (path === '/v1/preferences/landing-dashboard') {
+        state.landingDashboard = body.dashboardId;
+        maybeThrow('landing');
+        return { data: { landingDashboardId: body.dashboardId } };
+      }
+      throw new Error(`Unexpected PUT ${path}`);
+    }),
+  };
+  return api;
+}

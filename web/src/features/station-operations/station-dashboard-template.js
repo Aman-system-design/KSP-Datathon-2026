@@ -39,3 +39,100 @@ export const STATION_LAYOUT = deepFreeze([
   { column: 9, row: 8, width: 4, height: 4 },
   { column: 8, row: 3, width: 5, height: 5 },
 ]);
+
+const list = response => Array.isArray(response?.data) ? response.data : response?.data?.items ?? [];
+const stationDashboard = dashboards => dashboards.find(dashboard => dashboard?.name === 'Station Operations'
+  && (dashboard.relationship === 'OWNED' || dashboard.defaultRole === 'STATION_OPERATIONS'));
+const matchingReport = (reports, definition) => reports.find(report => report?.name === definition.name
+  && report?.definition?.sourceKey === definition.sourceKey);
+const placementsFor = reports => reports.map((reportValue, index) => ({
+  reportId: reportValue.id, ...STATION_LAYOUT[index],
+}));
+const samePlacements = (actual, expected) => Array.isArray(actual) && actual.length === expected.length
+  && expected.every((placement, index) => {
+    const current = actual[index];
+    return current && ['reportId', 'column', 'row', 'width', 'height']
+      .every(field => current[field] === placement[field]);
+  });
+
+async function reconcileReport(api, definition, error) {
+  const persisted = matchingReport(list(await api.get('/v1/reports')), definition);
+  if (!persisted) throw error;
+  return persisted;
+}
+
+async function reconcileDashboard(api, error) {
+  const persisted = stationDashboard(list(await api.get('/v1/dashboards')));
+  if (!persisted || persisted.relationship !== 'OWNED') throw error;
+  return persisted;
+}
+
+const bootstrapByApi = new WeakMap();
+
+export function bootstrapStationOperationsDashboard({ api, workspace }) {
+  if (workspace?.role !== 'STATION_OPERATIONS') {
+    return Promise.reject(new TypeError('Station Operations bootstrap requires the station persona'));
+  }
+  const configured = stationDashboard(workspace?.availableDashboards ?? []);
+  if (configured) return Promise.resolve({ dashboard: configured, reports: workspace?.availableReports ?? [] });
+  const running = bootstrapByApi.get(api);
+  if (running) return running;
+  const operation = performBootstrap({ api, workspace }).finally(() => {
+    if (bootstrapByApi.get(api) === operation) bootstrapByApi.delete(api);
+  });
+  bootstrapByApi.set(api, operation);
+  return operation;
+}
+
+async function performBootstrap({ api, workspace }) {
+  let visibleReports = list(await api.get('/v1/reports'));
+  let dashboard = stationDashboard(list(await api.get('/v1/dashboards')));
+  if (dashboard?.defaultRole === 'STATION_OPERATIONS' && dashboard.relationship !== 'OWNED') {
+    return { dashboard, reports: visibleReports };
+  }
+  const reports = [];
+  for (const definition of STATION_REPORTS) {
+    let persisted = matchingReport(visibleReports, definition);
+    if (!persisted) {
+      try { persisted = (await api.post('/v1/reports', definition)).data; }
+      catch (error) { persisted = await reconcileReport(api, definition, error); }
+      visibleReports = [...visibleReports, persisted];
+    }
+    reports.push(persisted);
+  }
+
+  if (!dashboard) {
+    try {
+      const created = (await api.post('/v1/dashboards', {
+        name: 'Station Operations',
+        description: 'Private operational dashboard for the current police station.',
+      })).data;
+      dashboard = { ...created, relationship: 'OWNED' };
+    } catch (error) { dashboard = await reconcileDashboard(api, error); }
+  }
+  if (!dashboard?.id || dashboard.relationship !== 'OWNED') {
+    throw new Error('An owned Station Operations dashboard is required');
+  }
+
+  const expectedItems = placementsFor(reports);
+  const current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+  if (!samePlacements(current?.items, expectedItems)) {
+    try { await api.put(`/v1/dashboards/${encodeURIComponent(dashboard.id)}/items`, { items: expectedItems }); }
+    catch (error) {
+      const reconciled = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+      if (!samePlacements(reconciled?.items, expectedItems)) throw error;
+    }
+  }
+
+  if (workspace?.landingDashboard?.id !== dashboard.id) {
+    try { await api.put('/v1/preferences/landing-dashboard', { dashboardId: dashboard.id }); }
+    catch (error) {
+      const reconciled = (await api.get('/v1/workspace')).data;
+      if (reconciled?.landingDashboard?.id !== dashboard.id) throw error;
+    }
+  }
+  return {
+    dashboard: { ...dashboard, relationship: 'OWNED', items: expectedItems },
+    reports,
+  };
+}

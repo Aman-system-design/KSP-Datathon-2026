@@ -68,6 +68,9 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
   }, [api, dashboard, executionBody, reportPredicate, workspace?.availableReports]);
 
   useEffect(() => { load(selectedId); }, [selectedId, reloadKey]); // load is intentionally keyed by dashboard and explicit execution context
+  useEffect(() => {
+    if (requestedDashboardId && requestedDashboardId !== selectedId) setSelectedId(requestedDashboardId);
+  }, [requestedDashboardId, selectedId]);
 
   const selectDashboard = id => { if (id && id !== selectedId) setSelectedId(id); };
   const beginEdit = () => { setItems(persistedItems); setEditing(true); };

@@ -208,6 +208,41 @@ test('station report-source catalog exposes only station cases and alerts', asyn
   assert.deepEqual(result.data.map(source => source.key), ['alerts', 'stationCases']);
 });
 
+test('station-owned bootstrap resources stay private and do not replace the station role default', async () => {
+  let id = 0;
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-${++id}`,
+  });
+  const station = {
+    ...analyst, actualUserId: 'CAT-STATION', role: 'STATION_OPERATIONS', actualRole: 'STATION_OPERATIONS',
+    scopeUnitId: 1001, authorizedUnitIds: new Set([1001]),
+  };
+  const admin = { ...analyst, actualUserId: 'CAT-ADMIN', role: 'PLATFORM_ADMIN', actions: ['MANAGE_GLOBAL_CONTENT'] };
+  const stateViewer = { ...analyst, actualUserId: 'CAT-STATE', role: 'STATE_LEADERSHIP', actualRole: 'STATE_LEADERSHIP' };
+  const defaultDashboard = await services.createDashboard({ access: admin, body: { name: 'Station Operations' } });
+  await services.setRoleDefault({ access: admin, params: { dashboardId: defaultDashboard.data.id }, body: { role: 'STATION_OPERATIONS' } });
+
+  const report = await services.createReport({ access: station, body: {
+    name: 'Open Cases', sourceKey: 'stationCases', dimensions: [],
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'isOpen', operator: 'eq', value: true }], sort: [],
+    visualization: { type: 'number' }, limit: 1,
+  } });
+  const personal = await services.createDashboard({ access: station, body: { name: 'Station Operations' } });
+  await services.replaceDashboardItems({ access: station, params: { dashboardId: personal.data.id }, body: {
+    items: [{ reportId: report.data.id, column: 1, row: 1, width: 3, height: 2 }],
+  } });
+  await services.setLandingDashboard({ access: station, body: { dashboardId: personal.data.id } });
+
+  const stationWorkspace = await services.getWorkspace({ access: station });
+  assert.equal(stationWorkspace.data.landingDashboard.id, personal.data.id);
+  assert.equal((await repository.getDashboard(defaultDashboard.data.id)).defaultRole, 'STATION_OPERATIONS');
+  assert.equal((await services.listDashboards({ access: stateViewer })).data.some(row => row.id === personal.data.id), false);
+  assert.equal((await services.listReports({ access: stateViewer })).data.some(row => row.id === report.data.id), false);
+});
+
 test('workspace case resources fail safely when the case service is not composed', async () => {
   const services = createWorkspaceServices({
     repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {},

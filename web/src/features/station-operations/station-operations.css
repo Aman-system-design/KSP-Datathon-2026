@@ -54,6 +54,8 @@
 .station-operations__loading { display: grid; min-height: 360px; place-content: center; color: #61758c; font-size: 13px; }
 .station-operations__setup { display: grid; min-height: 300px; place-content: center; gap: 6px; color: #61758c; text-align: center; }
 .station-operations__setup strong { color: #294660; }
+.station-operations__setup button { min-height: 44px; margin: 10px auto 0; padding: 0 16px; border: 1px solid #b8cce0; border-radius: 8px; background: #fff; color: #24567f; font: inherit; font-weight: 700; cursor: pointer; }
+.station-operations__setup button:hover { background: #f4f8fc; }
 .station-operations > .command-center-dashboard-canvas { min-height: 1168px; padding: 12px 14px 28px; overflow: visible; }
 .station-operations .command-center-dashboard-placement { padding: 5px; }
 .station-operations .command-center-report { border-color: #dbe3eb; border-radius: 9px; box-shadow: 0 1px 3px rgb(22 46 75 / 6%); }

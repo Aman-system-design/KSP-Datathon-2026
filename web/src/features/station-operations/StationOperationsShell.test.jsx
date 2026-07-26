@@ -80,18 +80,36 @@ test('renders the station identity and role dashboard without internal or state-
   expect(screen.getByText('Open Case Register').closest('.command-center-dashboard-placement')).toHaveClass('station-placement--register');
 });
 
-test('ignores personal and state dashboards and shows an honest setup state', async () => {
-  const api = apiHarness();
+test('ignores state dashboards and bootstraps a private governed station workspace', async () => {
+  const api = bootstrapApi();
   const unsafeWorkspace = {
     ...workspace,
     landingDashboard: { id: 'D-STATE' },
     availableDashboards: [{ id: 'D-STATE', name: 'State Intelligence', relationship: 'SYSTEM' }],
+    availableReports: [],
   };
   render(<MemoryRouter><StationOperationsShell api={api} workspace={unsafeWorkspace} /></MemoryRouter>);
 
-  expect(await screen.findByText('Station dashboard is not configured yet.')).toBeInTheDocument();
+  expect(await screen.findByRole('status')).toHaveTextContent('Preparing station dashboard');
+  expect(await screen.findByText('Open Cases')).toBeInTheDocument();
   expect(api.get).not.toHaveBeenCalledWith('/v1/dashboards/D-STATE');
-  expect(screen.getByRole('button', { name: 'Edit dashboard' })).toBeDisabled();
+  expect(api.put).toHaveBeenCalledWith('/v1/preferences/landing-dashboard', { dashboardId: 'D-BOOTSTRAP' });
+  expect(screen.queryByText(/Karnataka district map|State Intelligence/i)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Edit dashboard' })).toBeEnabled();
+});
+
+test('shows a bounded retry state and resumes an incomplete bootstrap without duplicates', async () => {
+  const api = bootstrapApi({ failItemsOnce: true });
+  const emptyWorkspace = { ...workspace, landingDashboard: undefined, availableDashboards: [], availableReports: [] };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={emptyWorkspace} /></MemoryRouter>);
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Station dashboard setup could not be completed.');
+  expect(screen.queryByText('placement storage unavailable')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry setup' }));
+
+  expect(await screen.findByText('Open Cases')).toBeInTheDocument();
+  expect(api.post.mock.calls.filter(([path]) => path === '/v1/reports')).toHaveLength(9);
+  expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(1);
 });
 
 test('does not execute or render non-station report items from a loaded dashboard', async () => {
@@ -234,3 +252,48 @@ test('falls back to a safe station label and contains isolated report failures',
   expect(screen.getByText('Open Cases')).toBeInTheDocument();
   expect(screen.queryByText('private detail')).not.toBeInTheDocument();
 });
+
+function bootstrapApi({ failItemsOnce = false } = {}) {
+  const state = { reports: [], dashboard: null, landing: null, failedItems: false };
+  return {
+    get: vi.fn(async path => {
+      if (path === '/v1/reports') return { data: structuredClone(state.reports) };
+      if (path === '/v1/dashboards') return { data: state.dashboard ? [{ ...state.dashboard, items: undefined }] : [] };
+      if (path === '/v1/workspace') return { data: { landingDashboard: state.dashboard?.id === state.landing ? state.dashboard : undefined } };
+      if (path === '/v1/dashboards/D-BOOTSTRAP') return { data: structuredClone(state.dashboard) };
+      throw new Error(`Unexpected GET ${path}`);
+    }),
+    post: vi.fn(async (path, body) => {
+      if (path === '/v1/reports') {
+        const report = { id: `R-${state.reports.length + 1}`, name: body.name, definition: structuredClone(body), relationship: 'OWNED' };
+        state.reports.push(report);
+        return { data: structuredClone(report) };
+      }
+      if (path === '/v1/dashboards') {
+        state.dashboard = { id: 'D-BOOTSTRAP', ...body, relationship: 'OWNED', visibility: 'PRIVATE', items: [] };
+        return { data: structuredClone(state.dashboard) };
+      }
+      const reportId = path.match(/^\/v1\/reports\/([^/]+)\/execute$/)?.[1];
+      if (reportId) {
+        const report = state.reports.find(item => item.id === reportId);
+        return { data: { definition: report, result: { data: { items: [{ recordCount_sum: 1 }] } } } };
+      }
+      throw new Error(`Unexpected POST ${path}`);
+    }),
+    put: vi.fn(async (path, body) => {
+      if (path === '/v1/dashboards/D-BOOTSTRAP/items') {
+        if (failItemsOnce && !state.failedItems) {
+          state.failedItems = true;
+          throw new Error('placement storage unavailable');
+        }
+        state.dashboard.items = structuredClone(body.items.map((item, index) => ({ id: `I-${index + 1}`, ...item })));
+        return { data: structuredClone(body.items) };
+      }
+      if (path === '/v1/preferences/landing-dashboard') {
+        state.landing = body.dashboardId;
+        return { data: { landingDashboardId: body.dashboardId } };
+      }
+      throw new Error(`Unexpected PUT ${path}`);
+    }),
+  };
+}

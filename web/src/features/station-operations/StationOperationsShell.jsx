@@ -6,6 +6,7 @@ import { governedAppLocation } from '../../app/runtime.js';
 import { CommandCenterAddReportDrawer } from '../command-center/CommandCenterAddReportDrawer.jsx';
 import { CommandCenterDashboardCanvas } from '../command-center/CommandCenterDashboardCanvas.jsx';
 import { useCommandCenterDashboard } from '../command-center/useCommandCenterDashboard.js';
+import { bootstrapStationOperationsDashboard } from './station-dashboard-template.js';
 import './station-operations.css';
 
 const PERIODS = [7, 30, 90];
@@ -44,7 +45,7 @@ function filtered(item, filter) {
 
 const isStationReport = report => STATION_REPORT_SOURCES.has(report?.definition?.sourceKey);
 const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
-  || dashboard?.relationship === 'OWNED';
+  || (dashboard?.relationship === 'OWNED' && dashboard?.name === 'Station Operations');
 const stationPlacementClass = item => item.definition?.visualization?.type === 'number' ? 'station-placement--metric'
   : item.definition?.sourceKey === 'stationCases' && item.definition?.dimensions?.includes('ageingBucket')
     && item.definition?.visualization?.type === 'bar' ? 'station-placement--ageing'
@@ -60,24 +61,33 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
   const [cloneBusy, setCloneBusy] = useState(false);
   const [cloneError, setCloneError] = useState('');
   const [filterAnnouncement, setFilterAnnouncement] = useState('');
+  const [bootstrapResult, setBootstrapResult] = useState(null);
+  const [bootstrapState, setBootstrapState] = useState('idle');
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const navigate = useNavigate();
   const stationDashboard = useMemo(() => {
     const dashboards = (workspace?.availableDashboards ?? []).filter(isStationDashboard);
     if (requestedDashboardId) return dashboards.find(item => item.id === requestedDashboardId) ?? null;
     return dashboards.find(item => item.id === workspace?.landingDashboard?.id) ?? dashboards[0] ?? null;
   }, [requestedDashboardId, workspace?.availableDashboards, workspace?.landingDashboard?.id]);
-  const activeDashboard = ownedDashboard ?? stationDashboard;
+  const activeDashboard = ownedDashboard ?? bootstrapResult?.dashboard ?? stationDashboard;
+  const availableReports = useMemo(() => {
+    const byId = new Map((workspace?.availableReports ?? []).map(reportValue => [reportValue.id, reportValue]));
+    for (const reportValue of bootstrapResult?.reports ?? []) byId.set(reportValue.id, reportValue);
+    return [...byId.values()];
+  }, [bootstrapResult?.reports, workspace?.availableReports]);
   const stationWorkspace = useMemo(() => ({
     ...workspace,
     landingDashboard: activeDashboard ?? undefined,
     availableDashboards: activeDashboard ? [activeDashboard] : [],
-  }), [workspace, activeDashboard]);
+    availableReports,
+  }), [workspace, activeDashboard, availableReports]);
   const periodReportIds = useMemo(() => new Set(
-    (workspace?.availableReports ?? [])
+    availableReports
       .filter(report => report.definition?.sourceKey === 'stationCases'
         && report.definition?.filters?.some(filter => filter.field === 'registeredAgeDays' && filter.operator === 'lte'))
       .map(report => report.id),
-  ), [workspace?.availableReports]);
+  ), [availableReports]);
   const executionBody = useCallback(reportId => periodReportIds.has(reportId) ? {
     runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: periodDays }],
   } : {}, [periodDays, periodReportIds]);
@@ -90,6 +100,18 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
     item => filtered(periodized(item, periodDays), stationFilter),
   ), [controller.dashboard, periodDays, stationFilter]);
   const stationName = workspace?.scopeUnit?.name?.trim() || 'Local station';
+
+  useEffect(() => {
+    if (stationDashboard || bootstrapResult || workspace?.role !== 'STATION_OPERATIONS') return undefined;
+    let current = true;
+    setBootstrapState('loading');
+    bootstrapStationOperationsDashboard({ api, workspace }).then(result => {
+      if (!current) return;
+      setBootstrapResult(result);
+      setBootstrapState('ready');
+    }).catch(() => { if (current) setBootstrapState('error'); });
+    return () => { current = false; };
+  }, [api, bootstrapAttempt, bootstrapResult, stationDashboard, workspace]);
 
   useEffect(() => {
     if (editAfterCloneId && controller.dashboard?.id === editAfterCloneId && !controller.loading) {
@@ -165,7 +187,9 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
       {controller.loading ? <span className="station-refresh" role="status">Updating {periodDays}-day view…</span> : null}
     </div>
 
-    {controller.loading && !controller.dashboard ? <div className="station-operations__loading" role="status">Loading station operations…</div>
+    {bootstrapState === 'loading' && !activeDashboard ? <div className="station-operations__setup" role="status"><strong>Preparing station dashboard...</strong><span>Creating the governed reports and private operational layout.</span></div>
+      : bootstrapState === 'error' && !activeDashboard ? <div className="station-operations__setup" role="alert"><strong>Station dashboard setup could not be completed.</strong><span>No operational data was changed outside this station workspace.</span><button type="button" onClick={() => setBootstrapAttempt(value => value + 1)}>Retry setup</button></div>
+      : controller.loading && !controller.dashboard ? <div className="station-operations__loading" role="status">Loading station operations…</div>
       : controller.error && !controller.dashboard ? <div className="station-operations__loading" role="alert">Station dashboard is unavailable.</div>
         : !activeDashboard ? <div className="station-operations__setup" role="status"><strong>Station dashboard is not configured yet.</strong><span>Your station reports will appear here after setup is complete.</span></div>
           : <CommandCenterDashboardCanvas
