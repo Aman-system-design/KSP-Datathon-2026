@@ -121,7 +121,15 @@ test('station reporting API exposes only local sources and hides disallowed glob
       measures: [{ field: 'observed', aggregate: 'sum' }], filters: [], sort: [],
       visualization: { type: 'bar' }, limit: 100,
     },
+  }, {
+    id: 'R-STATION-CASE', ownerUserId: 'CAT-ADMIN', name: 'Open cases', visibility: 'GLOBAL', version: 1,
+    definition: { name: 'Open cases', sourceKey: 'stationCases', dimensions: [], measures: [], filters: [], sort: [], visualization: { type: 'table' }, limit: 100 },
   }];
+  state.dashboards = [
+    { id: 'D-STATE', ownerUserId: 'CAT-ADMIN', name: 'State Intelligence', visibility: 'GLOBAL', version: 1 },
+    { id: 'D-STATION-SYSTEM', ownerUserId: 'CAT-ADMIN', name: 'Station Operations', visibility: 'GLOBAL', defaultRole: 'STATION_OPERATIONS', version: 1 },
+  ];
+  state.dashboardItems = [{ id: 'I-STATION', dashboardId: 'D-STATION-SYSTEM', reportId: 'R-STATION-CASE', column: 1, row: 1, width: 4, height: 2, version: 1 }];
   const { application } = harness({ currentUser: { user_id: 'CAT-STATION-REPORTS', status: 'ACTIVE' }, state });
 
   const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
@@ -134,6 +142,15 @@ test('station reporting API exposes only local sources and hides disallowed glob
   const rejected = await application({ method: 'POST', url: '/v1/reports', headers: {}, body: state.reports[0].definition });
   assert.equal(rejected.status, 400);
   assert.equal(rejected.body.error.code, 'INVALID_REQUEST');
+  const deniedDashboard = await application({ method: 'GET', url: '/v1/dashboards/D-STATE', headers: {}, body: null });
+  assert.equal(deniedDashboard.status, 404);
+  const deniedLanding = await application({ method: 'PUT', url: '/v1/preferences/landing-dashboard', headers: {}, body: { dashboardId: 'D-STATE' } });
+  assert.equal(deniedLanding.status, 404);
+  const clone = await application({ method: 'POST', url: '/v1/dashboards/D-STATION-SYSTEM/clone', headers: {}, body: { description: 'Local station copy' } });
+  assert.equal(clone.status, 200);
+  assert.equal(clone.body.data.ownerUserId, 'CAT-STATION-REPORTS');
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers: {}, body: null });
+  assert.equal(workspace.body.data.landingDashboard.id, clone.body.data.id);
 });
 
 test('API case resources deny base presenter and auditor roles but honor an assumed station persona', async () => {

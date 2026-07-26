@@ -40,8 +40,8 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the fifty-one platform operations', () => {
-  assert.equal(API_OPERATIONS.length, 51);
+test('the public contract contains exactly the fifty-two platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 52);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
@@ -61,7 +61,7 @@ test('the public contract contains exactly the fifty-one platform operations', (
     'PATCH /v1/reports/{reportId}', 'DELETE /v1/reports/{reportId}', 'POST /v1/reports/{reportId}/execute',
     'GET /v1/dashboards', 'POST /v1/dashboards', 'GET /v1/dashboards/{dashboardId}',
     'PATCH /v1/dashboards/{dashboardId}', 'DELETE /v1/dashboards/{dashboardId}',
-    'PUT /v1/dashboards/{dashboardId}/items', 'PUT /v1/dashboards/{dashboardId}/sharing',
+    'PUT /v1/dashboards/{dashboardId}/items', 'POST /v1/dashboards/{dashboardId}/clone', 'PUT /v1/dashboards/{dashboardId}/sharing',
     'PUT /v1/dashboards/{dashboardId}/role-default', 'PUT /v1/preferences/landing-dashboard',
     'GET /v1/alerts', 'GET /v1/alerts/{alertId}',
     'POST /v1/alerts/{alertId}/notes', 'POST /v1/alerts/{alertId}/escalate',

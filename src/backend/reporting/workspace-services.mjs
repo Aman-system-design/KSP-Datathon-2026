@@ -51,6 +51,9 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
     async replaceDashboardItems({ access, params, body }) {
       return envelope(await dashboards.replaceItems({ access, dashboardId: params.dashboardId, items: body?.items }));
     },
+    async cloneDashboard({ access, params, body }) {
+      return envelope(await dashboards.cloneForOwner({ access, dashboardId: params.dashboardId, input: body }));
+    },
     async shareDashboard({ access, params, body }) {
       return envelope(await dashboards.share({
         access, dashboardId: params.dashboardId, target: body?.target, permission: body?.permission,
@@ -76,9 +79,10 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       const allDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
       const availableDashboards = access.role === 'STATION_OPERATIONS'
         ? allDashboards.filter(row => row.defaultRole === 'STATION_OPERATIONS'
-          || (row.relationship === 'OWNED' && row.name === 'Station Operations'))
+          || row.relationship === 'OWNED')
         : allDashboards;
       const availableReports = reportsResult.status === 'fulfilled' ? reportsResult.value : [];
+      const semanticSources = visibleReportSources(access, Object.values(REPORT_SOURCES)).map(source => source.key);
       const alertResult = alertsResult.status === 'fulfilled' ? alertsResult.value : { data: { items: [] } };
       const scopedUnit = unitsResult.status === 'fulfilled'
         ? unitsResult.value.find(unit => Number(unit.UnitID) === Number(access.scopeUnitId)) : undefined;
@@ -100,7 +104,7 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
           personas: [...(access.availablePersonas ?? [])],
         },
         landingDashboard, availableDashboards, availableReports,
-        semanticSources: Object.keys(REPORT_SOURCES),
+        semanticSources,
         alertSummary: { total: alertResult.data.items.length }, syntheticData: true,
       });
     },

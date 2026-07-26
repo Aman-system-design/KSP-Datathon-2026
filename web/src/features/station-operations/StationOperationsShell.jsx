@@ -44,12 +44,14 @@ function filtered(item, filter) {
 
 const isStationReport = report => STATION_REPORT_SOURCES.has(report?.definition?.sourceKey);
 const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
-  || (dashboard?.relationship === 'OWNED' && dashboard?.name === 'Station Operations');
+  || dashboard?.relationship === 'OWNED';
 const stationPlacementClass = item => item.definition?.visualization?.type === 'number' ? 'station-placement--metric'
-  : item.title === 'Case Ageing' ? 'station-placement--ageing'
-    : item.title === 'Open Case Register' ? 'station-placement--register' : 'station-placement--detail';
+  : item.definition?.sourceKey === 'stationCases' && item.definition?.dimensions?.includes('ageingBucket')
+    && item.definition?.visualization?.type === 'bar' ? 'station-placement--ageing'
+    : item.definition?.sourceKey === 'stationCases' && item.definition?.dimensions?.includes('caseId')
+      && item.definition?.visualization?.type === 'table' ? 'station-placement--register' : 'station-placement--detail';
 
-export function StationOperationsShell({ api, workspace, onOpenCase }) {
+export function StationOperationsShell({ api, workspace, onOpenCase, requestedDashboardId = null }) {
   const [periodDays, setPeriodDays] = useState(30);
   const [stationFilter, setStationFilter] = useState(null);
   const [reportDrawerOpen, setReportDrawerOpen] = useState(false);
@@ -57,12 +59,14 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
   const [editAfterCloneId, setEditAfterCloneId] = useState(null);
   const [cloneBusy, setCloneBusy] = useState(false);
   const [cloneError, setCloneError] = useState('');
+  const [filterAnnouncement, setFilterAnnouncement] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const stationDashboard = useMemo(() => {
     const dashboards = (workspace?.availableDashboards ?? []).filter(isStationDashboard);
+    if (requestedDashboardId) return dashboards.find(item => item.id === requestedDashboardId) ?? null;
     return dashboards.find(item => item.id === workspace?.landingDashboard?.id) ?? dashboards[0] ?? null;
-  }, [workspace?.availableDashboards, workspace?.landingDashboard?.id]);
+  }, [requestedDashboardId, workspace?.availableDashboards, workspace?.landingDashboard?.id]);
   const activeDashboard = ownedDashboard ?? stationDashboard;
   const stationWorkspace = useMemo(() => ({
     ...workspace,
@@ -106,16 +110,10 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
     if (!controller.dashboard || cloneBusy) return;
     setCloneBusy(true);
     try {
-      const created = (await api.post('/v1/dashboards', {
-        name: 'Station Operations',
+      const created = (await api.post(`/v1/dashboards/${controller.dashboard.id}/clone`, {
         description: `Private operational dashboard for ${stationName}.`,
       })).data;
       if (!created?.id) throw new Error('Dashboard identifier missing');
-      const reports = new Map((workspace?.availableReports ?? []).map(report => [report.id, report]));
-      const items = controller.items
-        .filter(item => isStationReport(reports.get(item.reportId)))
-        .map(({ reportId, column, row, width, height }) => ({ reportId, column, row, width, height }));
-      await api.put(`/v1/dashboards/${created.id}/items`, { items });
       setOwnedDashboard({ ...created, relationship: 'OWNED', name: 'Station Operations' });
       setEditAfterCloneId(created.id);
       controller.selectDashboard(created.id);
@@ -132,7 +130,9 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
       else navigate(target);
       return;
     }
-    setStationFilter({ field: selection.field, value: selection.value, row: selection.row });
+    const next = { field: selection.field, value: selection.value, row: selection.row };
+    setStationFilter(next);
+    setFilterAnnouncement(`Filter applied: ${filterLabel(next)}.`);
   };
 
   return <section className="station-operations" aria-labelledby="station-operations-title">
@@ -156,10 +156,11 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
     </header>
 
     <div className="station-operations__status-row">
-      {stationFilter ? <button className="station-filter" type="button" aria-label={`Clear ${filterLabel(stationFilter)} filter`} onClick={() => setStationFilter(null)}>
+      {stationFilter ? <button className="station-filter" type="button" aria-label={`Clear ${filterLabel(stationFilter)} filter`} onClick={() => { setStationFilter(null); setFilterAnnouncement('Filter cleared.'); }}>
         <span>{filterLabel(stationFilter)}</span><X aria-hidden="true" />
       </button> : <span>Showing all visible station cases</span>}
       {cloneError ? <span className="station-clone-error" role="alert">{cloneError}</span> : null}
+      <span className="sr-only" aria-live="polite">{filterAnnouncement}</span>
       {controller.loading ? <span className="station-refresh" role="status">Updating {periodDays}-day view…</span> : null}
     </div>
 

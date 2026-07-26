@@ -20,9 +20,22 @@ export function createDashboardService({ repository, now, idFactory }) {
     return shares.some(row => row.targetUserId === access.actualUserId || row.targetRole === access.role
       || (row.targetUnitId !== undefined && access.authorizedUnitIds?.has(row.targetUnitId)));
   }
+  async function isDashboardAllowed(dashboard, access) {
+    if (!dashboard) return false;
+    if (access?.role !== 'STATION_OPERATIONS') return true;
+    if (owns(dashboard, access)) return true;
+    if (dashboard.defaultRole !== 'STATION_OPERATIONS') return false;
+    const items = await repository.listDashboardItems(dashboard.id);
+    for (const item of items) {
+      if (!await canViewReport(await repository.getReport(item.reportId), access)) return false;
+    }
+    return true;
+  }
   async function requireVisible(id, access) {
     const dashboard = await repository.getDashboard(id);
     if (!dashboard) fail('NOT_FOUND');
+    if (!await isDashboardAllowed(dashboard, access)) fail('NOT_FOUND');
+    if (access.role === 'STATION_OPERATIONS') return dashboard;
     if (owns(dashboard, access) || dashboard.visibility === 'GLOBAL' || dashboard.defaultRole === access.role) return dashboard;
     const shares = await repository.listContentShares('DASHBOARD', id);
     const shared = shares.some(row => row.targetUserId === access.actualUserId || row.targetRole === access.role
@@ -147,16 +160,55 @@ export function createDashboardService({ repository, now, idFactory }) {
       const preference = await repository.getUserPreference(access.actualUserId);
       if (access.role === 'STATION_OPERATIONS') {
         const dashboards = await repository.listDashboards();
+        if (preference?.landingDashboardId) {
+          try {
+            const personal = await requireVisible(preference.landingDashboardId, access);
+            if (owns(personal, access)) return personal;
+          } catch (error) { if (error.code !== 'NOT_FOUND') throw error; }
+        }
         const roleDefault = dashboards.find(row => row.defaultRole === 'STATION_OPERATIONS');
-        if (roleDefault) return roleDefault;
-        if (!preference?.landingDashboardId) return undefined;
-        const personal = await requireVisible(preference.landingDashboardId, access);
-        return owns(personal, access) && personal.name === STATION_DASHBOARD_NAME ? personal : undefined;
+        return roleDefault ? requireVisible(roleDefault.id, access) : undefined;
       }
       if (preference?.landingDashboardId) return requireVisible(preference.landingDashboardId, access);
       const roleDefault = (await repository.listDashboards()).find(row => row.defaultRole === access.role);
       if (roleDefault) return roleDefault;
       return undefined;
+    },
+    async cloneForOwner({ access, dashboardId, input = {} }) {
+      const source = await requireVisible(dashboardId, access);
+      if (access.role !== 'STATION_OPERATIONS') fail('FORBIDDEN_ACTION');
+      const sourceItems = await repository.listDashboardItems(source.id);
+      const validated = [];
+      for (const [index, item] of sourceItems.entries()) {
+        const report = await repository.getReport(item.reportId);
+        if (!await canViewReport(report, access) || !validLayout(item)) fail('NOT_FOUND');
+        validated.push({
+          id: idFactory(), reportId: item.reportId,
+          column: item.column, row: item.row, width: item.width, height: item.height,
+          displayOrder: index + 1, version: 1, syntheticData: true,
+        });
+      }
+      const timestamp = now();
+      const created = await repository.createDashboard({
+        id: idFactory(), ownerUserId: access.actualUserId,
+        name: STATION_DASHBOARD_NAME, description: String(input.description ?? '').trim(),
+        visibility: 'PRIVATE', version: 1, createdAt: timestamp, updatedAt: timestamp, syntheticData: true,
+      });
+      try {
+        const items = validated.map(item => ({ ...item, dashboardId: created.id }));
+        await repository.replaceDashboardItems(created.id, items);
+        await repository.upsertUserPreference({
+          id: `PREF-${access.actualUserId}`, userId: access.actualUserId,
+          landingDashboardId: created.id, version: 1, updatedAt: timestamp, syntheticData: true,
+        });
+        return { ...created, relationship: 'OWNED', items };
+      } catch (error) {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try { await repository.deleteDashboard(created.id); break; }
+          catch { /* retry once, then preserve the original bounded failure */ }
+        }
+        fail('DATA_NOT_READY');
+      }
     },
   });
 }

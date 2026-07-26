@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { createApiClient } from '../api/client.js';
 import { AccessNotProvisioned } from '../auth/AccessNotProvisioned.jsx';
@@ -50,6 +50,13 @@ export function workspaceContractDiagnostic(value) {
 function LegacyMapsRedirect() {
   const location = useLocation();
   return <Navigate to={governedAppLocation('/geospatial', location, { preserveHash: true })} replace />;
+}
+
+function StationDashboardRoute({ api, workspace }) {
+  const { dashboardId } = useParams();
+  return <Suspense fallback={<Busy label="Loading station operationsâ€¦" />}>
+    <StationOperationsShell api={api} workspace={workspace} requestedDashboardId={dashboardId} />
+  </Suspense>;
 }
 
 export function workspaceDestinationLocation(destination, currentSearch = '') {
@@ -139,7 +146,9 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     <Route path="/dashboards" element={workspace.role === 'STATION_OPERATIONS'
       ? <Suspense fallback={<Busy label="Loading station operationsâ€¦" />}><StationOperationsShell api={api} workspace={workspace} /></Suspense>
       : <DashboardLibrary workspace={workspace} />} />
-    <Route path="/dashboards/:dashboardId" element={<RoutedDashboardPage api={api} />} />
+    <Route path="/dashboards/:dashboardId" element={workspace.role === 'STATION_OPERATIONS'
+      ? <StationDashboardRoute api={api} workspace={workspace} />
+      : <RoutedDashboardPage api={api} />} />
     <Route path="/alerts" element={<AlertsPage api={api} />} />
     <Route path="/alerts/:alertId" element={<AlertPage api={api} />} />
     <Route path="/networks" element={<NetworkView api={api} />} />

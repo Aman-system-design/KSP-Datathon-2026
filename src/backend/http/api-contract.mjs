@@ -39,6 +39,7 @@ export const API_OPERATIONS = Object.freeze([
   Object.freeze({ method: 'PATCH', path: '/v1/dashboards/{dashboardId}', kind: 'resource', service: 'updateDashboard' }),
   Object.freeze({ method: 'DELETE', path: '/v1/dashboards/{dashboardId}', kind: 'resource', service: 'deleteDashboard' }),
   Object.freeze({ method: 'PUT', path: '/v1/dashboards/{dashboardId}/items', kind: 'resource', service: 'replaceDashboardItems' }),
+  Object.freeze({ method: 'POST', path: '/v1/dashboards/{dashboardId}/clone', kind: 'resource', service: 'cloneDashboard' }),
   Object.freeze({ method: 'PUT', path: '/v1/dashboards/{dashboardId}/sharing', kind: 'resource', service: 'shareDashboard' }),
   Object.freeze({ method: 'PUT', path: '/v1/dashboards/{dashboardId}/role-default', kind: 'resource', service: 'setRoleDefault' }),
   Object.freeze({ method: 'PUT', path: '/v1/preferences/landing-dashboard', kind: 'resource', service: 'setLandingDashboard' }),

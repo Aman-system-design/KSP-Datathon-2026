@@ -207,7 +207,7 @@ test('station operations persona renders its distinct workspace inside the norma
   expect(screen.queryByRole('application', { name: 'KSP Command Center' })).not.toBeInTheDocument();
 });
 
-test('station dashboards route remains inside the station operations shell', async () => {
+test('station dashboard detail route remains inside the station operations shell', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {
       role: 'STATION_OPERATIONS', scopeUnitId: 1001,
@@ -217,7 +217,7 @@ test('station dashboards route remains inside the station operations shell', asy
     throw new Error(`Unexpected request: ${path}`);
   }), post: vi.fn(), put: vi.fn() };
 
-  render(<MemoryRouter initialEntries={['/dashboards?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/dashboards/D-BLOCKED?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
   expect(screen.getByText('Station dashboard is not configured yet.')).toBeInTheDocument();

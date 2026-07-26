@@ -132,7 +132,7 @@ test('workspace projects only safe display metadata for the scoped unit', async 
   assert.equal(workspace.data.scopeUnit.id, undefined);
 });
 
-test('station workspace ignores a personal state dashboard in favor of its role default', async () => {
+test('station workspace prefers a validated owned landing over its role default', async () => {
   let id = 0;
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const services = createWorkspaceServices({
@@ -148,8 +148,9 @@ test('station workspace ignores a personal state dashboard in favor of its role 
 
   const workspace = await services.getWorkspace({ access: station });
 
-  assert.equal(workspace.data.landingDashboard.id, stationDefault.data.id);
-  assert.notEqual(workspace.data.landingDashboard.id, personal.data.id);
+  assert.equal(workspace.data.landingDashboard.id, personal.data.id);
+  assert.notEqual(workspace.data.landingDashboard.id, stationDefault.data.id);
+  assert.deepEqual(workspace.data.semanticSources, ['alerts', 'stationCases']);
 });
 
 test('workspace case resources delegate access, query, and detail parameters unchanged', async () => {

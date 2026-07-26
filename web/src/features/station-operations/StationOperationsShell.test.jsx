@@ -49,9 +49,13 @@ function apiHarness() {
       if (path === '/v1/reports') return { data: [] };
       throw new Error(`Unexpected request ${path}`);
     }),
-    post: vi.fn(async (path, body) => path === '/v1/dashboards'
-      ? { data: { id: 'D-OWNED', name: body.name, description: body.description, relationship: 'OWNED' } }
-      : response(path.split('/')[3], body)),
+    post: vi.fn(async (path, body) => {
+      if (path === '/v1/dashboards/D-STATION/clone') {
+        clonedItems = [{ id: 'CLONE-0', reportId: 'R-OPEN', column: 1, row: 1, width: 3, height: 2 }];
+        return { data: { id: 'D-OWNED', name: 'Station Operations', description: body.description, relationship: 'OWNED' } };
+      }
+      return response(path.split('/')[3], body);
+    }),
     put: vi.fn(async (path, body) => {
       if (path === '/v1/dashboards/D-OWNED/items') clonedItems = body.items.map((item, index) => ({ id: `CLONE-${index}`, ...item }));
       return { data: clonedItems };
@@ -72,6 +76,8 @@ test('renders the station identity and role dashboard without internal or state-
   expect(screen.getByLabelText('Station reporting period')).toBeInTheDocument();
   expect(screen.queryByText(/authorized workspace|scopeunit|unit 1001|backend/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/FIRs by Karnataka District|State Intelligence/i)).not.toBeInTheDocument();
+  expect((await screen.findByText('Case Ageing')).closest('.command-center-dashboard-placement')).toHaveClass('station-placement--ageing');
+  expect(screen.getByText('Open Case Register').closest('.command-center-dashboard-placement')).toHaveClass('station-placement--register');
 });
 
 test('ignores personal and state dashboards and shows an honest setup state', async () => {
@@ -79,7 +85,7 @@ test('ignores personal and state dashboards and shows an honest setup state', as
   const unsafeWorkspace = {
     ...workspace,
     landingDashboard: { id: 'D-STATE' },
-    availableDashboards: [{ id: 'D-STATE', name: 'State Intelligence', relationship: 'OWNED' }],
+    availableDashboards: [{ id: 'D-STATE', name: 'State Intelligence', relationship: 'SYSTEM' }],
   };
   render(<MemoryRouter><StationOperationsShell api={api} workspace={unsafeWorkspace} /></MemoryRouter>);
 
@@ -129,11 +135,13 @@ test('chart selection filters compatible register rows and the removable status 
   render(<MemoryRouter><StationOperationsShell api={apiHarness()} workspace={workspace} /></MemoryRouter>);
   fireEvent.click(await screen.findByTitle('60+ days: 4'));
 
+  expect(screen.getByText('Filter applied: Ageing: 60+ days.')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Clear Ageing: 60+ days filter' })).toBeInTheDocument();
   expect(screen.getByText('11/2026')).toBeInTheDocument();
   expect(screen.queryByText('12/2026')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Clear Ageing: 60+ days filter' }));
+  expect(screen.getByText('Filter cleared.')).toBeInTheDocument();
   expect(screen.getByText('12/2026')).toBeInTheDocument();
 });
 
@@ -160,15 +168,9 @@ test('system default clones allowed placements before edit and saves the owned d
   ] };
   render(<MemoryRouter><StationOperationsShell api={api} workspace={guardedWorkspace} /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit dashboard' }));
-  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/v1/dashboards', expect.objectContaining({
-    name: expect.stringMatching(/Station Operations/), description: expect.any(String),
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/v1/dashboards/D-STATION/clone', expect.objectContaining({
+    description: expect.any(String),
   })));
-  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/v1/dashboards/D-OWNED/items', { items: expect.arrayContaining([
-    expect.objectContaining({ reportId: 'R-OPEN' }),
-  ]) }));
-  expect(api.put.mock.calls.find(([path]) => path === '/v1/dashboards/D-OWNED/items')[1].items).not.toEqual(expect.arrayContaining([
-    expect.objectContaining({ reportId: 'R-STATE' }),
-  ]));
   expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Move Open Cases right' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -179,6 +181,17 @@ test('system default clones allowed placements before edit and saves the owned d
   await waitFor(() => expect(api.put).toHaveBeenCalledWith('/v1/dashboards/D-OWNED/items', expect.objectContaining({ items: expect.arrayContaining([
     expect.objectContaining({ reportId: 'R-OPEN', column: 2 }),
   ]) })));
+
+  cleanup();
+  api.get.mockClear();
+  const remountedWorkspace = {
+    ...workspace,
+    landingDashboard: { id: 'D-OWNED' },
+    availableDashboards: [{ id: 'D-OWNED', name: 'Station Operations', relationship: 'OWNED' }],
+  };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={remountedWorkspace} /></MemoryRouter>);
+  expect(await screen.findByText('Open Cases')).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledWith('/v1/dashboards/D-OWNED');
 });
 
 test('owned station dashboard enters edit directly without cloning', async () => {
@@ -191,13 +204,13 @@ test('owned station dashboard enters edit directly without cloning', async () =>
   fireEvent.click(await screen.findByRole('button', { name: 'Edit dashboard' }));
 
   expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-  expect(api.post).not.toHaveBeenCalledWith('/v1/dashboards', expect.anything());
+  expect(api.post).not.toHaveBeenCalledWith(expect.stringMatching(/\/clone$/), expect.anything());
 });
 
 test('clone failure stays read-only and exposes only a bounded error', async () => {
   const api = apiHarness();
   api.post.mockImplementation(async path => {
-    if (path === '/v1/dashboards') throw new Error('private storage detail');
+    if (path.endsWith('/clone')) throw new Error('private storage detail');
     return response(path.split('/')[3], {});
   });
   render(<MemoryRouter><StationOperationsShell api={api} workspace={workspace} /></MemoryRouter>);
