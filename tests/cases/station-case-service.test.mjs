@@ -1,0 +1,162 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  ageInDays,
+  ageingBucket,
+  createStationCaseService,
+} from '../../src/backend/cases/station-case-service.mjs';
+import { MemoryIntelligenceRepository } from '../../src/backend/repository/memory-repository.mjs';
+
+const rows = [
+  {
+    caseId: 'CASE-1', caseNumber: '01/2026', unitId: 1001, unitName: 'Central Station',
+    status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
+    incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Theft', minorHead: 'Vehicle Theft',
+    syntheticData: true,
+  },
+  {
+    caseId: 'CASE-2', caseNumber: '02/2026', unitId: 2001, unitName: 'North Station',
+    status: 'Under Investigation', registeredAt: '2026-04-01T00:00:00Z',
+    incidentAt: '2026-04-01T00:00:00Z', majorHead: 'Property', minorHead: 'Burglary',
+    syntheticData: true,
+  },
+];
+const repository = {
+  async listStationCaseRows() { return rows; },
+  async getStationCaseRow(id) { return rows.find(row => row.caseId === id); },
+};
+const service = createStationCaseService({
+  repository,
+  now: () => new Date('2026-07-26T00:00:00Z'),
+});
+const access = { scopeUnitId: 1001, authorizedUnitIds: new Set([1001]) };
+
+test('station case list returns only authorized units with deterministic ageing', async () => {
+  const result = await service.list({ access, query: {} });
+  assert.deepEqual(
+    result.data.items.map(({ caseId, ageDays, ageingBucket }) => ({ caseId, ageDays, ageingBucket })),
+    [{ caseId: 'CASE-1', ageDays: 6, ageingBucket: '0–7 days' }],
+  );
+});
+
+test('case detail fails closed outside the station scope', async () => {
+  await assert.rejects(service.get({ access, caseId: 'CASE-2' }), { code: 'NOT_FOUND' });
+  await assert.rejects(service.get({ access, caseId: 'MISSING' }), { code: 'NOT_FOUND' });
+});
+
+test('ageing boundaries use whole elapsed UTC days', () => {
+  const current = new Date('2026-07-26T12:30:00Z');
+  const expected = [
+    [7, '0–7 days'],
+    [8, '8–30 days'],
+    [30, '8–30 days'],
+    [31, '31–60 days'],
+    [60, '31–60 days'],
+    [61, '60+ days'],
+  ];
+  for (const [days, bucket] of expected) {
+    const registeredAt = new Date(current.getTime() - days * 86_400_000).toISOString();
+    assert.equal(ageInDays(registeredAt, current), days);
+    assert.equal(ageingBucket(days), bucket);
+  }
+  assert.equal(ageInDays('2026-07-25T13:00:00Z', current), 0);
+});
+
+test('age calculation clamps future dates and handles invalid dates safely', () => {
+  const current = new Date('2026-07-26T00:00:00Z');
+  assert.equal(ageInDays('2026-07-27T00:00:00Z', current), 0);
+  assert.equal(ageInDays('not-a-date', current), 0);
+  assert.equal(ageInDays(undefined, current), 0);
+  assert.equal(ageInDays('2026-07-20T00:00:00Z', new Date('invalid')), 0);
+});
+
+test('closed lifecycle labels are hidden by default and available when requested', async () => {
+  const lifecycleRows = [
+    ...rows.slice(0, 1),
+    ...['Closed', 'Disposed', 'Acquitted', 'Convicted', 'False case', 'Mistake of fact']
+      .map((status, index) => ({
+        ...rows[0], caseId: `CLOSED-${index}`, caseNumber: `${index + 2}/2026`, status,
+      })),
+  ];
+  const lifecycleRepository = {
+    async listStationCaseRows() { return lifecycleRows; },
+    async getStationCaseRow(id) { return lifecycleRows.find(row => row.caseId === id); },
+  };
+  const lifecycleService = createStationCaseService({
+    repository: lifecycleRepository, now: () => new Date('2026-07-26T00:00:00Z'),
+  });
+
+  const open = await lifecycleService.list({ access, query: {} });
+  assert.deepEqual(open.data.items.map(row => row.caseId), ['CASE-1']);
+  const all = await lifecycleService.list({ access, query: { openOnly: false } });
+  assert.equal(all.data.items.length, lifecycleRows.length);
+  assert.equal(all.data.items.filter(row => !row.isOpen).length, lifecycleRows.length - 1);
+});
+
+test('list limit is bounded to the inclusive range 1 through 200', async () => {
+  const manyRows = Array.from({ length: 205 }, (_, index) => ({
+    ...rows[0], caseId: `CASE-${index + 1}`, caseNumber: `${index + 1}/2026`,
+  }));
+  const manyService = createStationCaseService({
+    repository: {
+      async listStationCaseRows() { return manyRows; },
+      async getStationCaseRow() { return undefined; },
+    },
+    now: () => new Date('2026-07-26T00:00:00Z'),
+  });
+
+  assert.equal((await manyService.list({ access, query: { limit: 0 } })).data.items.length, 1);
+  assert.equal((await manyService.list({ access, query: { limit: -10 } })).data.items.length, 1);
+  assert.equal((await manyService.list({ access, query: { limit: 999 } })).data.items.length, 200);
+});
+
+test('client projections are immutable, synthetic, and contain no unapproved fields', async () => {
+  const unsafeRow = { ...rows[0], BriefFacts: 'must not leave the domain boundary', accused: ['person'] };
+  const projectionService = createStationCaseService({
+    repository: {
+      async listStationCaseRows() { return [unsafeRow]; },
+      async getStationCaseRow() { return unsafeRow; },
+    },
+    now: () => new Date('2026-07-26T00:00:00Z'),
+  });
+  const result = await projectionService.get({ access, caseId: unsafeRow.caseId });
+
+  assert.equal(result.syntheticData, true);
+  assert.equal(result.data.syntheticData, true);
+  assert.equal(Object.isFrozen(result.data), true);
+  assert.equal(Object.hasOwn(result.data, 'BriefFacts'), false);
+  assert.equal(Object.hasOwn(result.data, 'accused'), false);
+  assert.throws(() => { result.data.status = 'mutated'; }, TypeError);
+});
+
+test('memory repository joins canonical source masters into a cloned safe projection', async () => {
+  const state = {
+    source: {
+      tables: {
+        CaseMaster: [{
+          CaseMasterID: 42, CaseNo: '00042/2026', PoliceStationID: 1001, CaseStatusID: 1,
+          FIRDate: '2026-07-20T00:00:00Z', IncidentFromDate: '2026-07-19T22:00:00Z',
+          CrimeMajorHeadID: 10, CrimeMinorHeadID: 11, BriefFacts: 'restricted narrative',
+          ComplainantName: 'restricted person',
+        }],
+        Unit: [{ UnitID: 1001, UnitName: 'Central Station' }],
+        CaseStatusMaster: [{ CaseStatusID: 1, CaseStatusName: 'Under Investigation' }],
+        CrimeMajorHeadMaster: [{ CrimeMajorHeadID: 10, CrimeMajorHeadName: 'Property' }],
+        CrimeMinorHeadMaster: [{ CrimeMinorHeadID: 11, CrimeMinorHeadName: 'Burglary' }],
+      },
+    },
+    runGroups: [],
+  };
+  const sourceRepository = new MemoryIntelligenceRepository(state);
+  const projected = await sourceRepository.listStationCaseRows();
+
+  assert.deepEqual(projected, [{
+    caseId: '42', caseNumber: '00042/2026', unitId: 1001, unitName: 'Central Station',
+    status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
+    incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Property', minorHead: 'Burglary',
+    syntheticData: true,
+  }]);
+  projected[0].status = 'mutated';
+  assert.equal((await sourceRepository.getStationCaseRow(42)).status, 'Under Investigation');
+});
