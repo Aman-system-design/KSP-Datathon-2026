@@ -182,3 +182,28 @@ test('station clone copies validated items, persists landing, and compensates re
   assert.equal(cleanupAttempts, 2);
   assert.equal((await repository.listDashboards()).length, before);
 });
+
+test('station role-default validation is preflighted and replacement failure restores the prior default', async () => {
+  const { service, repository } = harness();
+  const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+  await repository.createReport({ id: 'R-OK', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'stationCases' } });
+  await repository.createReport({ id: 'R-BAD-DEFAULT', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'hotspots' } });
+  const current = await service.create({ access: admin, input: { name: 'Current station default' } });
+  await repository.createDashboardItem({ id: 'I-OK', dashboardId: current.id, reportId: 'R-OK', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  await service.setRoleDefault({ access: admin, dashboardId: current.id, role: 'STATION_OPERATIONS' });
+  const invalid = await service.create({ access: admin, input: { name: 'Invalid replacement' } });
+  await repository.createDashboardItem({ id: 'I-BAD-DEFAULT', dashboardId: invalid.id, reportId: 'R-BAD-DEFAULT', column: 1, row: 1, width: 4, height: 2, version: 1 });
+
+  await assert.rejects(service.setRoleDefault({ access: admin, dashboardId: invalid.id, role: 'STATION_OPERATIONS' }), { code: 'INVALID_REQUEST' });
+  assert.equal((await repository.getDashboard(current.id)).defaultRole, 'STATION_OPERATIONS');
+  assert.equal((await repository.getDashboard(invalid.id)).defaultRole, undefined);
+
+  const replacement = await service.create({ access: admin, input: { name: 'Valid replacement' } });
+  await repository.createDashboardItem({ id: 'I-OK-2', dashboardId: replacement.id, reportId: 'R-OK', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  const originalUpdate = repository.updateDashboard.bind(repository);
+  repository.updateDashboard = async (id, version, changes) => id === replacement.id
+    ? { conflict: true } : originalUpdate(id, version, changes);
+  await assert.rejects(service.setRoleDefault({ access: admin, dashboardId: replacement.id, role: 'STATION_OPERATIONS' }), { code: 'VERSION_CONFLICT' });
+  assert.equal((await repository.getDashboard(current.id)).defaultRole, 'STATION_OPERATIONS');
+  assert.equal((await repository.getDashboard(replacement.id)).defaultRole, undefined);
+});

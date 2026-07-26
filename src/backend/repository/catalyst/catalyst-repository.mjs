@@ -1051,6 +1051,9 @@ export class CatalystIntelligenceRepository {
     for (const item of await this.#read(TABLES.dashboardItems)) {
       if (String(item.DashboardRef) === String(row.ROWID)) await this.#delete(TABLES.dashboardItems, item.ROWID);
     }
+    for (const preference of await this.#read(TABLES.userPreferences)) {
+      if (String(preference.LandingDashboardRef) === String(row.ROWID)) await this.#delete(TABLES.userPreferences, preference.ROWID);
+    }
     await this.#delete(TABLES.dashboards, row.ROWID);
     return true;
   }
@@ -1156,6 +1159,12 @@ export class CatalystIntelligenceRepository {
     if (current) await this.#update(TABLES.userPreferences, { ...current, ...values });
     else await this.#insert(TABLES.userPreferences, values);
     return this.getUserPreference(preference.userId);
+  }
+  async deleteUserPreference(userId) {
+    const current = (await this.#read(TABLES.userPreferences)).find(row => row.CatalystUserID === userId);
+    if (!current) return false;
+    await this.#delete(TABLES.userPreferences, current.ROWID);
+    return true;
   }
 
   async getAccessProfile(userId) {

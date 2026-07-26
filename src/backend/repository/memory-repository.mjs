@@ -317,6 +317,12 @@ export class MemoryIntelligenceRepository {
     else this.#state.userPreferences.push(clone(preference));
     return clone(existing ?? preference);
   }
+  async deleteUserPreference(userId) {
+    const index = this.#state.userPreferences.findIndex(row => row.userId === userId);
+    if (index < 0) return false;
+    this.#state.userPreferences.splice(index, 1);
+    return true;
+  }
   async getAccessProfile(userId) { return clone(this.#state.profiles.find(row => String(row.CatalystUserID) === String(userId))); }
   async getUnits() { return clone(this.#state.units); }
   async listStationCaseRows({ unitIds } = {}) {

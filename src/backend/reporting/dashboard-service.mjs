@@ -31,6 +31,13 @@ export function createDashboardService({ repository, now, idFactory }) {
     }
     return true;
   }
+  async function isStationDefaultCandidate(dashboard) {
+    for (const item of await repository.listDashboardItems(dashboard.id)) {
+      const report = await repository.getReport(item.reportId);
+      if (!report || !isReportSourceAllowed({ role: 'STATION_OPERATIONS' }, report.definition?.sourceKey)) return false;
+    }
+    return true;
+  }
   async function requireVisible(id, access) {
     const dashboard = await repository.getDashboard(id);
     if (!dashboard) fail('NOT_FOUND');
@@ -141,13 +148,29 @@ export function createDashboardService({ repository, now, idFactory }) {
       if (!defaultRoles.has(role)) fail('INVALID_REQUEST');
       const dashboard = await repository.getDashboard(dashboardId);
       if (!dashboard) fail('NOT_FOUND');
+      if (role === 'STATION_OPERATIONS' && !await isStationDefaultCandidate(dashboard)) fail('INVALID_REQUEST');
       const current = (await repository.listDashboards()).find(row => row.defaultRole === role && row.id !== dashboardId);
-      if (current) await repository.updateDashboard(current.id, current.version, { defaultRole: undefined });
-      const updated = await repository.updateDashboard(dashboardId, dashboard.version, {
-        defaultRole: role, visibility: 'GLOBAL', updatedAt: now(),
-      });
-      if (updated?.conflict) fail('VERSION_CONFLICT');
-      return updated;
+      let unsetCurrent;
+      if (current) {
+        unsetCurrent = await repository.updateDashboard(current.id, current.version, { defaultRole: undefined });
+        if (!unsetCurrent || unsetCurrent.conflict) fail('VERSION_CONFLICT');
+      }
+      try {
+        const updated = await repository.updateDashboard(dashboardId, dashboard.version, {
+          defaultRole: role, visibility: 'GLOBAL', updatedAt: now(),
+        });
+        if (!updated || updated.conflict) fail('VERSION_CONFLICT');
+        return updated;
+      } catch (error) {
+        if (current && unsetCurrent && !unsetCurrent.conflict) {
+          try {
+            await repository.updateDashboard(current.id, unsetCurrent.version, {
+              defaultRole: role, visibility: current.visibility, updatedAt: now(),
+            });
+          } catch { /* preserve the replacement failure */ }
+        }
+        throw error;
+      }
     },
     async setPersonalLanding({ access, dashboardId }) {
       await requireVisible(dashboardId, access);
@@ -177,6 +200,7 @@ export function createDashboardService({ repository, now, idFactory }) {
     async cloneForOwner({ access, dashboardId, input = {} }) {
       const source = await requireVisible(dashboardId, access);
       if (access.role !== 'STATION_OPERATIONS') fail('FORBIDDEN_ACTION');
+      const priorPreference = await repository.getUserPreference(access.actualUserId);
       const sourceItems = await repository.listDashboardItems(source.id);
       const validated = [];
       for (const [index, item] of sourceItems.entries()) {
@@ -201,8 +225,15 @@ export function createDashboardService({ repository, now, idFactory }) {
           id: `PREF-${access.actualUserId}`, userId: access.actualUserId,
           landingDashboardId: created.id, version: 1, updatedAt: timestamp, syntheticData: true,
         });
+        const persistedPreference = await repository.getUserPreference(access.actualUserId);
+        if (persistedPreference?.landingDashboardId !== created.id) fail('DATA_NOT_READY');
         return { ...created, relationship: 'OWNED', items };
       } catch (error) {
+        try {
+          if (priorPreference?.landingDashboardId) {
+            await repository.upsertUserPreference({ ...priorPreference, updatedAt: now() });
+          } else await repository.deleteUserPreference(access.actualUserId);
+        } catch { /* dashboard cleanup below still removes clone-linked preferences */ }
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try { await repository.deleteDashboard(created.id); break; }
           catch { /* retry once, then preserve the original bounded failure */ }
