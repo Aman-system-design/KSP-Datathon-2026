@@ -43,6 +43,18 @@ test('stages bounded keyboard movement and resizing while editing', () => {
   expect(onStage).toHaveBeenLastCalledWith([{ ...report, width: 7 }]);
 });
 
+test('optionally exposes removal while editing without changing ordinary canvas callers', () => {
+  const onStage = vi.fn();
+  const report = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 };
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [report] }] };
+  const { rerender } = render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} editing onStage={onStage} /></MemoryRouter>);
+  expect(screen.queryByRole('button', { name: 'Remove Case ageing' })).not.toBeInTheDocument();
+
+  rerender(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} editing onStage={onStage} allowRemove /></MemoryRouter>);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Case ageing' }));
+  expect(onStage).toHaveBeenCalledWith([]);
+});
+
 test('forwards report selections with the dashboard item', () => {
   const onSelect = vi.fn();
   const report = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', definition: { name: 'Case ageing', dimensions: ['ageingBucket'], measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'bar' }, style: {} }, data: [{ ageingBucket: '60+ days', recordCount_sum: 4 }], column: 1, row: 1, width: 6, height: 3 };

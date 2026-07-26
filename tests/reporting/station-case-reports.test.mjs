@@ -41,6 +41,12 @@ async function execute(rows, definition, access = owner) {
   return reports.execute({ access, reportId: report.id });
 }
 
+async function executeWithRuntimeFilters(rows, definition, runtimeFilters) {
+  const { reports } = harness(rows);
+  const report = await reports.create({ access: owner, input: definition });
+  return reports.execute({ access: owner, reportId: report.id, runtimeFilters });
+}
+
 test('station case ageing bars aggregate only the current viewer station', async () => {
   const result = await execute([
     caseRow(1), caseRow(2, { registeredAt: '2026-06-01T00:00:00Z' }),
@@ -97,6 +103,44 @@ test('selected-period reports exclude future registrations across every supporte
       visualization: { type: 'number' },
     });
     assert.deepEqual(result.result.data.items, [{ recordCount_sum: 1 }]);
+  }
+});
+
+test('runtime semantic filters replace the saved period for one execution without mutating the report', async () => {
+  const rows = [
+    caseRow(1, { registeredAt: '2026-07-22T00:00:00Z' }),
+    caseRow(2, { registeredAt: '2026-07-10T00:00:00Z' }),
+  ];
+  const definition = {
+    name: 'New Cases - Last 30 Days', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'registeredAgeDays', operator: 'lte', value: 30 }],
+    visualization: { type: 'number' },
+  };
+
+  const filtered = await executeWithRuntimeFilters(rows, definition, [
+    { field: 'registeredAgeDays', operator: 'lte', value: 7 },
+  ]);
+  const persisted = await execute(rows, definition);
+
+  assert.deepEqual(filtered.result.data.items, [{ recordCount_sum: 1 }]);
+  assert.deepEqual(filtered.definition.definition.filters, definition.filters);
+  assert.deepEqual(persisted.result.data.items, [{ recordCount_sum: 2 }]);
+});
+
+test('runtime semantic filters reject undeclared fields, operators, and typed values', async () => {
+  const definition = {
+    name: 'New Cases', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'number' },
+  };
+  for (const runtimeFilters of [
+    [{ field: 'privateField', operator: 'lte', value: 7 }],
+    [{ field: 'registeredAgeDays', operator: 'contains', value: 7 }],
+    [{ field: 'registeredAgeDays', operator: 'lte', value: '7' }],
+  ]) {
+    await assert.rejects(executeWithRuntimeFilters([caseRow(1)], definition, runtimeFilters), {
+      code: 'INVALID_REQUEST', status: 400,
+    });
   }
 });
 

@@ -188,6 +188,25 @@ test('command center persona verifies the ordinary workspace and renders without
   expect(api.get).toHaveBeenCalledWith('/v1/workspace');
 });
 
+test('station operations persona renders its distinct workspace inside the normal ACE platform shell', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'STATION_OPERATIONS', scopeUnitId: 1001,
+      scopeUnit: { name: 'Central Police Station', type: 'Police station' },
+      availableDashboards: [], availableReports: [], alertSummary: { total: 0 },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }), post: vi.fn(), put: vi.fn() };
+
+  render(<MemoryRouter initialEntries={['/?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
+  expect(screen.getAllByText('Central Police Station')).toHaveLength(2);
+  expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Reports' })).toBeInTheDocument();
+  expect(screen.queryByRole('application', { name: 'KSP Command Center' })).not.toBeInTheDocument();
+});
+
 test('command center forwards its governed persona and opens Utilities under that role', async () => {
   const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
   vi.stubGlobal('catalyst', { auth: {

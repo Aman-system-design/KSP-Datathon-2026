@@ -6,7 +6,7 @@ export function AccountMenu({ workspace, auth, onPersonaChange }) {
   const [open, setOpen] = useState(false);
   const currentRoleLabel = roleLabel(workspace?.role);
   const identity = workspace?.identity ?? {};
-  const unitLabel = workspace?.scopeUnitId ? `Unit ${workspace.scopeUnitId}` : 'Configured scope';
+  const unitLabel = workspace?.scopeUnit?.name || (workspace?.scopeUnitId ? `Unit ${workspace.scopeUnitId}` : 'Configured scope');
   const choosePersona = persona => { setOpen(false); onPersonaChange(persona); };
   return <div className="account-menu">
     <button type="button" className="account-trigger" aria-expanded={open} aria-label={`Account: ${currentRoleLabel}`} onClick={() => setOpen(value => !value)}>

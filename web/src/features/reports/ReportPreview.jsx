@@ -57,7 +57,7 @@ const provenanceLabel = (provenance, demonstration) => {
 
 function Heading({ definition, demonstration, provenance }) { return <div className="panel-heading"><div>{definition.style?.titleVisible !== false && <h2>{definition.name || 'Live preview'}</h2>}{definition.style?.subtitleVisible !== false && <p>Executed within the current viewer&apos;s authorised scope.</p>}</div><span>{provenanceLabel(provenance, demonstration)}</span></div>; }
 
-export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], definition, visualization, EmbeddedMapComponent, MapComponent, appearance = 'light', density = 'workbench', loading = false, error = '', onSelect, hasRun = false, provenance = '' }) {
+export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], definition, visualization, EmbeddedMapComponent, MapComponent, appearance = 'light', density = 'workbench', loading = false, error = '', onSelect, hasRun = false, provenance = '', showMeta = true }) {
   const firstRow = preview[0] ?? {};
   const inferredDimension = Object.keys(firstRow).find(key => typeof firstRow[key] === 'string');
   const inferredOutput = Object.keys(firstRow).find(key => Number.isFinite(Number(firstRow[key])));
@@ -72,9 +72,9 @@ export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], defi
   else if (error) content = <div className="error-state" role="alert">{error}</div>;
   else if (mapPreview && EmbeddedMapComponent) content = <Suspense fallback={<div className="loading-state" role="status">Loading governed map…</div>}><EmbeddedMapComponent api={api} mapExecution={mapPreview} /></Suspense>;
   else if (preview.length === 0) content = hasRun
-    ? <div className="empty-state report-empty-state"><strong>No matching records</strong><span>Change the source, filters, or grouping and run again.</span><small>The query completed within the current viewer&apos;s authorised scope.</small></div>
-    : <div className="empty-state report-empty-state"><strong>Preview your governed report</strong><span>Configure the definition, then Run without saving.</span><small>Results always use the current viewer&apos;s authorised scope.</small></div>;
+    ? <div className="empty-state report-empty-state"><strong>No matching records</strong><span>Change the source, filters, or grouping and run again.</span>{showMeta ? <small>The query completed within the current viewer&apos;s authorised scope.</small> : null}</div>
+    : <div className="empty-state report-empty-state"><strong>Preview your governed report</strong><span>Configure the definition, then Run without saving.</span>{showMeta ? <small>Results always use the current viewer&apos;s authorised scope.</small> : null}</div>;
   else if (unavailable) content = <div className="error-state" role="alert"><strong>Visualization unavailable</strong><span>{unavailable}</span></div>;
   else content = <Visual definition={resolved} points={points} rows={displayRows} selectionRows={preview} mapMetadata={mapMetadata ?? preview.mapMetadata} onSelect={onSelect} MapComponent={MapComponent} density={density} />;
-  return <section className="report-preview-canvas" aria-label="Report preview" data-appearance={appearance} data-density={density} style={theme}><Heading definition={resolved} demonstration={demonstration} provenance={provenance} />{content}</section>;
+  return <section className="report-preview-canvas" aria-label="Report preview" data-appearance={appearance} data-density={density} style={theme}>{showMeta ? <Heading definition={resolved} demonstration={demonstration} provenance={provenance} /> : null}{content}</section>;
 }

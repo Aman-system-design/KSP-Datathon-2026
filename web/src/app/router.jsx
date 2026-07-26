@@ -25,6 +25,8 @@ const WorkspaceSelector = lazy(() => import('../auth/WorkspaceSelector.jsx')
   .then(module => ({ default: module.WorkspaceSelector })));
 const CommandCenterShell = lazy(() => import('../features/command-center/CommandCenterShell.jsx')
   .then(module => ({ default: module.CommandCenterShell })));
+const StationOperationsShell = lazy(() => import('../features/station-operations/StationOperationsShell.jsx')
+  .then(module => ({ default: module.StationOperationsShell })));
 const ReportBuilder = lazy(() => import('../features/reports/ReportBuilder.jsx')
   .then(module => ({ default: module.ReportBuilder })));
 const ReportLibrary = lazy(() => import('../features/reports/ReportLibrary.jsx')
@@ -123,7 +125,9 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     </Suspense>;
   }
   return <AppShell workspace={workspace} auth={auth}><Routes>
-    <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
+    <Route path="/" element={workspace.role === 'STATION_OPERATIONS'
+      ? <Suspense fallback={<Busy label="Loading station operations…" />}><StationOperationsShell api={api} workspace={workspace} /></Suspense>
+      : <HomePage api={api} workspace={workspace} />} />
     <Route path="/intelligence" element={<IntelligenceWorkspacePage api={api} role={workspace.role} />} />
     <Route path="/utilities" element={<UtilitiesPage api={api} />} />
     <Route path="/utilities/:utilityKey" element={<UtilityPage api={api} workspace={workspace} />} />

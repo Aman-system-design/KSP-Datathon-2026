@@ -21,6 +21,25 @@ function normalizedReport(input) {
   }
 }
 
+function withRuntimeFilters(definition, runtimeFilters) {
+  if (runtimeFilters === undefined) return definition;
+  if (!Array.isArray(runtimeFilters) || runtimeFilters.length > 8) fail('INVALID_REQUEST');
+  for (const filter of runtimeFilters) {
+    if (!filter || typeof filter !== 'object' || Array.isArray(filter)
+      || Object.keys(filter).some(key => !['field', 'operator', 'value'].includes(key))) {
+      fail('INVALID_REQUEST');
+    }
+  }
+  const replacedFields = new Set(runtimeFilters.map(filter => filter.field));
+  return normalizedReport({
+    ...definition,
+    filters: [
+      ...(definition.filters ?? []).filter(filter => !replacedFields.has(filter.field)),
+      ...runtimeFilters,
+    ],
+  });
+}
+
 export function createReportService({ repository, readServices, mapViewService, now, idFactory }) {
   async function visible(report, access) {
     if (!report) return false;
@@ -78,9 +97,11 @@ export function createReportService({ repository, readServices, mapViewService, 
       if (!updated) fail('NOT_FOUND');
       return updated;
     },
-    async execute({ access, reportId, requestId }) {
+    async execute({ access, reportId, requestId, runtimeFilters }) {
       const report = await requireVisible(reportId, access);
+      const executionDefinition = withRuntimeFilters(report.definition, runtimeFilters);
       if (report.definition.visualization.type === 'map') {
+        if (runtimeFilters?.length) fail('INVALID_REQUEST');
         if (typeof mapViewService?.getMapView !== 'function') fail('DATA_NOT_READY');
         const governed = await mapViewService.getMapView({
           access, params: { mapViewId: report.definition.visualization.mapViewId }, requestId,
@@ -90,16 +111,16 @@ export function createReportService({ repository, readServices, mapViewService, 
           result: { data: projectMapReportExecution(governed.data), meta: governed.meta },
         };
       }
-      const source = getReportSource(report.definition.sourceKey);
+      const source = getReportSource(executionDefinition.sourceKey);
       const service = readServices[source.service];
       if (typeof service !== 'function') fail('DATA_NOT_READY');
-      const result = await service({ access, query: { limit: Math.min(report.definition.limit, 200) } });
+      const result = await service({ access, query: { limit: Math.min(executionDefinition.limit, 200) } });
       return {
         definition: clientReport(report),
         syntheticData: result.syntheticData === true,
         ...(result.provenance ? { provenance: result.provenance } : {}),
         result: {
-          data: { items: executeReportDefinition(report.definition, projectReportRows(source.key, result)) },
+          data: { items: executeReportDefinition(executionDefinition, projectReportRows(source.key, result)) },
           meta: result.meta,
         },
       };

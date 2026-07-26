@@ -32,8 +32,10 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       }));
     },
     async deleteReport({ access, params }) { return envelope(await reports.remove({ access, reportId: params.reportId })); },
-    async executeReport({ access, params, requestId }) {
-      return envelope(await reports.execute({ access, reportId: params.reportId, requestId }));
+    async executeReport({ access, params, body, requestId }) {
+      return envelope(await reports.execute({
+        access, reportId: params.reportId, requestId, runtimeFilters: body?.runtimeFilters,
+      }));
     },
 
     async listDashboards({ access }) { return envelope(await dashboards.list({ access })); },
@@ -65,16 +67,23 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       const alertPromise = access.actions?.includes('READ_ALERT')
         ? alerts.listAlerts({ access, query: {} })
         : Promise.resolve({ data: { items: [] } });
-      const [landingResult, dashboardsResult, reportsResult, alertsResult] = await Promise.allSettled([
+      const [landingResult, dashboardsResult, reportsResult, alertsResult, unitsResult] = await Promise.allSettled([
         dashboards.resolveLanding({ access }), dashboards.list({ access }), reports.list({ access }),
-        alertPromise,
+        alertPromise, repository.getUnits(),
       ]);
       const landingDashboard = landingResult.status === 'fulfilled' ? landingResult.value : undefined;
       const availableDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
       const availableReports = reportsResult.status === 'fulfilled' ? reportsResult.value : [];
       const alertResult = alertsResult.status === 'fulfilled' ? alertsResult.value : { data: { items: [] } };
+      const scopedUnit = unitsResult.status === 'fulfilled'
+        ? unitsResult.value.find(unit => Number(unit.UnitID) === Number(access.scopeUnitId)) : undefined;
+      const unitTypes = new Map([[1, 'State headquarters'], [2, 'District'], [3, 'Police station']]);
       return envelope({
         role: access.role, scopeUnitId: access.scopeUnitId,
+        ...(scopedUnit ? { scopeUnit: {
+          name: scopedUnit.UnitName,
+          type: unitTypes.get(Number(scopedUnit.TypeID)) ?? 'Police unit',
+        } } : {}),
         identity: {
           employeeId: access.employeeId,
           actualRole: access.actualRole,

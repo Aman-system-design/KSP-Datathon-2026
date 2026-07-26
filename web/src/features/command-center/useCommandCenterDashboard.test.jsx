@@ -53,3 +53,55 @@ test('stages, cancels, and saves dashboard item layouts', async () => {
     { reportId: 'R-1', column: 1, row: 1, width: 5, height: 3 },
   ] });
 });
+
+test('re-executes reports in parallel with optional ephemeral bodies when the reload key changes', async () => {
+  const api = {
+    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'Station desk', items: [
+      { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 },
+      { id: 'I-2', reportId: 'R-2', column: 7, row: 1, width: 6, height: 3 },
+    ] } })),
+    post: vi.fn(async () => ({ data: { definition: { name: 'Cases', definition: { visualization: { type: 'table' } } }, result: { data: { items: [] } } } })),
+    put: vi.fn(),
+  };
+  const executionBody = vi.fn((_reportId, periodDays) => ({
+    runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: periodDays }],
+  }));
+  const { result, rerender } = renderHook(
+    ({ periodDays }) => useCommandCenterDashboard({ api, workspace, reloadKey: periodDays, executionBody: reportId => executionBody(reportId, periodDays) }),
+    { initialProps: { periodDays: 7 } },
+  );
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(api.post).toHaveBeenCalledTimes(2);
+  expect(api.post).toHaveBeenCalledWith('/v1/reports/R-1/execute', {
+    runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: 7 }],
+  });
+
+  rerender({ periodDays: 90 });
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(4));
+  expect(api.get).toHaveBeenCalledTimes(2);
+  expect(api.post).toHaveBeenLastCalledWith('/v1/reports/R-2/execute', {
+    runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: 90 }],
+  });
+});
+
+test('keeps the newest execution context when period responses arrive out of order', async () => {
+  const pending = new Map();
+  const api = {
+    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'Station desk', items: [
+      { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 },
+    ] } })),
+    post: vi.fn((_path, body) => new Promise(resolve => pending.set(body.period, resolve))),
+    put: vi.fn(),
+  };
+  const { result, rerender } = renderHook(
+    ({ period }) => useCommandCenterDashboard({ api, workspace, reloadKey: period, executionBody: () => ({ period }) }),
+    { initialProps: { period: 7 } },
+  );
+  await waitFor(() => expect(pending.has(7)).toBe(true));
+  rerender({ period: 90 });
+  await waitFor(() => expect(pending.has(90)).toBe(true));
+  await act(() => pending.get(90)({ data: { definition: { name: 'Newest', definition: { visualization: { type: 'table' } } }, result: { data: { items: [{ period: 90 }] } } } }));
+  await waitFor(() => expect(result.current.dashboard.items[0].data).toEqual([{ period: 90 }]));
+  await act(() => pending.get(7)({ data: { definition: { name: 'Stale', definition: { visualization: { type: 'table' } } }, result: { data: { items: [{ period: 7 }] } } } }));
+  expect(result.current.dashboard.items[0].data).toEqual([{ period: 90 }]);
+});

@@ -9,7 +9,7 @@ export function AppSidebar({ workspace, collapsed = false, onCollapsedChange = (
   const location = useLocation();
   const navigation = getWorkspaceNavigation(workspace);
   const dashboards = workspace?.availableDashboards ?? [];
-  const unitLabel = workspace?.scopeUnitId ? `Unit ${workspace.scopeUnitId}` : 'Configured scope';
+  const unitLabel = workspace?.scopeUnit?.name || (workspace?.scopeUnitId ? `Unit ${workspace.scopeUnitId}` : 'Configured scope');
   return <>
     <nav className="module-rail" aria-label="Platform modules"><div className="module-links">
       {navigation.modules.map(item => <NavLink key={item.to} to={governedAppLocation(item.to, location)} end={item.to === '/'} aria-label={item.label} title={item.label}>

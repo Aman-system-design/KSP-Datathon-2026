@@ -117,6 +117,21 @@ test('workspace bootstrap remains available when optional dashboard, report, or 
   assert.deepEqual(workspace.data.alertSummary, { total: 0 });
 });
 
+test('workspace projects only safe display metadata for the scoped unit', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-1`,
+  });
+  const workspace = await services.getWorkspace({ access: { ...analyst, scopeUnitId: 1001 } });
+
+  assert.deepEqual(workspace.data.scopeUnit, {
+    name: 'Synthetic Central Police Station', type: 'Police station',
+  });
+  assert.equal(workspace.data.scopeUnit.parentUnit, undefined);
+  assert.equal(workspace.data.scopeUnit.id, undefined);
+});
+
 test('workspace case resources delegate access, query, and detail parameters unchanged', async () => {
   const calls = [];
   const caseService = {
@@ -136,6 +151,30 @@ test('workspace case resources delegate access, query, and detail parameters unc
   assert.strictEqual(calls[0][1].access, analyst);
   assert.strictEqual(calls[0][1].query, query);
   assert.deepEqual(calls[1], ['get', { access: analyst, caseId: 'CASE-1' }]);
+});
+
+test('workspace report execution forwards only the ephemeral runtime filter body', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const reports = [];
+  repository.getReport = async () => ({
+    id: 'REPORT-1', ownerUserId: analyst.actualUserId, visibility: 'PRIVATE', version: 1,
+    name: 'Cases', definition: {
+      name: 'Cases', sourceKey: 'stationCases', dimensions: [],
+      measures: [{ field: 'recordCount', aggregate: 'sum' }], filters: [], sort: [],
+      visualization: { type: 'number' }, limit: 100,
+    },
+  });
+  const services = createWorkspaceServices({
+    repository,
+    readServices: { async listStationCasesForAnalytics(input) { reports.push(input); return { data: { items: [] } }; } },
+    now: () => '2026-07-21T00:00:00Z', idFactory: prefix => `${prefix}-1`,
+  });
+  await services.executeReport({
+    access: analyst, params: { reportId: 'REPORT-1' },
+    body: { runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: 7 }] },
+  });
+
+  assert.equal(reports.length, 1);
 });
 
 test('workspace case resources fail safely when the case service is not composed', async () => {

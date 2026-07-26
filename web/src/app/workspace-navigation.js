@@ -24,7 +24,7 @@ const roleDefinitions = Object.freeze({
   CRIME_ANALYST: { workspaceLabel: 'Analyst Workbench', modules: intelligenceModules },
   STATION_OPERATIONS: {
     workspaceLabel: 'Operational Intelligence',
-    modules: intelligenceModules.filter(item => item.to !== '/reports'),
+    modules: intelligenceModules,
   },
   INVESTIGATOR: {
     workspaceLabel: 'Investigation Tasks',

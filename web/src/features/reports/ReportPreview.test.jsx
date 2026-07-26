@@ -30,6 +30,12 @@ test('distinguishes an executed zero-row result from an unrun report', () => {
   expect(screen.getByText(/change the source, filters, or grouping/i)).toBeInTheDocument();
 });
 
+test('can suppress execution metadata for a presentation surface', () => {
+  render(<ReportPreview showMeta={false} preview={[]} definition={{ name: 'Empty', visualization: { type: 'table' }, style: {} }} hasRun />);
+  expect(screen.queryByText(/authorised scope|viewer scoped/i)).not.toBeInTheDocument();
+  expect(screen.getByText('No matching records')).toBeInTheDocument();
+});
+
 test('keeps table rows static when no selection callback is supplied', () => {
   render(<ReportPreview preview={[{ caseId: 'CASE-1', caseNumber: '42/2026' }]} definition={{ name: 'Case register', dimensions: ['caseId', 'caseNumber'], visualization: { type: 'table' }, style: {} }} />);
   expect(screen.getByRole('table')).toHaveTextContent('42/2026');
