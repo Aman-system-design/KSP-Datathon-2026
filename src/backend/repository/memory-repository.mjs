@@ -334,9 +334,10 @@ export class MemoryIntelligenceRepository {
       Number(row.CrimeMinorHeadID ?? row.CrimeSubHeadID),
       row.CrimeMinorHeadName ?? row.CrimeHeadName,
     ]));
-    const authorizedUnitIds = unitIds ? new Set([...unitIds].map(Number)) : null;
+    const authorizedUnitIds = new Set([...(unitIds ?? [])].map(Number).filter(Number.isSafeInteger));
+    if (authorizedUnitIds.size === 0) return [];
     return clone((source.CaseMaster ?? [])
-      .filter(row => !authorizedUnitIds || authorizedUnitIds.has(Number(row.PoliceStationID)))
+      .filter(row => authorizedUnitIds.has(Number(row.PoliceStationID)))
       .map(row => ({
       caseId: String(row.CaseMasterID),
       caseNumber: row.CaseNo ?? row.CrimeNo,
@@ -351,7 +352,11 @@ export class MemoryIntelligenceRepository {
     })));
   }
   async getStationCaseRow(caseId) {
-    return (await this.listStationCaseRows()).find(row => row.caseId === String(caseId));
+    const row = (this.#state.source?.tables?.CaseMaster ?? [])
+      .find(item => String(item.CaseMasterID) === String(caseId));
+    if (!row) return undefined;
+    return (await this.listStationCaseRows({ unitIds: [row.PoliceStationID] }))
+      .find(item => item.caseId === String(caseId));
   }
   async getAlert(alertId) { return clone(this.#state.alerts.find(row => row.AlertID === alertId)); }
   async listAlerts() { return clone(this.#state.alerts); }

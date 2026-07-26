@@ -215,6 +215,18 @@ test('station case reads exclude rejected, non-synthetic, and incomplete-batch s
   assert.equal(await repository.getStationCaseRow('4'), undefined);
 });
 
+test('station case detail rejects malformed IDs before issuing any Catalyst query', async () => {
+  const fixture = catalystRows();
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  for (const caseId of ['not-a-case', '01', '-1', '9007199254740992']) {
+    assert.equal(await repository.getStationCaseRow(caseId), undefined);
+  }
+  assert.deepEqual(app.zcqlCalls, []);
+  assert.deepEqual(app.calls, []);
+});
+
 test('station case lists use indexed station queries instead of scanning a source table over ten thousand rows', async () => {
   const fixture = catalystRows();
   const accepted = (row) => ({

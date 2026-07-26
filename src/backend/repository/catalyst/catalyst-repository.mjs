@@ -1179,8 +1179,9 @@ export class CatalystIntelligenceRepository {
   }
 
   async getStationCaseRow(caseId) {
-    const queryId = /^\d+$/u.test(String(caseId)) && Number.isSafeInteger(Number(caseId))
-      ? Number(caseId) : String(caseId);
+    const caseIdText = String(caseId);
+    if (!/^(0|[1-9]\d*)$/u.test(caseIdText) || !Number.isSafeInteger(Number(caseIdText))) return undefined;
+    const queryId = Number(caseIdText);
     const [batchRefs, rows] = await Promise.all([
       this.#completedSyntheticSourceBatchRefs(),
       this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'CaseMasterID', queryId, { maxRows: 1 }),

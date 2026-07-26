@@ -253,7 +253,9 @@ test('memory repository joins canonical source masters into a cloned safe projec
     runGroups: [],
   };
   const sourceRepository = new MemoryIntelligenceRepository(state);
-  const projected = await sourceRepository.listStationCaseRows();
+  assert.deepEqual(await sourceRepository.listStationCaseRows(), []);
+  assert.deepEqual(await sourceRepository.listStationCaseRows({ unitIds: [] }), []);
+  const projected = await sourceRepository.listStationCaseRows({ unitIds: [1001, 9999] });
 
   assert.deepEqual(projected, [
     {

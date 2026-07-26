@@ -124,10 +124,29 @@ test('API case resources deny base presenter and auditor roles but honor an assu
   assert.equal(deniedBase.status, 403);
   assert.equal(deniedBase.body.error.code, 'FORBIDDEN_ACTION');
   const assumed = await presenter({
-    method: 'GET', url: '/v1/cases?limit=1', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+    method: 'GET', url: '/v1/cases?openOnly=false', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
   });
   assert.equal(assumed.status, 200);
-  assert.equal(assumed.body.data.items.length, 1);
+  assert.ok(assumed.body.data.items.length > 0);
+  assert.ok(assumed.body.data.items.every(row => row.unitId === 1001));
+  const outside = await presenter({
+    method: 'GET', url: '/v1/cases/200000036', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+  });
+  assert.equal(outside.status, 404);
+  assert.equal(outside.body.error.code, 'NOT_FOUND');
+});
+
+test('assumed station persona is rejected when its server-governed station is unavailable', async () => {
+  const state = buildDemoState();
+  state.units = state.units.filter(row => Number(row.UnitID) !== 1001);
+  const presenter = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' }, state }).application;
+
+  const response = await presenter({
+    method: 'GET', url: '/v1/cases', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+  });
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error.code, 'FORBIDDEN_ACTION');
 });
 
 test('API composition serves utility categories and one utility definition', async () => {

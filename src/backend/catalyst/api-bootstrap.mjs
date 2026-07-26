@@ -14,8 +14,10 @@ import { createGeospatialLayerService } from '../geospatial/layer-service.mjs';
 import { createMapViewService } from '../geospatial/map-view-service.mjs';
 import { createUtilityServices } from '../utilities/utility-services.mjs';
 import { createStationCaseService } from '../cases/station-case-service.mjs';
+import { fail } from '../services/errors.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
+const DEVELOPMENT_DEMO_SCOPE_BY_ROLE = Object.freeze({ STATION_OPERATIONS: 1001 });
 const utilityCatalogueServices = createUtilityServices();
 
 function safeFailure(code, requestId) {
@@ -143,11 +145,18 @@ export function createApiApplication({
           currentUser: user, profile: accessProfile, requestedPersona,
           environment: config.environment, policy,
         });
+        const demoScopeUnitId = base.demoPersona ? DEVELOPMENT_DEMO_SCOPE_BY_ROLE[base.role] : undefined;
+        if (demoScopeUnitId !== undefined) {
+          const station = units.find(row => Number(row.UnitID) === demoScopeUnitId);
+          if (!station || Number(station.TypeID) !== 3 || station.Active !== true) fail('FORBIDDEN_ACTION');
+        }
+        const scopeUnitId = demoScopeUnitId ?? base.scopeUnitId;
         return Object.freeze({
           ...base,
+          scopeUnitId,
           organizationId: config.organizationId,
-          authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId: base.scopeUnitId, units }),
-          escalationUnitIds: buildEscalationUnitSet({ scopeUnitId: base.scopeUnitId, units }),
+          authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId, units }),
+          escalationUnitIds: buildEscalationUnitSet({ scopeUnitId, units }),
           assignments,
         });
       };
