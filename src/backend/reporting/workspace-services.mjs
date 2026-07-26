@@ -58,8 +58,11 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       }));
     },
     async deleteDashboard({ access, params }) { return envelope(await dashboards.remove({ access, dashboardId: params.dashboardId })); },
-    async replaceDashboardItems({ access, params, body }) {
-      return envelope(await dashboards.replaceItems({ access, dashboardId: params.dashboardId, items: body?.items }));
+    async replaceDashboardItems({ access, params, body, headers }) {
+      return envelope(await dashboards.replaceItems({
+        access, dashboardId: params.dashboardId, items: body?.items,
+        idempotencyKey: header(headers, 'Idempotency-Key'),
+      }));
     },
     async cloneDashboard({ access, params, body }) {
       return envelope(await dashboards.cloneForOwner({ access, dashboardId: params.dashboardId, input: body }));

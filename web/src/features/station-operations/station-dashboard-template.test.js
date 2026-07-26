@@ -236,6 +236,74 @@ describe('station dashboard template', () => {
     expect(state.dashboards[0].items).toHaveLength(9);
     expect(state.landingDashboard).toBe(result.dashboard.id);
   });
+
+  test('two independent clients complete one dashboard with exactly nine placements', async () => {
+    const state = { reports: [], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const leftApi = stationBootstrapApi(state);
+    const rightApi = stationBootstrapApi(state);
+
+    const [left, right] = await Promise.all([
+      bootstrapStationOperationsDashboard({ api: leftApi, workspace: emptyStationWorkspace }),
+      bootstrapStationOperationsDashboard({ api: rightApi, workspace: emptyStationWorkspace }),
+    ]);
+
+    expect(left.dashboard.id).toBe(right.dashboard.id);
+    expect(state.reports).toHaveLength(9);
+    expect(state.dashboards).toHaveLength(1);
+    expect(state.dashboards[0].items).toHaveLength(9);
+    expect(new Set(state.dashboards[0].items.map(item => item.reportId)).size).toBe(9);
+  });
+
+  test('adopts an explicitly owned empty legacy station dashboard without overwriting content', async () => {
+    const legacy = { id: 'D-LEGACY', name: 'Station Operations', description: 'My empty workspace', relationship: 'OWNED', visibility: 'PRIVATE', version: 1, items: [] };
+    const state = { reports: [], dashboards: [legacy], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.dashboard.id).toBe(legacy.id);
+    expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(0);
+    expect(state.dashboards).toHaveLength(1);
+    expect(state.dashboards[0].items).toHaveLength(9);
+  });
+
+  test('adopts the exact prior bootstrap description and canonical legacy item set', async () => {
+    const reports = STATION_REPORTS.map((definition, index) => ({ id: `R-${index + 1}`, name: definition.name, definition: structuredClone(definition), relationship: 'OWNED', visibility: 'PRIVATE' }));
+    const items = STATION_LAYOUT.map((layout, index) => ({ id: `OLD-${index}`, reportId: reports[index].id, ...layout }));
+    const legacy = { id: 'D-LEGACY-EXACT', name: 'Station Operations', description: 'Private operational dashboard for the current police station.', relationship: 'OWNED', visibility: 'PRIVATE', version: 1, items };
+    const state = { reports, dashboards: [legacy], landingDashboard: null, nextReport: 10 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.dashboard.id).toBe(legacy.id);
+    expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(0);
+    expect(api.put.mock.calls.filter(([path]) => path.endsWith('/items'))).toHaveLength(0);
+  });
+
+  test('does not reuse an identical shared-private report from another owner', async () => {
+    const shared = { id: 'R-SHARED', name: STATION_REPORTS[0].name, definition: structuredClone(STATION_REPORTS[0]), relationship: 'SHARED', visibility: 'PRIVATE' };
+    const state = { reports: [shared], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.reports[0].id).not.toBe(shared.id);
+    expect(state.reports).toHaveLength(10);
+  });
+
+  test('self-audits a complete marked dashboard and repairs an invalid eighteen-item race', async () => {
+    const reports = STATION_REPORTS.map((definition, index) => ({ id: `R-${index + 1}`, name: definition.name, definition: structuredClone(definition), relationship: 'OWNED', visibility: 'PRIVATE' }));
+    const canonicalItems = STATION_LAYOUT.map((layout, index) => ({ id: `I-${index}`, reportId: reports[index].id, ...layout }));
+    const dashboard = { id: 'D-COMPLETE', name: 'Station Operations', description: STATION_BOOTSTRAP_MARKER, relationship: 'OWNED', visibility: 'PRIVATE', version: 2, items: [...canonicalItems, ...canonicalItems.map((item, index) => ({ ...item, id: `DUP-${index}` }))] };
+    const state = { reports, dashboards: [dashboard], landingDashboard: dashboard.id, nextReport: 10 };
+    const api = stationBootstrapApi(state);
+
+    await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(state.dashboards[0].items).toHaveLength(9);
+    expect(api.patch).not.toHaveBeenCalled();
+  });
 });
 
 const emptyStationWorkspace = {
@@ -243,6 +311,7 @@ const emptyStationWorkspace = {
 };
 
 function stationBootstrapApi(state, { throwAfterWrite = new Set(), failItemsOnce = false } = {}) {
+  state.idempotency ??= new Map();
   const thrown = new Set();
   const maybeThrow = kind => {
     if (throwAfterWrite.has(kind) && !thrown.has(kind)) {
@@ -301,6 +370,15 @@ function stationBootstrapApi(state, { throwAfterWrite = new Set(), failItemsOnce
       return { data: structuredClone(dashboard) };
     }),
   };
-  api.idempotent = vi.fn((path, body) => api.post(path, body));
+  const once = (method, path, body, key, execute) => {
+    const scope = `${method}:${path}:${key}`;
+    if (state.idempotency.has(scope)) return state.idempotency.get(scope);
+    const operation = Promise.resolve().then(() => execute(path, body));
+    state.idempotency.set(scope, operation);
+    operation.catch(() => state.idempotency.delete(scope));
+    return operation;
+  };
+  api.idempotent = vi.fn((path, body, key) => once('POST', path, body, key, api.post));
+  api.idempotentPut = vi.fn((path, body, key) => once('PUT', path, body, key, api.put));
   return api;
 }

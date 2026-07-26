@@ -129,6 +129,43 @@ test('station bootstrap marker permits only the pending-to-complete transition',
   }), { code: 'INVALID_REQUEST' });
 });
 
+test('station bootstrap may adopt only an empty or exact legacy owned dashboard', async () => {
+  const { service, repository } = harness();
+  const owner = access('STATION', 'STATION_OPERATIONS');
+  const empty = await service.create({ access: owner, input: { name: 'Station Operations', description: 'Empty custom shell' } });
+  const adoptedEmpty = await service.update({
+    access: owner, dashboardId: empty.id, expectedVersion: empty.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  });
+  assert.equal(adoptedEmpty.description, '[ACE:station-operations:v1:pending]');
+
+  const customized = await service.create({ access: owner, input: { name: 'Station Operations', description: 'User dashboard' } });
+  await repository.createReport({ id: 'R-CUSTOM', ownerUserId: owner.actualUserId, visibility: 'PRIVATE', version: 1, definition: { sourceKey: 'stationCases' } });
+  await repository.createDashboardItem({ id: 'I-CUSTOM', dashboardId: customized.id, reportId: 'R-CUSTOM', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  await assert.rejects(service.update({
+    access: owner, dashboardId: customized.id, expectedVersion: customized.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  }), { code: 'INVALID_REQUEST' });
+  assert.equal((await repository.listDashboardItems(customized.id)).length, 1);
+
+  const legacy = await service.create({
+    access: owner,
+    input: { name: 'Station Operations', description: 'Private operational dashboard for the current police station.' },
+  });
+  for (let index = 0; index < 9; index += 1) {
+    await repository.createReport({ id: `R-LEGACY-${index}`, ownerUserId: owner.actualUserId, visibility: 'PRIVATE', version: 1, definition: { sourceKey: 'stationCases' } });
+    await repository.createDashboardItem({
+      id: `I-LEGACY-${index}`, dashboardId: legacy.id, reportId: `R-LEGACY-${index}`,
+      column: (index % 4) * 3 + 1, row: Math.floor(index / 4) * 3 + 1, width: 3, height: 2, version: 1,
+    });
+  }
+  const adoptedLegacy = await service.update({
+    access: owner, dashboardId: legacy.id, expectedVersion: legacy.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  });
+  assert.equal(adoptedLegacy.description, '[ACE:station-operations:v1:pending]');
+});
+
 test('station dashboards reject and filter reports outside station cases and alerts', async () => {
   const { service, repository } = harness();
   const station = access('STATION-OWNER', 'STATION_OPERATIONS');

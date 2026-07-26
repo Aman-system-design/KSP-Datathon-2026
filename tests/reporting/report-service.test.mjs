@@ -163,6 +163,17 @@ test('invalid report source and shape become stable 400 service errors', async (
   ]) await assert.rejects(service.create({ access: access('OWNER'), input }), { code: 'INVALID_REQUEST', status: 400 });
 });
 
+test('report listings distinguish owned content from shared private content', async () => {
+  const { service } = harness();
+  const owner = access('OWNER');
+  const viewer = access('VIEWER');
+  const created = await service.create({ access: owner, input: definition });
+  await service.share({ access: owner, reportId: created.id, target: { userId: viewer.actualUserId } });
+
+  assert.equal((await service.list({ access: owner })).find(row => row.id === created.id).relationship, 'OWNED');
+  assert.equal((await service.list({ access: viewer })).find(row => row.id === created.id).relationship, 'SHARED');
+});
+
 test('station report policy hides and rejects non-station sources across report operations', async () => {
   const { service, repository } = harness();
   const station = access('STATION', 'STATION_OPERATIONS', [1001]);

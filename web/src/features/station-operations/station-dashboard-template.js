@@ -42,6 +42,7 @@ export const STATION_LAYOUT = deepFreeze([
 
 export const STATION_BOOTSTRAP_MARKER = '[ACE:station-operations:v1:complete]';
 const STATION_BOOTSTRAP_PENDING = '[ACE:station-operations:v1:pending]';
+const STATION_LEGACY_DESCRIPTION = 'Private operational dashboard for the current police station.';
 const TEMPLATE_KEY = 'station-operations/v1';
 const list = response => Array.isArray(response?.data) ? response.data : response?.data?.items ?? [];
 const canonical = value => {
@@ -54,7 +55,7 @@ const systemDefault = dashboards => dashboards.find(dashboard => dashboard?.defa
   && dashboard?.relationship !== 'OWNED');
 const bootstrapDashboard = dashboards => dashboards.find(dashboard => dashboard?.relationship === 'OWNED'
   && [STATION_BOOTSTRAP_PENDING, STATION_BOOTSTRAP_MARKER].includes(dashboard?.description));
-const matchingReport = (reports, definition) => reports.find(report => (report?.relationship === 'OWNED' || report?.visibility === 'PRIVATE')
+const matchingReport = (reports, definition) => reports.find(report => report?.relationship === 'OWNED'
   && canonical(report?.definition) === canonical(definition));
 const placementsFor = reports => reports.map((reportValue, index) => ({
   reportId: reportValue.id, ...STATION_LAYOUT[index],
@@ -65,6 +66,9 @@ const samePlacements = (actual, expected) => Array.isArray(actual) && actual.len
     return current && ['reportId', 'column', 'row', 'width', 'height']
       .every(field => current[field] === placement[field]);
   });
+const sameReportSet = (actual, expected) => Array.isArray(actual) && actual.length === expected.length
+  && new Set(actual.map(item => item.reportId)).size === expected.length
+  && expected.every(item => actual.some(current => current.reportId === item.reportId));
 
 async function reconcileReport(api, definition, error) {
   const persisted = matchingReport(list(await api.get('/v1/reports')), definition);
@@ -80,6 +84,8 @@ async function reconcileDashboard(api, error) {
 
 const createIdempotent = (api, path, body, key) => typeof api.idempotent === 'function'
   ? api.idempotent(path, body, key) : api.post(path, body);
+const replaceIdempotent = (api, path, body, key) => typeof api.idempotentPut === 'function'
+  ? api.idempotentPut(path, body, key) : api.put(path, body);
 
 const bootstrapByApi = new WeakMap();
 
@@ -106,9 +112,7 @@ async function performBootstrap({ api, workspace }) {
     return { dashboard: configuredDefault, reports: visibleReports };
   }
   let dashboard = bootstrapDashboard(visibleDashboards);
-  if (dashboard?.description === STATION_BOOTSTRAP_MARKER) {
-    return { dashboard, reports: visibleReports };
-  }
+  const wasComplete = dashboard?.description === STATION_BOOTSTRAP_MARKER;
   const reports = [];
   for (const [index, definition] of STATION_REPORTS.entries()) {
     let persisted = matchingReport(visibleReports, definition);
@@ -121,6 +125,24 @@ async function performBootstrap({ api, workspace }) {
     reports.push(persisted);
   }
 
+  const expectedItems = placementsFor(reports);
+  if (!dashboard) {
+    for (const candidate of visibleDashboards.filter(item => item?.relationship === 'OWNED'
+      && item?.name === 'Station Operations')) {
+      const detail = (await api.get(`/v1/dashboards/${encodeURIComponent(candidate.id)}`)).data;
+      const safeLegacy = (detail?.items ?? []).length === 0
+        || (candidate.description === STATION_LEGACY_DESCRIPTION && samePlacements(detail?.items, expectedItems));
+      if (!safeLegacy) continue;
+      try {
+        const adopted = (await api.patch(`/v1/dashboards/${encodeURIComponent(candidate.id)}`, {
+          expectedVersion: candidate.version,
+          name: 'Station Operations', description: STATION_BOOTSTRAP_PENDING,
+        })).data;
+        dashboard = { ...adopted, relationship: 'OWNED' };
+      } catch (error) { dashboard = await reconcileDashboard(api, error); }
+      break;
+    }
+  }
   if (!dashboard) {
     try {
       const created = (await createIdempotent(api, '/v1/dashboards', {
@@ -130,19 +152,27 @@ async function performBootstrap({ api, workspace }) {
       dashboard = { ...created, relationship: 'OWNED' };
     } catch (error) { dashboard = await reconcileDashboard(api, error); }
   }
-  if (!dashboard?.id || dashboard.relationship !== 'OWNED' || dashboard.description !== STATION_BOOTSTRAP_PENDING) {
+  if (!dashboard?.id || dashboard.relationship !== 'OWNED'
+    || ![STATION_BOOTSTRAP_PENDING, STATION_BOOTSTRAP_MARKER].includes(dashboard.description)) {
     throw new Error('An owned Station Operations dashboard is required');
   }
 
-  const expectedItems = placementsFor(reports);
-  const current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
-  if (!samePlacements(current?.items, expectedItems)) {
-    try { await api.put(`/v1/dashboards/${encodeURIComponent(dashboard.id)}/items`, { items: expectedItems }); }
+  let current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+  const preserveCompletedLayout = wasComplete && sameReportSet(current?.items, expectedItems);
+  if (!preserveCompletedLayout && !samePlacements(current?.items, expectedItems)) {
+    try {
+      await replaceIdempotent(api, `/v1/dashboards/${encodeURIComponent(dashboard.id)}/items`,
+        { items: expectedItems }, `${TEMPLATE_KEY}/dashboard-items`);
+    }
     catch (error) {
       const reconciled = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
       if (!samePlacements(reconciled?.items, expectedItems)) throw error;
     }
+    current = (await api.get(`/v1/dashboards/${encodeURIComponent(dashboard.id)}`)).data;
+    if (!samePlacements(current?.items, expectedItems)) throw new Error('Station dashboard placements are incomplete');
   }
+
+  if (wasComplete) return { dashboard: { ...dashboard, items: current.items }, reports };
 
   const currentWorkspace = (await api.get('/v1/workspace')).data;
   if (currentWorkspace?.landingDashboard?.id !== dashboard.id) {

@@ -66,6 +66,31 @@ test('Catalyst repository persists report, dashboard, widget and landing prefere
   assert.equal(await repository.getUserPreference('USER-1'), undefined);
 });
 
+test('Catalyst repository replays deterministic bootstrap placement replacement without duplicates', async () => {
+  const fake = fakeApplication();
+  const repository = new CatalystIntelligenceRepository({ application: fake.application });
+  const timestamp = '2026-07-21T00:00:00Z';
+  await repository.createReport({
+    id: 'R-BOOT', name: 'Cases', ownerUserId: 'STATION', visibility: 'PRIVATE', version: 1,
+    definition: { name: 'Cases', sourceKey: 'stationCases' }, createdAt: timestamp, updatedAt: timestamp,
+  });
+  await repository.createDashboard({
+    id: 'D-BOOT', name: 'Station Operations', ownerUserId: 'STATION', visibility: 'PRIVATE', version: 1,
+    createdAt: timestamp, updatedAt: timestamp,
+  });
+  const items = Array.from({ length: 9 }, (_, index) => ({
+    id: `DASHITEM-IDEMP-${String(index).padStart(44, '0')}`, dashboardId: 'D-BOOT', reportId: 'R-BOOT',
+    column: (index % 4) * 3 + 1, row: Math.floor(index / 4) * 3 + 1,
+    width: 3, height: 2, displayOrder: index + 1, version: 1,
+  }));
+
+  await repository.replaceDashboardItems('D-BOOT', items);
+  await repository.replaceDashboardItems('D-BOOT', items);
+
+  assert.equal((await repository.listDashboardItems('D-BOOT')).length, 9);
+  assert.equal(fake.tables.get('CFG_DashboardItem').length, 9);
+});
+
 test('Catalyst clone compensation restores a prior landing after a preference write mutates then throws', async () => {
   let failPreferenceWrite = false;
   const fake = fakeApplication({ afterUpdate(name) {

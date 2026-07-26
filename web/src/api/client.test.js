@@ -110,6 +110,16 @@ test('idempotent requests reuse a caller-owned key', async () => {
   }));
 });
 
+test('idempotent replacements carry a caller-owned key', async () => {
+  const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
+  vi.stubGlobal('fetch', fetch);
+  const api = createApiClient({ baseUrl: '/api' });
+  await api.idempotentPut('/v1/dashboards/D-1/items', { items: [] }, 'STATION-ITEMS-1');
+  expect(fetch).toHaveBeenCalledWith('/api/v1/dashboards/D-1/items', expect.objectContaining({
+    method: 'PUT', headers: expect.objectContaining({ 'Idempotency-Key': 'STATION-ITEMS-1' }),
+  }));
+});
+
 test('API client exposes only stable server errors', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => ({
     ok: false, status: 409,

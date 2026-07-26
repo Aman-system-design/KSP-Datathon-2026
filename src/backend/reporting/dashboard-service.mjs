@@ -13,11 +13,16 @@ const defaultRoles = new Set([
 const STATION_DASHBOARD_NAME = 'Station Operations';
 const STATION_BOOTSTRAP_PENDING = '[ACE:station-operations:v1:pending]';
 const STATION_BOOTSTRAP_COMPLETE = '[ACE:station-operations:v1:complete]';
+const STATION_LEGACY_DESCRIPTION = 'Private operational dashboard for the current police station.';
 const bootstrapMarkers = new Set([STATION_BOOTSTRAP_PENDING, STATION_BOOTSTRAP_COMPLETE]);
 const validLayout = ({ column, row, width, height } = {}) => [column, row, width, height].every(Number.isInteger)
   && column >= 1 && row >= 1 && width >= 1 && height >= 1 && column + width - 1 <= 12;
 const idempotentId = (actor, key) => `DASH-IDEMP-${createHash('sha256')
   .update(canonicalStringify({ actor, key, resource: 'DASHBOARD' })).digest('hex').slice(0, 49)}`;
+const idempotentItemId = (actor, dashboardId, key, index) => `DASHITEM-IDEMP-${createHash('sha256')
+  .update(canonicalStringify({ actor, dashboardId, key, index, resource: 'DASHBOARD_ITEM' })).digest('hex').slice(0, 44)}`;
+const sameItem = (left, right) => ['id', 'dashboardId', 'reportId', 'column', 'row', 'width', 'height', 'displayOrder']
+  .every(field => left?.[field] === right?.[field]);
 
 export function createDashboardService({ repository, now, idFactory }) {
   async function canViewReport(report, access) {
@@ -151,6 +156,16 @@ export function createDashboardService({ repository, now, idFactory }) {
         if (access.role !== 'STATION_OPERATIONS' || description !== STATION_BOOTSTRAP_COMPLETE) fail('INVALID_REQUEST');
       } else if (current.description === STATION_BOOTSTRAP_COMPLETE) {
         if (description !== STATION_BOOTSTRAP_COMPLETE) fail('INVALID_REQUEST');
+      } else if (description === STATION_BOOTSTRAP_PENDING) {
+        const items = await repository.listDashboardItems(dashboardId);
+        let safeLegacyItems = current.description === STATION_LEGACY_DESCRIPTION && items.length === 9;
+        for (const item of items) {
+          if (!validLayout(item) || !await canViewReport(await repository.getReport(item.reportId), access)) {
+            safeLegacyItems = false;
+          }
+        }
+        if (access.role !== 'STATION_OPERATIONS' || current.name !== STATION_DASHBOARD_NAME
+          || (items.length !== 0 && !safeLegacyItems)) fail('INVALID_REQUEST');
       } else if (bootstrapMarkers.has(description)) fail('INVALID_REQUEST');
       const updated = await repository.updateDashboard(dashboardId, expectedVersion, {
         name, description, updatedAt: now(),
@@ -172,20 +187,28 @@ export function createDashboardService({ repository, now, idFactory }) {
         id: idFactory(), dashboardId, reportId, ...layout, version: 1, syntheticData: true,
       });
     },
-    async replaceItems({ access, dashboardId, items }) {
+    async replaceItems({ access, dashboardId, items, idempotencyKey }) {
       await requireOwner(dashboardId, access);
       if (!Array.isArray(items) || items.length > 24) fail('INVALID_REQUEST');
+      const key = typeof idempotencyKey === 'string' && idempotencyKey.trim() ? idempotencyKey.trim() : null;
       const normalized = [];
       for (const [index, item] of items.entries()) {
         const report = await repository.getReport(item.reportId);
         if (!validLayout(item) || !await canViewReport(report, access)) fail('INVALID_REQUEST');
         normalized.push({
-          id: idFactory(), dashboardId, reportId: item.reportId,
+          id: key ? idempotentItemId(access.actualUserId, dashboardId, key, index) : idFactory(),
+          dashboardId, reportId: item.reportId,
           column: item.column, row: item.row, width: item.width, height: item.height,
           displayOrder: index + 1, version: 1, syntheticData: true,
         });
       }
-      return repository.replaceDashboardItems(dashboardId, normalized);
+      const result = await repository.replaceDashboardItems(dashboardId, normalized);
+      if (key) {
+        const persisted = await repository.listDashboardItems(dashboardId);
+        if (persisted.length !== normalized.length
+          || normalized.some(expected => !persisted.some(actual => sameItem(actual, expected)))) fail('DATA_NOT_READY');
+      }
+      return result;
     },
     async share({ access, dashboardId, target, permission = 'VIEW' }) {
       await requireOwner(dashboardId, access);

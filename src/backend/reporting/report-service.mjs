@@ -111,7 +111,10 @@ export function createReportService({ repository, readServices, mapViewService, 
     async list({ access }) {
       const reports = await repository.listReports();
       const result = [];
-      for (const report of reports) if (await visible(report, access)) result.push(report);
+      for (const report of reports) if (await visible(report, access)) result.push({
+        ...report,
+        relationship: owns(report, access) ? 'OWNED' : report.visibility === 'GLOBAL' ? 'SYSTEM' : 'SHARED',
+      });
       return result;
     },
     async update({ access, reportId, expectedVersion, input, requestId }) {

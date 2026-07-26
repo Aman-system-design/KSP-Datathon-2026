@@ -1103,6 +1103,28 @@ export class CatalystIntelligenceRepository {
     return true;
   }
   async replaceDashboardItems(dashboardId, items) {
+    if (items.length > 0 && items.every(item => String(item.id).startsWith('DASHITEM-IDEMP-'))) {
+      const same = (left, right) => ['id', 'dashboardId', 'reportId', 'column', 'row', 'width', 'height', 'displayOrder']
+        .every(field => left?.[field] === right?.[field]);
+      for (const item of items) {
+        let existing = (await this.listDashboardItems(dashboardId)).find(row => row.id === item.id);
+        if (!existing) {
+          try { existing = await this.createDashboardItem(item); }
+          catch (error) {
+            if (error.code !== 'UNIQUE_CONFLICT') throw error;
+            existing = (await this.listDashboardItems(dashboardId)).find(row => row.id === item.id);
+          }
+        }
+        if (!same(existing, item)) fail('IDEMPOTENCY_CONFLICT');
+      }
+      const expected = new Set(items.map(item => item.id));
+      for (const current of await this.listDashboardItems(dashboardId)) {
+        if (!expected.has(current.id)) await this.deleteDashboardItem(current.id);
+      }
+      const persisted = await this.listDashboardItems(dashboardId);
+      if (persisted.length !== items.length || items.some(item => !persisted.some(row => same(row, item)))) fail('DATA_NOT_READY');
+      return persisted.sort((left, right) => left.displayOrder - right.displayOrder);
+    }
     for (const current of await this.listDashboardItems(dashboardId)) await this.deleteDashboardItem(current.id);
     const result = [];
     for (const item of items) result.push(await this.createDashboardItem(item));

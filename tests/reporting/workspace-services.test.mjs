@@ -282,6 +282,48 @@ test('independent clients coalesce station bootstrap report and dashboard create
   }), { code: 'IDEMPOTENCY_CONFLICT' });
 });
 
+test('independent clients coalesce a full bootstrap placement replacement to exactly nine items', async () => {
+  let id = 0;
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const makeServices = () => createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-${++id}`,
+  });
+  const first = makeServices();
+  const second = makeServices();
+  const station = {
+    ...analyst, actualUserId: 'CAT-STATION-PLACEMENTS', role: 'STATION_OPERATIONS', actualRole: 'STATION_OPERATIONS',
+    scopeUnitId: 1001, authorizedUnitIds: new Set([1001]),
+  };
+  const reports = [];
+  for (let index = 0; index < 9; index += 1) {
+    reports.push(await repository.createReport({
+      id: `R-BOOT-${index}`, ownerUserId: station.actualUserId, visibility: 'PRIVATE', version: 1,
+      name: `Report ${index}`, definition: { sourceKey: 'stationCases' },
+    }));
+  }
+  const dashboard = await first.createDashboard({
+    access: station,
+    body: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+    headers: { 'Idempotency-Key': 'station-operations/v1/dashboard' },
+  });
+  const items = reports.map((report, index) => ({
+    reportId: report.id, column: (index % 4) * 3 + 1, row: Math.floor(index / 4) * 3 + 1,
+    width: 3, height: 2,
+  }));
+  const headers = { 'Idempotency-Key': 'station-operations/v1/dashboard-items' };
+
+  const [left, right] = await Promise.all([
+    first.replaceDashboardItems({ access: station, params: { dashboardId: dashboard.data.id }, body: { items }, headers }),
+    second.replaceDashboardItems({ access: station, params: { dashboardId: dashboard.data.id }, body: { items }, headers }),
+  ]);
+  const persisted = await repository.listDashboardItems(dashboard.data.id);
+
+  assert.equal(persisted.length, 9);
+  assert.deepEqual(left.data.map(item => item.id), right.data.map(item => item.id));
+  assert.equal(new Set(persisted.map(item => item.id)).size, 9);
+});
+
 test('workspace case resources fail safely when the case service is not composed', async () => {
   const services = createWorkspaceServices({
     repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {},
