@@ -1,4 +1,5 @@
 import { fail } from '../services/errors.mjs';
+import { isReportSourceAllowed } from './report-source-policy.mjs';
 
 const hasAction = (access, action) => access?.actions?.includes(action);
 const owns = (row, access) => row.ownerUserId === access?.actualUserId;
@@ -7,14 +8,13 @@ const defaultRoles = new Set([
   'CRIME_ANALYST', 'STATION_OPERATIONS', 'DEMO_PRESENTER', 'PLATFORM_ADMIN', 'AUDITOR',
 ]);
 const STATION_DASHBOARD_NAME = 'Station Operations';
-const STATION_REPORT_SOURCES = new Set(['stationCases', 'alerts']);
 const validLayout = ({ column, row, width, height } = {}) => [column, row, width, height].every(Number.isInteger)
   && column >= 1 && row >= 1 && width >= 1 && height >= 1 && column + width - 1 <= 12;
 
 export function createDashboardService({ repository, now, idFactory }) {
   async function canViewReport(report, access) {
     if (!report) return false;
-    if (access?.role === 'STATION_OPERATIONS' && !STATION_REPORT_SOURCES.has(report.definition?.sourceKey)) return false;
+    if (!isReportSourceAllowed(access, report.definition?.sourceKey)) return false;
     if (owns(report, access) || report.visibility === 'GLOBAL') return true;
     const shares = await repository.listContentShares('REPORT', report.id);
     return shares.some(row => row.targetUserId === access.actualUserId || row.targetRole === access.role

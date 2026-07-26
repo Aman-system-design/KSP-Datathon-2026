@@ -206,3 +206,14 @@ test('missing report sources leaves the authoring surface usable instead of cras
   expect(await screen.findByRole('heading', { name: 'Choose data' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /^Next$/i })).toBeDisabled();
 });
+
+test('station report builder presents only server-authorized station sources', async () => {
+  const alertSource = { key: 'alerts', label: 'Intelligence alerts', fields: {}, visualizations: ['table'] };
+  const api = { get: vi.fn(async () => ({ data: [alertSource, stationCaseSource] })), post: vi.fn() };
+  renderNew(api);
+
+  expect(await screen.findByRole('option', { name: 'Intelligence alerts' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Station cases' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'Trend anomalies' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: /hotspot/i })).not.toBeInTheDocument();
+});

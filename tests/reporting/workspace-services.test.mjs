@@ -197,6 +197,16 @@ test('workspace report execution forwards only the ephemeral runtime filter body
   assert.equal(reports.length, 1);
 });
 
+test('station report-source catalog exposes only station cases and alerts', async () => {
+  const services = createWorkspaceServices({
+    repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {},
+    now: () => '2026-07-21T00:00:00Z', idFactory: prefix => `${prefix}-1`,
+  });
+  const result = await services.listReportSources({ access: { ...analyst, role: 'STATION_OPERATIONS' } });
+
+  assert.deepEqual(result.data.map(source => source.key), ['alerts', 'stationCases']);
+});
+
 test('workspace case resources fail safely when the case service is not composed', async () => {
   const services = createWorkspaceServices({
     repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {},

@@ -37,9 +37,10 @@ function response(reportId, body) {
 }
 
 function apiHarness() {
+  let clonedItems = [];
   return {
     get: vi.fn(async path => {
-      if (path === '/v1/dashboards/D-STATION') return { data: { id: 'D-STATION', name: 'Station Operations', items: [
+      if (path === '/v1/dashboards/D-STATION' || path === '/v1/dashboards/D-OWNED') return { data: { id: path.endsWith('D-OWNED') ? 'D-OWNED' : 'D-STATION', name: 'Station Operations', items: path.endsWith('D-OWNED') ? clonedItems : [
         { id: 'I-1', reportId: 'R-OPEN', column: 1, row: 1, width: 3, height: 2 },
         { id: 'I-2', reportId: 'R-NEW', column: 4, row: 1, width: 3, height: 2 },
         { id: 'I-3', reportId: 'R-AGE', column: 1, row: 3, width: 7, height: 5 },
@@ -48,8 +49,13 @@ function apiHarness() {
       if (path === '/v1/reports') return { data: [] };
       throw new Error(`Unexpected request ${path}`);
     }),
-    post: vi.fn(async (path, body) => response(path.split('/')[3], body)),
-    put: vi.fn(async () => ({ data: [] })),
+    post: vi.fn(async (path, body) => path === '/v1/dashboards'
+      ? { data: { id: 'D-OWNED', name: body.name, description: body.description, relationship: 'OWNED' } }
+      : response(path.split('/')[3], body)),
+    put: vi.fn(async (path, body) => {
+      if (path === '/v1/dashboards/D-OWNED/items') clonedItems = body.items.map((item, index) => ({ id: `CLONE-${index}`, ...item }));
+      return { data: clonedItems };
+    }),
   };
 }
 
@@ -139,20 +145,68 @@ test('case selection navigates to the prepared detail target and preserves perso
   expect(screen.getByTestId('location')).toHaveTextContent('/cases/CASE-1?persona=STATION_OPERATIONS');
 });
 
-test('edit cancellation restores layout and save persists staged changes', async () => {
+test('system default clones allowed placements before edit and saves the owned dashboard', async () => {
   const api = apiHarness();
-  render(<MemoryRouter><StationOperationsShell api={api} workspace={workspace} /></MemoryRouter>);
+  const baseGet = api.get.getMockImplementation();
+  api.get.mockImplementation(async path => path === '/v1/dashboards/D-STATION' ? { data: {
+    id: 'D-STATION', name: 'Station Operations', items: [
+      { id: 'I-1', reportId: 'R-OPEN', column: 1, row: 1, width: 3, height: 2 },
+      { id: 'I-STATE', reportId: 'R-STATE', column: 1, row: 4, width: 12, height: 5 },
+    ],
+  } } : baseGet(path));
+  const guardedWorkspace = { ...workspace, availableReports: [
+    ...workspace.availableReports,
+    { id: 'R-STATE', name: 'State map', definition: { sourceKey: 'hotspots', visualization: { type: 'map' } } },
+  ] };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={guardedWorkspace} /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'Edit dashboard' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/v1/dashboards', expect.objectContaining({
+    name: expect.stringMatching(/Station Operations/), description: expect.any(String),
+  })));
+  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/v1/dashboards/D-OWNED/items', { items: expect.arrayContaining([
+    expect.objectContaining({ reportId: 'R-OPEN' }),
+  ]) }));
+  expect(api.put.mock.calls.find(([path]) => path === '/v1/dashboards/D-OWNED/items')[1].items).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({ reportId: 'R-STATE' }),
+  ]));
+  expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Move Open Cases right' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(api.put).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard' }));
   fireEvent.click(screen.getByRole('button', { name: 'Move Open Cases right' }));
   fireEvent.click(screen.getByRole('button', { name: 'Save dashboard' }));
-  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/v1/dashboards/D-STATION/items', expect.objectContaining({ items: expect.arrayContaining([
+  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/v1/dashboards/D-OWNED/items', expect.objectContaining({ items: expect.arrayContaining([
     expect.objectContaining({ reportId: 'R-OPEN', column: 2 }),
   ]) })));
+});
+
+test('owned station dashboard enters edit directly without cloning', async () => {
+  const api = apiHarness();
+  const owned = {
+    ...workspace,
+    availableDashboards: [{ ...workspace.availableDashboards[0], relationship: 'OWNED', defaultRole: undefined }],
+  };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={owned} /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit dashboard' }));
+
+  expect(await screen.findByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  expect(api.post).not.toHaveBeenCalledWith('/v1/dashboards', expect.anything());
+});
+
+test('clone failure stays read-only and exposes only a bounded error', async () => {
+  const api = apiHarness();
+  api.post.mockImplementation(async path => {
+    if (path === '/v1/dashboards') throw new Error('private storage detail');
+    return response(path.split('/')[3], {});
+  });
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={workspace} /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit dashboard' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('A private station dashboard could not be created.');
+  expect(screen.queryByText('private storage detail')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Save dashboard' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Edit dashboard' })).toBeEnabled();
 });
 
 test('falls back to a safe station label and contains isolated report failures', async () => {

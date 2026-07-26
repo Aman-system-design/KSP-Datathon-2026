@@ -2,6 +2,7 @@ import { fail } from '../services/errors.mjs';
 import { getReportSource } from './semantic-sources.mjs';
 import { normalizeReportDefinition } from './report-definition.mjs';
 import { executeReportDefinition, projectMapReportExecution, projectReportRows } from './report-execution.mjs';
+import { isReportSourceAllowed } from './report-source-policy.mjs';
 
 const hasAction = (access, action) => access?.actions?.includes(action);
 const owns = (row, access) => row.ownerUserId === access?.actualUserId;
@@ -43,6 +44,7 @@ function withRuntimeFilters(definition, runtimeFilters) {
 export function createReportService({ repository, readServices, mapViewService, now, idFactory }) {
   async function visible(report, access) {
     if (!report) return false;
+    if (!isReportSourceAllowed(access, report.definition?.sourceKey)) return false;
     if (owns(report, access) || report.visibility === 'GLOBAL') return true;
     const shares = await repository.listContentShares('REPORT', report.id);
     return shares.some((share) => matchesShare(share, access));
@@ -55,6 +57,7 @@ export function createReportService({ repository, readServices, mapViewService, 
   async function requireOwner(reportId, access) {
     const report = await repository.getReport(reportId);
     if (!report) fail('NOT_FOUND');
+    if (!isReportSourceAllowed(access, report.definition?.sourceKey)) fail('NOT_FOUND');
     if (!owns(report, access) && !hasAction(access, 'MANAGE_GLOBAL_CONTENT')) fail('FORBIDDEN_ACTION');
     return report;
   }
@@ -71,6 +74,7 @@ export function createReportService({ repository, readServices, mapViewService, 
     async create({ access, input, requestId }) {
       if (!access?.actualUserId) fail('FORBIDDEN_ACTION');
       const definition = normalizedReport(input);
+      if (!isReportSourceAllowed(access, definition.sourceKey)) fail('INVALID_REQUEST');
       await authorizeMapReference(definition, access, requestId);
       const timestamp = now();
       return repository.createReport({
@@ -89,6 +93,7 @@ export function createReportService({ repository, readServices, mapViewService, 
     async update({ access, reportId, expectedVersion, input, requestId }) {
       await requireOwner(reportId, access);
       const definition = normalizedReport(input);
+      if (!isReportSourceAllowed(access, definition.sourceKey)) fail('INVALID_REQUEST');
       await authorizeMapReference(definition, access, requestId);
       const updated = await repository.updateReport(reportId, expectedVersion, {
         definition: structuredClone(definition), name: definition.name, updatedAt: now(),
@@ -139,6 +144,7 @@ export function createReportService({ repository, readServices, mapViewService, 
       if (!hasAction(access, 'MANAGE_GLOBAL_CONTENT')) fail('FORBIDDEN_ACTION');
       const report = await repository.getReport(reportId);
       if (!report) fail('NOT_FOUND');
+      if (!isReportSourceAllowed(access, report.definition?.sourceKey)) fail('NOT_FOUND');
       const updated = await repository.updateReport(reportId, report.version, { visibility: 'GLOBAL', updatedAt: now() });
       if (updated?.conflict) fail('VERSION_CONFLICT');
       return updated;

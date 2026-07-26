@@ -3,6 +3,7 @@ import { fail } from '../services/errors.mjs';
 import { REPORT_SOURCES } from './semantic-sources.mjs';
 import { createDashboardService } from './dashboard-service.mjs';
 import { createReportService } from './report-service.mjs';
+import { visibleReportSources } from './report-source-policy.mjs';
 
 const envelope = data => ({ data, syntheticData: true });
 
@@ -20,8 +21,8 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       if (typeof caseService?.get !== 'function') fail('DATA_NOT_READY');
       return caseService.get({ access, caseId: params.caseId });
     },
-    async listReportSources() {
-      return envelope(Object.values(REPORT_SOURCES).map(source => structuredClone(source)));
+    async listReportSources({ access } = {}) {
+      return envelope(visibleReportSources(access, Object.values(REPORT_SOURCES)).map(source => structuredClone(source)));
     },
     async listReports({ access }) { return envelope(await reports.list({ access })); },
     async createReport({ access, body, requestId }) { return envelope(await reports.create({ access, input: body, requestId })); },

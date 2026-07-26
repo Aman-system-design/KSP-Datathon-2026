@@ -108,6 +108,34 @@ test('API composition serves station-scoped case lists and hides unauthorized ca
   assert.equal(unauthorized.body.error.code, 'NOT_FOUND');
 });
 
+test('station reporting API exposes only local sources and hides disallowed global reports', async () => {
+  const state = buildDemoState();
+  state.profiles.push({
+    CatalystUserID: 'CAT-STATION-REPORTS', EmployeeID: 9001, DefaultRole: 'STATION_OPERATIONS', ScopeUnitID: 1001,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  state.reports = [{
+    id: 'R-GLOBAL-ANOMALY', ownerUserId: 'CAT-ADMIN', name: 'State anomaly', visibility: 'GLOBAL', version: 1,
+    definition: {
+      name: 'State anomaly', sourceKey: 'anomalies', dimensions: ['unitId'],
+      measures: [{ field: 'observed', aggregate: 'sum' }], filters: [], sort: [],
+      visualization: { type: 'bar' }, limit: 100,
+    },
+  }];
+  const { application } = harness({ currentUser: { user_id: 'CAT-STATION-REPORTS', status: 'ACTIVE' }, state });
+
+  const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
+  assert.deepEqual(sources.body.data.map(source => source.key), ['alerts', 'stationCases']);
+  const reports = await application({ method: 'GET', url: '/v1/reports', headers: {}, body: null });
+  assert.equal(reports.body.data.some(report => report.id === 'R-GLOBAL-ANOMALY'), false);
+  const hidden = await application({ method: 'POST', url: '/v1/reports/R-GLOBAL-ANOMALY/execute', headers: {}, body: {} });
+  assert.equal(hidden.status, 404);
+  assert.equal(hidden.body.error.code, 'NOT_FOUND');
+  const rejected = await application({ method: 'POST', url: '/v1/reports', headers: {}, body: state.reports[0].definition });
+  assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.error.code, 'INVALID_REQUEST');
+});
+
 test('API case resources deny base presenter and auditor roles but honor an assumed station persona', async () => {
   const auditorState = buildDemoState();
   auditorState.profiles.push({

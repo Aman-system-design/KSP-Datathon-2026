@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -53,17 +53,22 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
   const [periodDays, setPeriodDays] = useState(30);
   const [stationFilter, setStationFilter] = useState(null);
   const [reportDrawerOpen, setReportDrawerOpen] = useState(false);
+  const [ownedDashboard, setOwnedDashboard] = useState(null);
+  const [editAfterCloneId, setEditAfterCloneId] = useState(null);
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const [cloneError, setCloneError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const stationDashboard = useMemo(() => {
     const dashboards = (workspace?.availableDashboards ?? []).filter(isStationDashboard);
     return dashboards.find(item => item.id === workspace?.landingDashboard?.id) ?? dashboards[0] ?? null;
   }, [workspace?.availableDashboards, workspace?.landingDashboard?.id]);
+  const activeDashboard = ownedDashboard ?? stationDashboard;
   const stationWorkspace = useMemo(() => ({
     ...workspace,
-    landingDashboard: stationDashboard ?? undefined,
-    availableDashboards: stationDashboard ? [stationDashboard] : [],
-  }), [workspace, stationDashboard]);
+    landingDashboard: activeDashboard ?? undefined,
+    availableDashboards: activeDashboard ? [activeDashboard] : [],
+  }), [workspace, activeDashboard]);
   const periodReportIds = useMemo(() => new Set(
     (workspace?.availableReports ?? [])
       .filter(report => report.definition?.sourceKey === 'stationCases'
@@ -74,7 +79,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
     runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: periodDays }],
   } : {}, [periodDays, periodReportIds]);
   const controller = useCommandCenterDashboard({
-    api, workspace: stationWorkspace, requestedDashboardId: stationDashboard?.id ?? null,
+    api, workspace: stationWorkspace, requestedDashboardId: activeDashboard?.id ?? null,
     executionBody, reloadKey: periodDays, reportPredicate: isStationReport,
   });
   const dashboard = useMemo(() => transformItems(
@@ -82,6 +87,42 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
     item => filtered(periodized(item, periodDays), stationFilter),
   ), [controller.dashboard, periodDays, stationFilter]);
   const stationName = workspace?.scopeUnit?.name?.trim() || 'Local station';
+
+  useEffect(() => {
+    if (editAfterCloneId && controller.dashboard?.id === editAfterCloneId && !controller.loading) {
+      controller.beginEdit();
+      setEditAfterCloneId(null);
+    } else if (editAfterCloneId && controller.error && !controller.loading) {
+      setCloneError('A private station dashboard could not be opened.');
+      setEditAfterCloneId(null);
+      setOwnedDashboard(null);
+      if (stationDashboard?.id) controller.selectDashboard(stationDashboard.id);
+    }
+  }, [controller.dashboard?.id, controller.error, controller.loading, editAfterCloneId, stationDashboard?.id]);
+
+  const beginStationEdit = async () => {
+    setCloneError('');
+    if (activeDashboard?.relationship === 'OWNED') { controller.beginEdit(); return; }
+    if (!controller.dashboard || cloneBusy) return;
+    setCloneBusy(true);
+    try {
+      const created = (await api.post('/v1/dashboards', {
+        name: 'Station Operations',
+        description: `Private operational dashboard for ${stationName}.`,
+      })).data;
+      if (!created?.id) throw new Error('Dashboard identifier missing');
+      const reports = new Map((workspace?.availableReports ?? []).map(report => [report.id, report]));
+      const items = controller.items
+        .filter(item => isStationReport(reports.get(item.reportId)))
+        .map(({ reportId, column, row, width, height }) => ({ reportId, column, row, width, height }));
+      await api.put(`/v1/dashboards/${created.id}/items`, { items });
+      setOwnedDashboard({ ...created, relationship: 'OWNED', name: 'Station Operations' });
+      setEditAfterCloneId(created.id);
+      controller.selectDashboard(created.id);
+    } catch {
+      setCloneError('A private station dashboard could not be created.');
+    } finally { setCloneBusy(false); }
+  };
 
   const select = (_item, selection) => {
     if (!selection?.field || selection.value === undefined || selection.value === null) return;
@@ -110,7 +151,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
           <button type="button" onClick={() => setReportDrawerOpen(true)}><Plus aria-hidden="true" />Add report</button>
           <button type="button" onClick={() => { controller.cancelEdit(); setReportDrawerOpen(false); }}>Cancel</button>
           <button className="primary" type="button" disabled={controller.saving} onClick={controller.saveItems}>{controller.saving ? 'Saving…' : 'Save dashboard'}</button>
-        </div> : <button className="station-edit-button" type="button" disabled={!controller.dashboard} onClick={controller.beginEdit}>Edit dashboard</button>}
+        </div> : <button className="station-edit-button" type="button" disabled={!controller.dashboard || cloneBusy} onClick={beginStationEdit}>{cloneBusy ? 'Creating private dashboard...' : 'Edit dashboard'}</button>}
       </div>
     </header>
 
@@ -118,12 +159,13 @@ export function StationOperationsShell({ api, workspace, onOpenCase }) {
       {stationFilter ? <button className="station-filter" type="button" aria-label={`Clear ${filterLabel(stationFilter)} filter`} onClick={() => setStationFilter(null)}>
         <span>{filterLabel(stationFilter)}</span><X aria-hidden="true" />
       </button> : <span>Showing all visible station cases</span>}
+      {cloneError ? <span className="station-clone-error" role="alert">{cloneError}</span> : null}
       {controller.loading ? <span className="station-refresh" role="status">Updating {periodDays}-day view…</span> : null}
     </div>
 
     {controller.loading && !controller.dashboard ? <div className="station-operations__loading" role="status">Loading station operations…</div>
       : controller.error && !controller.dashboard ? <div className="station-operations__loading" role="alert">Station dashboard is unavailable.</div>
-        : !stationDashboard ? <div className="station-operations__setup" role="status"><strong>Station dashboard is not configured yet.</strong><span>Your station reports will appear here after setup is complete.</span></div>
+        : !activeDashboard ? <div className="station-operations__setup" role="status"><strong>Station dashboard is not configured yet.</strong><span>Your station reports will appear here after setup is complete.</span></div>
           : <CommandCenterDashboardCanvas
           dashboard={dashboard}
           activeTab={controller.activeTab}
