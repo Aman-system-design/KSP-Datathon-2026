@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 const expectedTables = [
   'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
   'CFG_ContentShare', 'CFG_UserPreference', 'CFG_MapView', 'CFG_MapViewVersion',
+  'CFG_UtilityAlertRule',
   'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_PublicationState', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
@@ -15,6 +16,22 @@ const allowedTypes = new Set([
   'bigint', 'boolean', 'date', 'datetime', 'double', 'foreign_key', 'int', 'text', 'varchar',
 ]);
 const namePattern = /^[A-Za-z][A-Za-z0-9_]*$/;
+const utilityAlertRuleColumnContract = [
+  { name: 'RuleID', origin: 'SYSTEM', type: 'varchar', maxLength: 64, mandatory: true, unique: true, indexed: true, pii: false },
+  { name: 'UtilityKey', origin: 'CONFIGURATION', type: 'varchar', maxLength: 32, mandatory: true, unique: false, indexed: true, pii: false },
+  { name: 'UtilityVersion', origin: 'SYSTEM', type: 'varchar', maxLength: 32, mandatory: true, unique: false, indexed: true, pii: false },
+  { name: 'Enabled', origin: 'CONFIGURATION', type: 'boolean', mandatory: true, default: true, pii: false },
+  { name: 'ScopeUnitID', origin: 'AUTHORIZATION', type: 'bigint', mandatory: true, unique: false, indexed: true, pii: false },
+  { name: 'ThresholdsJSON', origin: 'CONFIGURATION', type: 'text', mandatory: true, pii: false },
+  { name: 'EvaluationWindowDays', origin: 'CONFIGURATION', type: 'int', minimum: 1, maximum: 180, mandatory: true, pii: false },
+  { name: 'Severity', origin: 'CONFIGURATION', type: 'varchar', maxLength: 16, mandatory: true, unique: false, indexed: true, pii: false },
+  { name: 'RecipientRolesJSON', origin: 'AUTHORIZATION', type: 'text', mandatory: true, pii: false },
+  { name: 'Version', origin: 'SYSTEM', type: 'int', minimum: 1, mandatory: true, pii: false },
+  { name: 'CreatedByUserID', origin: 'AUTHENTICATION', type: 'varchar', maxLength: 128, mandatory: true, unique: false, indexed: true, pii: true },
+  { name: 'CreatedAt', origin: 'SYSTEM', type: 'datetime', mandatory: true, pii: false },
+  { name: 'UpdatedAt', origin: 'SYSTEM', type: 'datetime', mandatory: true, pii: false },
+  { name: 'SyntheticData', origin: 'SYSTEM', type: 'boolean', mandatory: true, default: true, pii: false },
+];
 
 export function validateIntelligenceSchema(schema) {
   const errors = [];
@@ -23,7 +40,7 @@ export function validateIntelligenceSchema(schema) {
   const known = new Set(names);
 
   if (JSON.stringify(names) !== JSON.stringify(expectedTables)) {
-    errors.push('manifest must define the exact ordered 32-table backend boundary');
+    errors.push('manifest must define the exact ordered 33-table backend boundary');
   }
 
   for (const duplicate of new Set(names.filter((name, index) => names.indexOf(name) !== index))) {
@@ -167,6 +184,18 @@ export function validateIntelligenceSchema(schema) {
     errors.push('CFG_MapViewVersion.MapViewVersionKey must be unique and indexed');
   }
 
+  requireColumns('CFG_UtilityAlertRule', [
+    ...utilityAlertRuleColumnContract.map(({ name }) => name),
+  ]);
+  const actualUtilityAlertRuleColumns = tables.find(({ name }) => name === 'CFG_UtilityAlertRule')?.columns ?? [];
+  if (JSON.stringify(actualUtilityAlertRuleColumns.map(({ name }) => name))
+    !== JSON.stringify(utilityAlertRuleColumnContract.map(({ name }) => name))) {
+    errors.push('CFG_UtilityAlertRule must define the exact ordered columns');
+  }
+  if (JSON.stringify(actualUtilityAlertRuleColumns) !== JSON.stringify(utilityAlertRuleColumnContract)) {
+    errors.push('CFG_UtilityAlertRule columns must match the semantic contract');
+  }
+
   requireColumns('WF_Command', [
     'CommandID', 'IdempotencyKeyHash', 'RequestHash', 'AlertRef',
     'ActorCatalystUserID', 'EffectiveRole', 'CommandType', 'ExpectedAlertState',
@@ -231,7 +260,7 @@ async function runCli() {
     process.exitCode = 1;
     return;
   }
-  console.log('PASS: 32 Catalyst backend tables are valid.');
+  console.log('PASS: 33 Catalyst backend tables are valid.');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

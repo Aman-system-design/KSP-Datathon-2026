@@ -12,6 +12,7 @@ const schema = JSON.parse(await readFile(
 const expectedTables = [
   'CFG_UserAccess', 'CFG_ReportDefinition', 'CFG_Dashboard', 'CFG_DashboardItem',
   'CFG_ContentShare', 'CFG_UserPreference', 'CFG_MapView', 'CFG_MapViewVersion',
+  'CFG_UtilityAlertRule',
   'OPS_IntelligenceRunRequest',
   'TRN_CaseFeature', 'TRN_LocationFeature', 'TRN_PersonResolution', 'TRN_DistrictContext',
   'INT_AnalysisRun', 'INT_PublicationState', 'INT_Hotspot', 'INT_Anomaly', 'INT_Pattern', 'INT_AreaRisk',
@@ -20,9 +21,37 @@ const expectedTables = [
   'WF_Outcome', 'WF_AuditEvent', 'WF_AlertNote', 'WF_Escalation',
 ];
 
-test('manifest defines the exact production-shaped 32-table backend boundary', () => {
+test('manifest defines the exact production-shaped 33-table backend boundary', () => {
   assert.deepEqual(schema.tables.map(({ name }) => name), expectedTables);
   assert.deepEqual(validateIntelligenceSchema(schema), []);
+});
+
+test('utility alert rules persist only bounded declarative configuration', () => {
+  const table = schema.tables.find(({ name }) => name === 'CFG_UtilityAlertRule');
+  assert.equal(table.businessId, 'RuleID');
+  const exactColumns = [
+    { name: 'RuleID', origin: 'SYSTEM', type: 'varchar', maxLength: 64, mandatory: true, unique: true, indexed: true, pii: false },
+    { name: 'UtilityKey', origin: 'CONFIGURATION', type: 'varchar', maxLength: 32, mandatory: true, unique: false, indexed: true, pii: false },
+    { name: 'UtilityVersion', origin: 'SYSTEM', type: 'varchar', maxLength: 32, mandatory: true, unique: false, indexed: true, pii: false },
+    { name: 'Enabled', origin: 'CONFIGURATION', type: 'boolean', mandatory: true, default: true, pii: false },
+    { name: 'ScopeUnitID', origin: 'AUTHORIZATION', type: 'bigint', mandatory: true, unique: false, indexed: true, pii: false },
+    { name: 'ThresholdsJSON', origin: 'CONFIGURATION', type: 'text', mandatory: true, pii: false },
+    { name: 'EvaluationWindowDays', origin: 'CONFIGURATION', type: 'int', minimum: 1, maximum: 180, mandatory: true, pii: false },
+    { name: 'Severity', origin: 'CONFIGURATION', type: 'varchar', maxLength: 16, mandatory: true, unique: false, indexed: true, pii: false },
+    { name: 'RecipientRolesJSON', origin: 'AUTHORIZATION', type: 'text', mandatory: true, pii: false },
+    { name: 'Version', origin: 'SYSTEM', type: 'int', minimum: 1, mandatory: true, pii: false },
+    { name: 'CreatedByUserID', origin: 'AUTHENTICATION', type: 'varchar', maxLength: 128, mandatory: true, unique: false, indexed: true, pii: true },
+    { name: 'CreatedAt', origin: 'SYSTEM', type: 'datetime', mandatory: true, pii: false },
+    { name: 'UpdatedAt', origin: 'SYSTEM', type: 'datetime', mandatory: true, pii: false },
+    { name: 'SyntheticData', origin: 'SYSTEM', type: 'boolean', mandatory: true, default: true, pii: false },
+  ];
+  assert.deepEqual(table.columns, exactColumns);
+  assert.deepEqual(
+    table.columns.filter(({ name }) => /formula|expression|sql/i.test(name)),
+    [],
+  );
+  assert.equal(table.columns.find(({ name }) => name === 'RuleID').unique, true);
+  assert.equal(table.columns.find(({ name }) => name === 'RuleID').indexed, true);
 });
 
 test('map views have scoped identity and immutable version storage', () => {
@@ -189,4 +218,29 @@ test('validator rejects unsafe mutations', () => {
     .find(({ name }) => name === 'Version').type = 'varchar';
   assert.match(validateIntelligenceSchema(invalidMapVersion).join('\n'), /CurrentVersion must be an int with minimum 1/);
   assert.match(validateIntelligenceSchema(invalidMapVersion).join('\n'), /CFG_MapViewVersion.Version must be an int with minimum 1/);
+
+  const executableRule = structuredClone(schema);
+  executableRule.tables.find(({ name }) => name === 'CFG_UtilityAlertRule').columns.push({
+    name: 'Formula', origin: 'CONFIGURATION', type: 'text', mandatory: false, pii: false,
+  });
+  assert.match(
+    validateIntelligenceSchema(executableRule).join('\n'),
+    /CFG_UtilityAlertRule must define the exact ordered columns/,
+  );
+
+  for (const mutate of [
+    columns => { columns.find(({ name }) => name === 'Version').minimum = 0; },
+    columns => { columns.find(({ name }) => name === 'EvaluationWindowDays').maximum = 181; },
+    columns => { columns.find(({ name }) => name === 'ThresholdsJSON').type = 'varchar'; },
+    columns => { columns.find(({ name }) => name === 'CreatedByUserID').pii = false; },
+    columns => { columns.find(({ name }) => name === 'RuleID').indexed = false; },
+    columns => { columns.find(({ name }) => name === 'UtilityVersion').origin = 'CONFIGURATION'; },
+  ]) {
+    const invalidRuleMetadata = structuredClone(schema);
+    mutate(invalidRuleMetadata.tables.find(({ name }) => name === 'CFG_UtilityAlertRule').columns);
+    assert.match(
+      validateIntelligenceSchema(invalidRuleMetadata).join('\n'),
+      /CFG_UtilityAlertRule columns must match the semantic contract/,
+    );
+  }
 });

@@ -11,6 +11,15 @@ const invalidState = (message) => {
   error.code = 'INVALID_STATE';
   return error;
 };
+const invalidRequest = (message) => {
+  const error = new Error(message);
+  error.code = 'INVALID_REQUEST';
+  return error;
+};
+const utilityRuleMutableFields = new Set([
+  'Enabled', 'ScopeUnitID', 'ThresholdsJSON', 'EvaluationWindowDays', 'Severity',
+  'RecipientRolesJSON', 'UpdatedAt',
+]);
 const runRequestTransitions = Object.freeze({
   QUEUED: new Set(['SUBMITTED', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
   SUBMITTED: new Set(['RUNNING', 'FAILED_RETRYABLE', 'FAILED_FINAL']),
@@ -39,7 +48,7 @@ export class MemoryIntelligenceRepository {
 
   constructor(state, { failureInjector = () => {} } = {}) {
     this.#state = clone(state);
-    for (const collection of ['reports', 'dashboards', 'dashboardItems', 'contentShares', 'userPreferences', 'mapViews', 'mapViewVersions']) {
+    for (const collection of ['reports', 'dashboards', 'dashboardItems', 'contentShares', 'userPreferences', 'mapViews', 'mapViewVersions', 'utilityRules']) {
       this.#state[collection] ??= [];
     }
     this.#state.runRequests ??= [];
@@ -129,6 +138,34 @@ export class MemoryIntelligenceRepository {
   async getAreaRisk() { return clone(this.#state.areaRisks[0]); }
   async getNetwork(id) { return clone(this.#state.networks.find(({ node }) => node.id === id)); }
   async getDistrictContext(unitId) { return clone(this.#state.districtContexts.filter(row => !unitId || row.unitId === unitId)); }
+  async listUtilityRules({ utilityKey, createdByUserId } = {}) {
+    return clone(this.#state.utilityRules.filter(row => (
+      (utilityKey === undefined || row.UtilityKey === utilityKey)
+      && (createdByUserId === undefined || row.CreatedByUserID === createdByUserId)
+    )));
+  }
+  async getUtilityRule(id) {
+    return clone(this.#state.utilityRules.find(row => row.RuleID === id));
+  }
+  async createUtilityRule(row) {
+    if (this.#state.utilityRules.some(rule => rule.RuleID === row.RuleID)) {
+      throw conflict('utility rule unique conflict');
+    }
+    this.#state.utilityRules.push(clone(row));
+    return clone(row);
+  }
+  async updateUtilityRule(id, expectedVersion, changes) {
+    const rule = this.#state.utilityRules.find(row => row.RuleID === id);
+    if (!rule) return undefined;
+    if (rule.Version !== expectedVersion) return { conflict: true };
+    if (changes === null || typeof changes !== 'object' || Array.isArray(changes)
+      || Object.getPrototypeOf(changes) !== Object.prototype || Object.keys(changes).length === 0
+      || Object.keys(changes).some(key => !utilityRuleMutableFields.has(key))) {
+      throw invalidRequest('utility rule changes contain immutable or unknown fields');
+    }
+    Object.assign(rule, clone(changes), { Version: rule.Version + 1 });
+    return clone(rule);
+  }
   async listMapViews({ organizationId, visibility, ownerEmployeeId, limit, nextToken } = {}) {
     return this.#page(this.#state.mapViews.filter(row => row.OrganizationID === organizationId
       && (!visibility || row.Visibility === visibility)

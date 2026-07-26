@@ -125,6 +125,25 @@
       ]
     },
     {
+      "name": "CFG_UtilityAlertRule", "zone": "CONFIGURATION", "loadOrder": 4, "businessId": "RuleID",
+      "columns": [
+        {"name":"RuleID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},
+        {"name":"UtilityKey","origin":"CONFIGURATION","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"UtilityVersion","origin":"SYSTEM","type":"varchar","maxLength":32,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"Enabled","origin":"CONFIGURATION","type":"boolean","mandatory":true,"default":true,"pii":false},
+        {"name":"ScopeUnitID","origin":"AUTHORIZATION","type":"bigint","mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"ThresholdsJSON","origin":"CONFIGURATION","type":"text","mandatory":true,"pii":false},
+        {"name":"EvaluationWindowDays","origin":"CONFIGURATION","type":"int","minimum":1,"maximum":180,"mandatory":true,"pii":false},
+        {"name":"Severity","origin":"CONFIGURATION","type":"varchar","maxLength":16,"mandatory":true,"unique":false,"indexed":true,"pii":false},
+        {"name":"RecipientRolesJSON","origin":"AUTHORIZATION","type":"text","mandatory":true,"pii":false},
+        {"name":"Version","origin":"SYSTEM","type":"int","minimum":1,"mandatory":true,"pii":false},
+        {"name":"CreatedByUserID","origin":"AUTHENTICATION","type":"varchar","maxLength":128,"mandatory":true,"unique":false,"indexed":true,"pii":true},
+        {"name":"CreatedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"UpdatedAt","origin":"SYSTEM","type":"datetime","mandatory":true,"pii":false},
+        {"name":"SyntheticData","origin":"SYSTEM","type":"boolean","mandatory":true,"default":true,"pii":false}
+      ]
+    },
+    {
       "name": "OPS_IntelligenceRunRequest", "zone": "OPERATIONS", "loadOrder": 5, "businessId": "RunRequestID",
       "columns": [
         {"name":"RunRequestID","origin":"SYSTEM","type":"varchar","maxLength":64,"mandatory":true,"unique":true,"indexed":true,"pii":false},

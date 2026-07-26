@@ -12,6 +12,52 @@ test('memory repository implements the complete asynchronous contract', () => {
   }
 });
 
+test('utility rules support filtered cloned CRUD and optimistic versions', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const rule = {
+    RuleID: 'RULE-1', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    ScopeUnitID: 101, ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30,
+    Severity: 'HIGH', RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1,
+    CreatedByUserID: 'USER-1', CreatedAt: '2026-07-26T00:00:00Z',
+    UpdatedAt: '2026-07-26T00:00:00Z', SyntheticData: true,
+  };
+  const created = await repository.createUtilityRule(rule);
+  created.Enabled = false;
+  assert.equal((await repository.getUtilityRule('RULE-1')).Enabled, true);
+  await assert.rejects(repository.createUtilityRule(rule), { code: 'UNIQUE_CONFLICT' });
+
+  assert.equal((await repository.listUtilityRules({ utilityKey: 'patterns' })).length, 1);
+  assert.equal((await repository.listUtilityRules({ utilityKey: 'hotspots' })).length, 0);
+  assert.equal((await repository.listUtilityRules({ createdByUserId: 'USER-1' })).length, 1);
+
+  assert.deepEqual(await repository.updateUtilityRule('RULE-1', 2, { Enabled: false }), { conflict: true });
+  for (const changes of [
+    { RuleID: 'RULE-2' },
+    { Version: 99 },
+    { CreatedByUserID: 'ATTACKER' },
+    { CreatedAt: '2099-01-01T00:00:00Z' },
+    { Unknown: true },
+  ]) await assert.rejects(
+    repository.updateUtilityRule('RULE-1', 1, changes),
+    { code: 'INVALID_REQUEST' },
+  );
+  const pollutedChanges = Object.create(null);
+  pollutedChanges.__proto__ = { polluted: true };
+  await assert.rejects(
+    repository.updateUtilityRule('RULE-1', 1, pollutedChanges),
+    { code: 'INVALID_REQUEST' },
+  );
+  assert.equal({}.polluted, undefined);
+  assert.equal((await repository.getUtilityRule('RULE-1')).RuleID, 'RULE-1');
+  assert.equal(await repository.getUtilityRule('RULE-2'), undefined);
+  const updated = await repository.updateUtilityRule('RULE-1', 1, {
+    Enabled: false, UpdatedAt: '2026-07-26T01:00:00Z',
+  });
+  assert.equal(updated.Version, 2);
+  assert.equal(updated.Enabled, false);
+  assert.equal(await repository.updateUtilityRule('MISSING', 1, {}), undefined);
+});
+
 test('run requests are idempotent, transition explicitly and return clones', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const request = {
