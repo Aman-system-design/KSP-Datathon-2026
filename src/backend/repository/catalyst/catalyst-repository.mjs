@@ -50,6 +50,7 @@ const SOURCE_TABLES = Object.freeze({
 const CONTROL_TABLES = Object.freeze(['TRN_IngestionBatch', 'TRN_RejectedRecord', 'TRN_SourceKeyMap']);
 const ALLOWED_TABLES = new Set([...Object.values(TABLES), ...Object.values(SOURCE_TABLES), ...CONTROL_TABLES]);
 const STATION_CASE_READ_LIMIT = 5000;
+const STATION_CASE_RAW_SCAN_LIMIT = 10_000;
 const DATETIME_COLUMNS = Object.freeze({
   INT_AnalysisRun: ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt'],
   INT_PublicationState: ['PublishedAt', 'LatestAttemptAt'],
@@ -275,6 +276,54 @@ export class CatalystIntelligenceRepository {
       if (pageRows.length < pageSize) return rows;
     }
     fail('DATA_NOT_READY', `${tableName} indexed result exceeds its governed read limit.`);
+  }
+
+  async #scanEligibleStationCases(unitId, batchRefs, { eligibleLimit, rawLimit }) {
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
+      const rawRows = (await this.#read(SOURCE_TABLES.CaseMaster))
+        .filter(row => Number(row.PoliceStationID) === unitId);
+      if (rawRows.length > rawLimit) {
+        fail('DATA_NOT_READY', 'Station case eligibility exceeds its governed raw scan limit.');
+      }
+      return {
+        rows: this.#acceptedSyntheticSourceRows(rawRows, batchRefs).slice(0, eligibleLimit),
+        rawCount: rawRows.length,
+      };
+    }
+    const rows = [];
+    let rawCount = 0;
+    while (true) {
+      const remainingRaw = rawLimit - rawCount;
+      const pageSize = remainingRaw > 0 ? Math.min(200, remainingRaw) : 1;
+      let result;
+      try {
+        result = await this.#zcql.executeZCQLQuery(
+          `SELECT * FROM ${SOURCE_TABLES.CaseMaster} WHERE PoliceStationID = ${unitId} LIMIT ${rawCount}, ${pageSize}`,
+        );
+      } catch (error) {
+        throw sanitizeCatalystSdkError(error, { operation: `QUERY_${SOURCE_TABLES.CaseMaster}_PoliceStationID` });
+      }
+      const values = Array.isArray(result) ? result : result?.data ?? [];
+      const pageRows = values.map(item => mapCatalystRow(
+        item?.[SOURCE_TABLES.CaseMaster] ?? item,
+        { includeRowId: true },
+      ));
+      if (pageRows.length > pageSize) {
+        fail('DATA_NOT_READY', 'Station case eligibility exceeds its governed raw scan limit.');
+      }
+      if (remainingRaw === 0) {
+        if (pageRows.length > 0) {
+          fail('DATA_NOT_READY', 'Station case eligibility exceeds its governed raw scan limit.');
+        }
+        return { rows, rawCount };
+      }
+      rawCount += pageRows.length;
+      for (const row of this.#acceptedSyntheticSourceRows(pageRows, batchRefs)) {
+        rows.push(row);
+        if (rows.length === eligibleLimit) return { rows, rawCount };
+      }
+      if (pageRows.length < pageSize) return { rows, rawCount };
+    }
   }
 
   #invalidate(...tableNames) {
@@ -1169,12 +1218,15 @@ export class CatalystIntelligenceRepository {
     if (authorizedUnitIds.length === 0) return [];
     const batchRefs = await this.#completedSyntheticSourceBatchRefs();
     const cases = [];
+    let rawScanRemaining = STATION_CASE_RAW_SCAN_LIMIT;
     for (const unitId of authorizedUnitIds) {
       const remaining = STATION_CASE_READ_LIMIT - cases.length;
-      const rows = await this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'PoliceStationID', unitId, {
-        maxRows: remaining + 1,
+      const scanned = await this.#scanEligibleStationCases(unitId, batchRefs, {
+        eligibleLimit: remaining + 1,
+        rawLimit: rawScanRemaining,
       });
-      cases.push(...this.#acceptedSyntheticSourceRows(rows, batchRefs));
+      rawScanRemaining -= scanned.rawCount;
+      cases.push(...scanned.rows);
       if (cases.length > STATION_CASE_READ_LIMIT) {
         fail('DATA_NOT_READY', 'Station case result exceeds its governed read limit.');
       }

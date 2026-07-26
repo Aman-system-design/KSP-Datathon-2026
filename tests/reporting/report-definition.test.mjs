@@ -43,6 +43,52 @@ test('station case reports expose only the governed analytical allowlist', () =>
   }
 });
 
+test('semantic aggregate allowlists are deeply immutable', () => {
+  const source = getReportSource('stationCases');
+  const aggregates = source.fields.recordCount.aggregates;
+  try {
+    assert.throws(() => aggregates.push('avg'), TypeError);
+  } finally {
+    if (aggregates.at(-1) === 'avg') aggregates.pop();
+  }
+  assert.equal(Object.isFrozen(aggregates), true);
+  assert.throws(() => normalizeReportDefinition({
+    name: 'Unsafe average', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'avg' }],
+  }, source), /aggregate/i);
+});
+
+test('validates report filter operators and values against semantic field types', () => {
+  const source = getReportSource('stationCases');
+  const validFilters = [
+    { field: 'isOpen', operator: 'eq', value: true },
+    { field: 'ageDays', operator: 'gte', value: 7 },
+    { field: 'registeredAt', operator: 'between', value: ['2026-07-01', '2026-07-31T23:59:59Z'] },
+    { field: 'status', operator: 'in', value: ['Under Investigation', 'Chargesheet Filed'] },
+  ];
+  assert.deepEqual(normalizeReportDefinition({
+    name: 'Typed filters', sourceKey: 'stationCases', filters: validFilters,
+  }, source).filters, validFilters);
+
+  for (const filter of [
+    { field: 'isOpen', operator: 'gte', value: true },
+    { field: 'isOpen', operator: 'eq', value: 1 },
+    { field: 'ageDays', operator: 'eq', value: '7' },
+    { field: 'ageDays', operator: 'between', value: [1] },
+    { field: 'ageDays', operator: 'between', value: [1, '30'] },
+    { field: 'registeredAt', operator: 'lte', value: 'not-a-date' },
+    { field: 'registeredAt', operator: 'eq', value: '2026-02-30' },
+    { field: 'registeredAt', operator: 'between', value: ['2026-07-01', false] },
+    { field: 'status', operator: 'between', value: ['A', 'Z'] },
+    { field: 'status', operator: 'in', value: [] },
+    { field: 'status', operator: 'in', value: ['Open', 2] },
+    { field: 'status', operator: 'in', value: Array.from({ length: 101 }, () => 'Open') },
+    { field: 'status', operator: 'eq', value: ['Open'] },
+  ]) assert.throws(() => normalizeReportDefinition({
+    name: 'Invalid typed filter', sourceKey: 'stationCases', filters: [filter],
+  }, source), /filter/i);
+});
+
 test('normalizes a bounded anomaly trend from governed fields', () => {
   const definition = normalizeReportDefinition({
     name: 'District anomaly trend',
@@ -144,7 +190,7 @@ test('map reports reject transforms that would be silently ignored', () => {
   for (const transform of [
     { dimensions: ['unitId'] },
     { measures: [{ field: 'caseCount', aggregate: 'sum' }] },
-    { filters: [{ field: 'unitId', operator: 'eq', value: 999 }] },
+    { filters: [{ field: 'unitId', operator: 'eq', value: '999' }] },
     { sort: [{ field: 'unitId', direction: 'asc' }] },
   ]) assert.throws(() => normalizeReportDefinition({
     name: 'Misleading district map', sourceKey: 'hotspots',

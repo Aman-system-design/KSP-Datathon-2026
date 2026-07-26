@@ -1,4 +1,8 @@
-const field = (type, options = {}) => Object.freeze({ type, ...options });
+const field = (type, options = {}) => Object.freeze({
+  type,
+  ...options,
+  ...(options.aggregates ? { aggregates: Object.freeze([...options.aggregates]) } : {}),
+});
 const fields = (value) => Object.freeze(value);
 const source = (value) => Object.freeze({
   ...value,

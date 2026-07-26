@@ -307,6 +307,39 @@ test('station case analytics probe remaining stations and reject a 5,001st case'
   assert.ok(app.zcqlCalls.some(query => query.includes('PoliceStationID = 2001')));
 });
 
+test('station case analytics count only eligible cases while scanning bounded raw rows', async () => {
+  const fixture = catalystRows();
+  const eligible = row => ({
+    ...row, SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true,
+  });
+  const ineligible = (row, index) => ({
+    ...row,
+    SourceBatchRef: index % 3 === 0 ? 'BATCH-INCOMPLETE' : 'BATCH-ROW-1',
+    ValidationStatus: index % 3 === 1 ? 'REJECTED' : 'ACCEPTED',
+    IsSynthetic: index % 3 !== 2,
+  });
+  fixture.tables.SRC_CaseMaster = [
+    ...Array.from({ length: 5000 }, (_, index) => eligible({
+      ROWID: `ELIGIBLE-${index + 1}`, CaseMasterID: index + 1,
+      CaseNo: `${index + 1}/2026`, PoliceStationID: 1001,
+    })),
+    ...Array.from({ length: 1001 }, (_, index) => ineligible({
+      ROWID: `INELIGIBLE-${index + 1}`, CaseMasterID: 6000 + index,
+      CaseNo: `X-${index + 1}/2026`, PoliceStationID: 1001,
+    }, index)),
+  ];
+  Object.assign(fixture.tables, {
+    SRC_Unit: [], SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [{
+      ROWID: 'BATCH-ROW-1', BatchID: 'BATCH-1', Status: 'COMPLETED', CompletedAt: '2026-07-01',
+      SourceRowCount: 6001, AcceptedRowCount: 5667, RejectedRowCount: 334, IsSynthetic: true,
+    }],
+  });
+  const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });
+
+  assert.equal((await repository.listStationCaseRows({ unitIds: [1001] })).length, 5000);
+});
+
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {
   const fixture = catalystRows();
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });
