@@ -226,7 +226,7 @@ function normalizeEvaluation(value, rule) {
     || value.syntheticData !== true) return null;
   return {
     evaluated: value.evaluated, matched: value.matched, suppressed: value.suppressed,
-    alertIds: [...value.alertIds],
+    alertIds: [...value.alertIds], syntheticData: value.syntheticData,
   };
 }
 
@@ -252,7 +252,8 @@ function EvaluationAction({ api, rule, location }) {
     {state.error ? <p className="utilities-policy-message utilities-policy-message--error" role="alert">{state.error}</p> : null}
     {state.result ? <div className="utilities-policy-result" role="status">
       <span>{state.result.evaluated} evaluated · {state.result.matched} matched · {state.result.suppressed} suppressed</span>
-      <p>Published model findings were assessed within the policy&apos;s governed scope and evaluation window. {state.result.matched} findings matched the human-governed delivery qualification, while {state.result.suppressed} were suppressed. Human review is required before action.</p>
+      <p>Published model findings were assessed against governed scope and evaluation-window rules. {state.result.matched} findings matched the human-governed delivery qualification, while {state.result.suppressed} were suppressed. Human review is required before action.</p>
+      {state.result.syntheticData ? <small className="utilities-policy-provenance">Synthetic demonstration data</small> : null}
       {state.result.alertIds[0] ? <Link to={governedAppLocation(`/alerts/${encodeURIComponent(state.result.alertIds[0])}`, location)}>Open alert</Link> : null}
     </div> : null}
   </div>;
@@ -262,8 +263,8 @@ function AiAssistedDetection({ aiAssistance }) {
   return <aside className="utilities-ai-assistance" aria-label="AI-assisted detection">
     <div className="utilities-ai-assistance__heading">
       <span>AI-assisted detection</span>
-      <strong>{aiAssistance.label}</strong>
-      <small>{aiAssistance.methodVersion}</small>
+      <strong>{aiAssistance.method}</strong>
+      <small>{aiAssistance.engineVersion}</small>
     </div>
     <p>{aiAssistance.explanation}</p>
   </aside>;

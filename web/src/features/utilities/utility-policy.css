@@ -32,7 +32,7 @@
 
 .utilities-ai-assistance__heading strong { color: #173452; font-size: 12px; }
 .utilities-ai-assistance__heading small { color: #657990; font-size: 9px; font-weight: 650; }
-.utilities-ai-assistance p { margin: 0; color: #536981; font-size: 10px; line-height: 1.55; }
+.utilities-ai-assistance p { margin: 0; color: #536981; font-size: 12px; line-height: 1.45; }
 
 .utilities-policy__heading,
 .utilities-policy-form__heading,
@@ -119,7 +119,8 @@
 .utilities-policy-evaluation button:disabled { color: #71839a; background: #eef2f6; border-color: #d4dde7; }
 .utilities-policy-result { display: grid; justify-items: end; gap: 3px; color: #536981; font-size: 9px; text-align: right; }
 .utilities-policy-result small { color: #536981; font-size: 9px; }
-.utilities-policy-result p { max-width: 440px; margin: 0; color: #536981; font-size: 9px; line-height: 1.45; }
+.utilities-policy-result p { max-width: 440px; margin: 0; color: #536981; font-size: 12px; line-height: 1.4; }
+.utilities-policy-provenance { font-size: 12px !important; font-weight: 650; }
 .utilities-policy-result a { color: #2468b4; font-size: 10px; font-weight: 700; text-decoration: none; }
 .utilities-policy-evaluation .utilities-policy-message { max-width: 250px; margin-top: 0 !important; text-align: left; }
 

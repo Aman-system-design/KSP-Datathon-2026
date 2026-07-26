@@ -29,9 +29,10 @@ const definitions = deepFreeze([
     source: { service: 'readServices', method: 'listPatterns' },
     analyticalMethod: 'Multi-signal pattern fusion',
     aiAssistance: {
-      label: 'Multi-signal pattern fusion',
-      methodVersion: 'PF-1.0',
-      explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+      method: 'EXPLAINABLE_MULTI_SIGNAL_FUSION',
+      engineVersion: '1.0.0',
+      explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
     },
     stages: lifecycle({
       data: 'Authorized case features',
@@ -59,9 +60,10 @@ const definitions = deepFreeze([
     source: { service: 'readServices', method: 'listHotspots' },
     analyticalMethod: 'Density-based spatial clustering',
     aiAssistance: {
-      label: 'DBSCAN',
-      methodVersion: 'DBSCAN-1.0',
-      explanation: 'The model uses DBSCAN to group nearby cases within the configured spatial and time window, using case density to create a machine-generated hotspot signal. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+      method: 'HAVERSINE_DBSCAN',
+      engineVersion: '1.0.0',
+      explanation: 'The HAVERSINE_DBSCAN engine groups nearby cases within an authorized spatial and time window, using case density to create a machine-generated hotspot signal. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
     },
     stages: lifecycle({
       data: 'Authorized geocoded cases',
@@ -89,9 +91,10 @@ const definitions = deepFreeze([
     source: { service: 'readServices', method: 'listAnomalies' },
     analyticalMethod: 'Baseline deviation analysis',
     aiAssistance: {
-      label: 'Median + MAD',
-      methodVersion: 'MAD-1.0',
-      explanation: 'The model compares observed values with a robust median baseline and median absolute deviation (MAD) to create a machine-generated anomaly signal when departure is material. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+      method: 'MEDIAN_MAD',
+      engineVersion: '1.0.0',
+      explanation: 'The MEDIAN_MAD engine compares observed values with a robust median baseline and median absolute deviation; SEASONAL_MEDIAN_MAD is used only when a seasonal period is configured. The model creates a machine-generated anomaly signal for material departures. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
     },
     stages: lifecycle({
       data: 'Authorized area time series',

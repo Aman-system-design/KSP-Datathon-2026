@@ -14,11 +14,6 @@ const categoryPresentation = Object.freeze({
 
 const fallbackPresentation = Object.freeze({ icon: 'utilities', tone: 'blue' });
 const lifecycleStages = Object.freeze(['Data', 'Analyze', 'Explain', 'Alert', 'Deliver']);
-const aiAssistanceMethods = Object.freeze({
-  patterns: Object.freeze({ label: 'Multi-signal pattern fusion', methodVersion: 'PF-1.0' }),
-  hotspots: Object.freeze({ label: 'DBSCAN', methodVersion: 'DBSCAN-1.0' }),
-  anomalies: Object.freeze({ label: 'Median + MAD', methodVersion: 'MAD-1.0' }),
-});
 const inFlightByApi = new WeakMap();
 
 function isRecord(value) {
@@ -27,6 +22,19 @@ function isRecord(value) {
 
 function nonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isPlainRecord(value) {
+  return isRecord(value) && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function hasExactKeys(value, keys) {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every(key => Object.hasOwn(value, key));
+}
+
+function boundedString(value, maxLength) {
+  return nonEmptyString(value) && value.trim().length <= maxLength;
 }
 
 function normalizeStages(value) {
@@ -66,18 +74,19 @@ function normalizeAlertPolicy(value) {
   return { enabled: value.enabled, fields: Object.fromEntries(entries.map(([name, bounds]) => [name, { kind: bounds.kind, min: bounds.min, max: bounds.max }])) };
 }
 
-function normalizeAiAssistance(value, utilityKey) {
-  const method = aiAssistanceMethods[utilityKey];
-  const explanation = isRecord(value) && nonEmptyString(value.explanation) ? value.explanation.trim() : '';
-  const sentenceCount = explanation.split(/[.!?](?:\s+|$)/).filter(Boolean).length;
-  if (!method || !isRecord(value)
-    || value.label !== method.label
-    || value.methodVersion !== method.methodVersion
-    || sentenceCount < 2 || sentenceCount > 3
-    || !/model .*create.*machine-generated .* signal/i.test(explanation)
-    || !/alert policy is human-governed delivery qualification/i.test(explanation)
-    || !/human review is required/i.test(explanation)) return null;
-  return { label: value.label, methodVersion: value.methodVersion, explanation };
+function normalizeAiAssistance(value) {
+  const assistanceKeys = ['method', 'engineVersion', 'explanation', 'governance'];
+  const governanceKeys = ['machineGeneratedSignal', 'humanGovernedDelivery', 'humanReviewRequired'];
+  if (!isPlainRecord(value) || !hasExactKeys(value, assistanceKeys)
+    || !boundedString(value.method, 80)
+    || !boundedString(value.engineVersion, 32)
+    || !boundedString(value.explanation, 1200)
+    || !isPlainRecord(value.governance) || !hasExactKeys(value.governance, governanceKeys)
+    || governanceKeys.some(key => value.governance[key] !== true)) return null;
+  return {
+    method: value.method.trim(), engineVersion: value.engineVersion.trim(), explanation: value.explanation.trim(),
+    governance: Object.fromEntries(governanceKeys.map(key => [key, true])),
+  };
 }
 
 function normalizeUtilityDefinition(value, requestedKey) {
@@ -87,7 +96,7 @@ function normalizeUtilityDefinition(value, requestedKey) {
   const limitations = normalizeStringList(value.limitations);
   const alertPolicy = normalizeAlertPolicy(value.alertPolicy);
   const aiAssistance = value.availability === 'AVAILABLE'
-    ? normalizeAiAssistance(value.aiAssistance, value.key)
+    ? normalizeAiAssistance(value.aiAssistance)
     : undefined;
   return outputs && limitations && alertPolicy && (value.availability !== 'AVAILABLE' || aiAssistance)
     ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy, ...(aiAssistance ? { aiAssistance } : {}) }
