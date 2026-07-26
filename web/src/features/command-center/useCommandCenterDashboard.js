@@ -9,7 +9,7 @@ function executedItem(item, result) {
   if (result.status === 'rejected') return {
     ...item,
     status: 'error',
-    title: 'Report unavailable',
+    title: item.title ?? 'Report unavailable',
     errorCode: result.reason?.code ?? 'REPORT_EXECUTION_FAILED',
   };
   const payload = result.value?.data ?? {};
@@ -53,7 +53,11 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
       const definition = (await api.get(`/v1/dashboards/${id}`)).data;
       const reportsById = new Map((workspace?.availableReports ?? []).map(report => [report.id, report]));
       const placements = (Array.isArray(definition?.items) ? definition.items : [])
-        .filter(item => reportPredicate(reportsById.get(item.reportId), item.reportId));
+        .filter(item => reportPredicate(reportsById.get(item.reportId), item.reportId))
+        .map(item => {
+          const report = reportsById.get(item.reportId);
+          return report ? { ...item, title: report.name, definition: report.definition } : item;
+        });
       const executions = await Promise.allSettled(placements.map(item => api.post(
         `/v1/reports/${item.reportId}/execute`, executionBody(item.reportId) ?? {},
       )));

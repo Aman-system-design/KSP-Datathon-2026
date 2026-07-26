@@ -6,6 +6,7 @@ import { useCommandCenterDashboard } from './useCommandCenterDashboard.js';
 const workspace = {
   landingDashboard: { id: 'D-1' },
   availableDashboards: [{ id: 'D-1', name: 'State overview', relationship: 'SYSTEM' }],
+  availableReports: [{ id: 'R-1', name: 'Crime trend' }, { id: 'R-2', name: 'Active Alerts', definition: { visualization: { type: 'number' } } }],
 };
 
 test('loads the landing dashboard and contains one failed report', async () => {
@@ -29,7 +30,7 @@ test('loads the landing dashboard and contains one failed report', async () => {
     definition: { dimensions: ['day'], visualization: { type: 'line' } },
     provenance: 'MIXED',
   });
-  expect(result.current.dashboard.items[1]).toMatchObject({ status: 'error', errorCode: 'REPORT_FAILED' });
+  expect(result.current.dashboard.items[1]).toMatchObject({ status: 'error', title: 'Active Alerts', errorCode: 'REPORT_FAILED' });
 });
 
 test('stages, cancels, and saves dashboard item layouts', async () => {
