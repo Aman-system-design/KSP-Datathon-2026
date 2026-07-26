@@ -44,10 +44,10 @@ function legacyInventory({ proven = false, partial = false, migrated = false } =
   };
 }
 
-test('dry-run inventories the exact existing 31-table Development boundary without mutation', () => {
+test('dry-run inventories the exact existing 32-table Development boundary without mutation', () => {
   const result = planPublicationPointerMigration({ manifest: migration, inventory: legacyInventory(), mode: 'DRY_RUN' });
   assert.equal(result.readyToApply, true);
-  assert.equal(result.inventory.existingTableCount, 31);
+  assert.equal(result.inventory.existingTableCount, 32);
   assert.equal(result.inventory.targetTableCount, 32);
   assert.equal(result.actions.length, 0);
   assert.deepEqual(result.legacy.completeRunGroupIds, ['RUN-GROUP-DEMO-1']);

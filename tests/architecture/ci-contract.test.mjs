@@ -92,7 +92,7 @@ test('CircleCI repository config has no deployment or secret injection hooks', a
 
 test('geospatial verification validates the canonical repository architecture', async () => {
   const result = await verifyGeospatial(new URL('../../', import.meta.url));
-  assert.equal(result.schemaTableCount, 32);
+  assert.equal(result.schemaTableCount, 33);
   assert.equal(result.requiredFilesChecked > 10, true);
   assert.equal(result.bundleBudgetWired, true);
   assert.equal(result.generatedFunctionPathsChecked, 0);

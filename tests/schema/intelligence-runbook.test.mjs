@@ -9,11 +9,11 @@ const schema = JSON.parse(await readFile(
   'utf8',
 ));
 
-test('runbook is deterministic and generated from all 32 manifest tables', () => {
+test('runbook is deterministic and generated from all 33 manifest tables', () => {
   const first = generateIntelligenceRunbook(schema);
   const second = generateIntelligenceRunbook(structuredClone(schema));
   assert.equal(first, second);
-  assert.equal((first.match(/^## Create table:/gm) ?? []).length, 32);
+  assert.equal((first.match(/^## Create table:/gm) ?? []).length, 33);
   assert.match(first, /Development only/i);
   assert.match(first, /post-creation verification checklist/i);
 

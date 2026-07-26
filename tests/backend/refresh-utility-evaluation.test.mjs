@@ -21,16 +21,17 @@ const rule = ({ id, utilityKey, enabled = true, scopeUnitId = 101, thresholds })
 
 function fixture({
   failureRuleId, omitPublishedFindings = false, failureRead, catalystRunRefs = false, extraRules = [],
+  includeDefaultRules = true,
 } = {}) {
   const state = buildDemoState();
-  state.utilityRules = [
+  const defaultRules = [
     rule({ id: 'RULE-PATTERN', utilityKey: 'patterns', thresholds: { threshold: 0.65 } }),
     rule({ id: 'RULE-HOTSPOT', utilityKey: 'hotspots', thresholds: { minimumCases: 2 } }),
     rule({ id: 'RULE-ANOMALY', utilityKey: 'anomalies', thresholds: { deviation: 1 } }),
     rule({ id: 'RULE-DISABLED', utilityKey: 'patterns', enabled: false, thresholds: { threshold: 0.65 } }),
     rule({ id: 'RULE-AREA', utilityKey: 'area-attention', thresholds: {} }),
-    ...extraRules,
   ];
+  state.utilityRules = [...(includeDefaultRules ? defaultRules : []), ...extraRules];
   const memory = new MemoryIntelligenceRepository(state);
   const repository = (failureRuleId || omitPublishedFindings || failureRead || catalystRunRefs) ? new Proxy(memory, { get(target, property) {
     if (property === 'createAlertsIfAbsent') return async input => {
@@ -231,4 +232,20 @@ test('stale utility versions are excluded and malformed persisted rules are stab
   assert.equal(result.utilityEvaluation.rulesSucceeded, 3);
   assert.equal(result.utilityEvaluation.rulesFailed, 5);
   assert.deepEqual(result.utilityEvaluation.failures.map(item => item.code), Array(5).fill('INVALID_PERSISTED_RULE'));
+});
+
+test('malformed persisted rules fail before finding reads and create no utility alert', async () => {
+  const malformed = {
+    ...rule({ id: 'RULE-ONLY-MALFORMED', utilityKey: 'patterns', thresholds: { threshold: 0.65 } }),
+    RecipientRolesJSON: '["UNKNOWN_ROLE"]',
+  };
+  const { memory, refresh } = fixture({
+    includeDefaultRules: false, extraRules: [malformed], omitPublishedFindings: true,
+    failureRead: 'listPatterns',
+  });
+  const result = await refresh.execute({ operation: 'BOOTSTRAP_SYNTHETIC', batchKey: 'UTILITY-MALFORMED-NO-READ', seed: 20260720 });
+  assert.deepEqual(result.utilityEvaluation.failures, [{
+    ruleId: 'RULE-ONLY-MALFORMED', code: 'INVALID_PERSISTED_RULE',
+  }]);
+  assert.equal((await memory.listAlerts()).some(row => row.AlertID.startsWith('ALT-UTIL-')), false);
 });

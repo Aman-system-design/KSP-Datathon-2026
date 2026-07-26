@@ -41,7 +41,7 @@ test('preflight locks the approved Development project and inventories', () => {
   assert.equal(result.projectId, '43492000000013049');
   assert.equal(result.environment, 'Development');
   assert.equal(result.sourceTableCount, 29);
-  assert.equal(result.intelligenceTableCount, 32);
+  assert.equal(result.intelligenceTableCount, 33);
   assert.equal(result.apiOperationCount, 42);
   assert.equal(result.organizationId, 'ORG-KSP');
   assert.equal(result.syntheticOnly, true);
