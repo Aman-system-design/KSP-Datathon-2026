@@ -14,6 +14,11 @@ const categoryPresentation = Object.freeze({
 
 const fallbackPresentation = Object.freeze({ icon: 'utilities', tone: 'blue' });
 const lifecycleStages = Object.freeze(['Data', 'Analyze', 'Explain', 'Alert', 'Deliver']);
+const aiAssistanceMethods = Object.freeze({
+  patterns: Object.freeze({ label: 'Multi-signal pattern fusion', methodVersion: 'PF-1.0' }),
+  hotspots: Object.freeze({ label: 'DBSCAN', methodVersion: 'DBSCAN-1.0' }),
+  anomalies: Object.freeze({ label: 'Median + MAD', methodVersion: 'MAD-1.0' }),
+});
 const inFlightByApi = new WeakMap();
 
 function isRecord(value) {
@@ -61,14 +66,31 @@ function normalizeAlertPolicy(value) {
   return { enabled: value.enabled, fields: Object.fromEntries(entries.map(([name, bounds]) => [name, { kind: bounds.kind, min: bounds.min, max: bounds.max }])) };
 }
 
+function normalizeAiAssistance(value, utilityKey) {
+  const method = aiAssistanceMethods[utilityKey];
+  const explanation = isRecord(value) && nonEmptyString(value.explanation) ? value.explanation.trim() : '';
+  const sentenceCount = explanation.split(/[.!?](?:\s+|$)/).filter(Boolean).length;
+  if (!method || !isRecord(value)
+    || value.label !== method.label
+    || value.methodVersion !== method.methodVersion
+    || sentenceCount < 2 || sentenceCount > 3
+    || !/model .*create.*machine-generated .* signal/i.test(explanation)
+    || !/alert policy is human-governed delivery qualification/i.test(explanation)
+    || !/human review is required/i.test(explanation)) return null;
+  return { label: value.label, methodVersion: value.methodVersion, explanation };
+}
+
 function normalizeUtilityDefinition(value, requestedKey) {
   const base = normalizeCatalogueDefinition(value);
   if (!base || base.key !== requestedKey || !nonEmptyString(value.analyticalMethod)) return null;
   const outputs = normalizeStringList(value.outputs);
   const limitations = normalizeStringList(value.limitations);
   const alertPolicy = normalizeAlertPolicy(value.alertPolicy);
-  return outputs && limitations && alertPolicy
-    ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy }
+  const aiAssistance = value.availability === 'AVAILABLE'
+    ? normalizeAiAssistance(value.aiAssistance, value.key)
+    : undefined;
+  return outputs && limitations && alertPolicy && (value.availability !== 'AVAILABLE' || aiAssistance)
+    ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy, ...(aiAssistance ? { aiAssistance } : {}) }
     : null;
 }
 

@@ -28,6 +28,11 @@ const definitions = deepFreeze([
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listPatterns' },
     analyticalMethod: 'Multi-signal pattern fusion',
+    aiAssistance: {
+      label: 'Multi-signal pattern fusion',
+      methodVersion: 'PF-1.0',
+      explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+    },
     stages: lifecycle({
       data: 'Authorized case features',
       analyze: 'Fuse cross-district signals',
@@ -53,6 +58,11 @@ const definitions = deepFreeze([
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listHotspots' },
     analyticalMethod: 'Density-based spatial clustering',
+    aiAssistance: {
+      label: 'DBSCAN',
+      methodVersion: 'DBSCAN-1.0',
+      explanation: 'The model uses DBSCAN to group nearby cases within the configured spatial and time window, using case density to create a machine-generated hotspot signal. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+    },
     stages: lifecycle({
       data: 'Authorized geocoded cases',
       analyze: 'Detect spatial concentrations',
@@ -78,6 +88,11 @@ const definitions = deepFreeze([
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listAnomalies' },
     analyticalMethod: 'Baseline deviation analysis',
+    aiAssistance: {
+      label: 'Median + MAD',
+      methodVersion: 'MAD-1.0',
+      explanation: 'The model compares observed values with a robust median baseline and median absolute deviation (MAD) to create a machine-generated anomaly signal when departure is material. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+    },
     stages: lifecycle({
       data: 'Authorized area time series',
       analyze: 'Compare values with baselines',
