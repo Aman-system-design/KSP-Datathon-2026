@@ -1185,7 +1185,7 @@ export class CatalystIntelligenceRepository {
     }
   }
 
-  async createAlertsIfAbsent({ alerts, ruleGuard }) {
+  async createAlertsIfAbsent({ alerts, ruleGuard, publicationGuard }) {
     if (!Array.isArray(alerts) || alerts.length > 1) {
       throw new TypeError('manual utility evaluation supports one aggregated alert per rule run.');
     }
@@ -1195,14 +1195,25 @@ export class CatalystIntelligenceRepository {
     if (!matchesGuard(await this.getUtilityRule(ruleGuard?.ruleId))) {
       const error = new Error('utility rule changed before alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
     }
+    const matchesPublication = async () => {
+      if (!publicationGuard) return true;
+      const current = await this.getCurrentRunGroup();
+      return current?.RunGroupID === publicationGuard.runGroupId
+        && current.runs.some(run => run.AnalysisRunID === publicationGuard.analysisRunId
+          && String(run.AnalysisRunRef ?? run.ROWID ?? run.AnalysisRunID)
+            === String(publicationGuard.analysisRunRef));
+    };
+    if (!await matchesPublication()) {
+      const error = new Error('intelligence publication changed before alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
+    }
     if (alerts.length === 0) return [];
     const result = await this.createAlertIfAbsent(alerts[0]);
-    if (!matchesGuard(await this.getUtilityRule(ruleGuard.ruleId))) {
+    if (!matchesGuard(await this.getUtilityRule(ruleGuard.ruleId)) || !await matchesPublication()) {
       if (result.created) {
         const [row] = await this.#queryIndexed(TABLES.alerts, 'AlertID', alerts[0].AlertID, { maxRows: 1 });
         if (row?.ROWID) await this.#delete(TABLES.alerts, row.ROWID);
       }
-      const error = new Error('utility rule changed during alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
+      const error = new Error('utility rule or publication changed during alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
     }
     return [result];
   }

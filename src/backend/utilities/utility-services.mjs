@@ -311,6 +311,11 @@ export function createUtilityServices({ repository, idFactory, now } = {}) {
             ruleId: rule.RuleID, expectedVersion: rule.Version,
             scopeUnitId: rule.ScopeUnitID, utilityVersion: rule.UtilityVersion,
           },
+          publicationGuard: {
+            runGroupId: runGroup.RunGroupID,
+            analysisRunId: analysisRun.AnalysisRunID,
+            analysisRunRef: String(analysisRun.AnalysisRunRef ?? analysisRun.AnalysisRunID),
+          },
         }));
       }
       return envelope({

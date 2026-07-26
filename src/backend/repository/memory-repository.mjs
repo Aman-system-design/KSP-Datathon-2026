@@ -327,13 +327,25 @@ export class MemoryIntelligenceRepository {
     this.#state.alerts.push(clone(alert));
     return { alert: clone(alert), created: true };
   }
-  async createAlertsIfAbsent({ alerts, ruleGuard }) {
+  async createAlertsIfAbsent({ alerts, ruleGuard, publicationGuard }) {
     const rule = this.#state.utilityRules.find(row => row.RuleID === ruleGuard?.ruleId);
     if (!rule || rule.Version !== ruleGuard.expectedVersion || rule.Enabled !== true
       || rule.ScopeUnitID !== ruleGuard.scopeUnitId || rule.UtilityVersion !== ruleGuard.utilityVersion) {
       const error = new Error('utility rule changed before alert commit');
       error.code = 'VERSION_CONFLICT';
       throw error;
+    }
+    if (publicationGuard) {
+      const current = this.#state.publicationState?.CurrentRunGroup;
+      const currentRun = current?.runs?.find(run => run.AnalysisRunID === publicationGuard.analysisRunId);
+      const currentRef = currentRun?.AnalysisRunRef ?? currentRun?.ROWID;
+      if (current?.RunGroupID !== publicationGuard.runGroupId
+        || !currentRun
+        || (currentRef !== undefined && String(currentRef) !== String(publicationGuard.analysisRunRef))) {
+        const error = new Error('intelligence publication changed before alert commit');
+        error.code = 'VERSION_CONFLICT';
+        throw error;
+      }
     }
     if (!Array.isArray(alerts) || new Set(alerts.map(row => row.AlertID)).size !== alerts.length) {
       throw invalidRequest('alert batch must contain unique alert IDs');

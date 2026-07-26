@@ -73,6 +73,16 @@ export function createRefreshApplication({
         clock, idFactory,
         auditKeys: { [config.auditKeyVersion]: config.auditKey },
         onProgress: nextPhase => { phase = nextPhase; },
+        onUtilityEvaluation: summary => {
+          try {
+            logger.info(JSON.stringify({
+              event: 'utility_refresh_evaluation_completed', requestId,
+              runGroupId: summary.runGroupId, status: summary.status,
+              rulesEligible: summary.rulesEligible, rulesFailed: summary.rulesFailed,
+              created: summary.created, existing: summary.existing,
+            }));
+          } catch { /* Observability cannot change publication state. */ }
+        },
       });
       phase = 'SERVICE_EXECUTION';
       const result = await service.execute(input);

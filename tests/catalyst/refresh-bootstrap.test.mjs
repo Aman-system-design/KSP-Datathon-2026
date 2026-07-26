@@ -17,6 +17,7 @@ function job(params) {
 
 function harness() {
   const calls = [];
+  const infoLogs = [];
   const context = {
     closeWithSuccess() { calls.push('success'); },
     closeWithFailure() { calls.push('failure'); },
@@ -28,9 +29,9 @@ function harness() {
   const application = createRefreshApplication({
     sdk, config, sourceManifest, clock: () => '2026-07-20T16:00:00.000Z',
     idFactory: prefix => `${prefix}-${++id}`, repositoryFactory: () => repository,
-    logger: { error() {} },
+    logger: { error() {}, info: message => infoLogs.push(message) },
   });
-  return { application, context, calls, sdkCalls, repository };
+  return { application, context, calls, sdkCalls, repository, infoLogs };
 }
 
 test('bootstrap validates parameters, persists source and returns only a safe reconciliation summary', async () => {
@@ -46,6 +47,11 @@ test('bootstrap validates parameters, persists source and returns only a safe re
   assert.deepEqual(fixture.calls, ['success']);
   assert.deepEqual(fixture.sdkCalls[0].options, { scope: 'admin' });
   assert.ok(await fixture.repository.getValidatedSource('KSP-DEMO-20260720-V1'));
+  assert.deepEqual(fixture.infoLogs.map(JSON.parse), [{
+    event: 'utility_refresh_evaluation_completed', requestId: 'JOB-1',
+    runGroupId: result.result.runGroup.RunGroupID, status: 'COMPLETED',
+    rulesEligible: 0, rulesFailed: 0, created: 0, existing: 0,
+  }]);
 });
 
 test('bootstrap accepts the bounded statewide profile and publishes 5,200 FIRs', async () => {
