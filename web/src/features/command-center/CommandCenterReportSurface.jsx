@@ -1,34 +1,40 @@
 import { Link, useLocation } from 'react-router-dom';
-import { MoreHorizontal } from 'lucide-react';
+import { BarChart3, Pencil, Trash2 } from 'lucide-react';
 
 import { governedAppLocation } from '../../app/runtime.js';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 
-function normalizedSelection(item, selection) {
-  if (!selection || typeof selection !== 'object') return selection;
-  if (typeof selection.field === 'string' && Object.hasOwn(selection, 'value') && selection.row) return selection;
-  const row = selection.row ?? selection;
-  const field = item.definition?.dimensions?.[0];
-  return field ? { field, value: row?.[field], row } : selection;
+function ResultTable({ rows }) {
+  const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
+  if (!rows.length) return <div className="command-center-report-empty">No matching data in the authorized scope.</div>;
+  return <div className="command-center-report-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{row[column] ?? '—'}</td>)}</tr>)}</tbody></table></div>;
 }
 
-export function CommandCenterReportSurface({ item, editing = false, onRemove = () => {}, onSelect, showPreviewMeta = true }) {
+export function CommandCenterReportSurface({ item, editing = false, onRemove = () => {}, returnTo = '' }) {
   const location = useLocation();
+  const baseReportLocation = governedAppLocation(`/reports/${item.reportId}`, location);
+  const reportParams = new URLSearchParams(baseReportLocation.search);
+  if (returnTo) reportParams.set('returnTo', returnTo);
+  const reportLocation = { ...baseReportLocation, search: reportParams.toString() ? `?${reportParams}` : '' };
+  const visualization = item.definition?.visualization?.type;
+  const definition = visualization === 'map'
+    ? { ...item.definition, style: { ...item.definition.style, palette: 'mapBlue' } }
+    : visualization === 'pie'
+      ? { ...item.definition, visualization: { ...item.definition.visualization, variant: 'doughnut' }, style: { ...item.definition.style, palette: 'dashboardPie', legend: 'right', valueLabels: true } }
+      : visualization === 'bar'
+        ? { ...item.definition, visualization: { ...item.definition.visualization, variant: 'horizontal' }, style: { ...item.definition.style, valueLabels: true } }
+        : visualization === 'line'
+          ? { ...item.definition, visualization: { ...item.definition.visualization, variant: 'area' }, style: { ...item.definition.style, legend: 'none' } }
+          : item.definition;
   return <article className="command-center-report" aria-label={item.title}>
-    <header><div>{showPreviewMeta ? <span>Governed report</span> : null}<h2>{item.title}</h2></div><div className="command-center-report-actions">{editing ? <button type="button" aria-label={`Report actions for ${item.title}`}><MoreHorizontal aria-hidden="true" /></button> : null}</div></header>
+    <header><div className="command-center-report-title"><span aria-hidden="true"><BarChart3 /></span><h2>{item.title}</h2></div><div className="command-center-report-actions">{editing ? <><Link aria-label={`Edit ${item.title} report`} title="Edit report" to={reportLocation}><Pencil aria-hidden="true" /></Link><button type="button" aria-label={`Remove ${item.title} report`} title="Remove report" onClick={() => onRemove(item.id)}><Trash2 aria-hidden="true" /></button></> : null}</div></header>
     <div className="command-center-report-body">{item.status === 'error'
       ? <div className="command-center-report-error" role="alert"><strong>Report unavailable</strong><span>Other dashboard intelligence remains available.</span><small>Reference {item.errorCode}</small></div>
       : item.mapExecution
         ? <div className="command-center-report-map-placeholder">Governed map output</div>
-        : <ReportPreview
-          preview={item.data ?? []}
-          definition={item.definition}
-          density="dashboard"
-          showMeta={showPreviewMeta}
-          hasRun
-          provenance={item.provenance ?? (item.syntheticData ? 'SYNTHETIC' : '')}
-          onSelect={typeof onSelect === 'function' ? selection => onSelect(item, normalizedSelection(item, selection)) : undefined}
-        />}</div>
-    <footer>{showPreviewMeta ? (item.freshness ? <span>{item.freshness}</span> : <span>Viewer-scoped result</span>) : <span>Current result</span>}<Link to={governedAppLocation(`/reports/${item.reportId}`, location)}>Open report</Link></footer>
+        : definition
+          ? <ReportPreview appearance="light" density="dashboard" definition={definition} preview={item.data ?? []} mapMetadata={item.mapMetadata} provenance={item.syntheticData ? 'Demonstration data' : ''} hasRun />
+          : <ResultTable rows={item.data ?? []} />}</div>
+    <footer>{item.syntheticData ? <span>Submission synthetic data</span> : item.freshness ? <span>{item.freshness}</span> : <span>Viewer-scoped result</span>}<Link to={reportLocation}>Open report</Link></footer>
   </article>;
 }

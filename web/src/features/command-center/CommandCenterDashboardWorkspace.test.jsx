@@ -13,8 +13,8 @@ import { CommandCenterDashboardWorkspace } from './CommandCenterDashboardWorkspa
 afterEach(cleanup);
 
 function enterPresentation() {
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'Dashboard actions' }), { button: 0, ctrlKey: false });
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Present' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Dashboard options' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Present dashboard' }));
 }
 
 test('keeps a visible exit action in presentation mode', () => {

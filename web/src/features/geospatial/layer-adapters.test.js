@@ -265,6 +265,37 @@ test('CHOROPLETH requires polygon geometry', () => {
   })).toThrow(/structural polygon geometry/);
 });
 
+test('CHOROPLETH honors a configured sequential palette and boundary colour', () => {
+  const polygon = value => ({
+    type: 'Feature', id: `district-${value}`, properties: { caseCount: value },
+    geometry: { type: 'Polygon', coordinates: [[[77, 12], [78, 12], [78, 13], [77, 12]]] },
+  });
+  const features = [polygon(0), polygon(50), polygon(100)];
+  const [spec] = buildDeckLayerSpecs({
+    layer: { id: 'districts', renderer: 'CHOROPLETH', colorField: 'caseCount', colorRange: ['#dbeafe', '#3b82f6', '#172554'], lineColor: '#ffffff' },
+    featureCollection: collection(...features),
+  });
+  expect(spec.getFillColor(features[0])).toEqual([219, 234, 254, 230]);
+  expect(spec.getFillColor(features[1])).toEqual([59, 130, 246, 230]);
+  expect(spec.getFillColor(features[2])).toEqual([23, 37, 84, 230]);
+  expect(spec.getLineColor).toEqual([255, 255, 255, 255]);
+});
+
+test('CHOROPLETH can add readable value-only labels', () => {
+  const polygon = {
+    type: 'Feature', id: 'district-1', properties: { districtName: 'Mysuru', caseCount: 128 },
+    geometry: { type: 'Polygon', coordinates: [[[76.4, 12.1], [77, 12.1], [77, 12.7], [76.4, 12.1]]] },
+  };
+  const specs = buildDeckLayerSpecs({
+    layer: { id: 'districts', renderer: 'CHOROPLETH', labelValueField: 'caseCount' },
+    featureCollection: collection(polygon),
+  });
+  expect(specs.map(spec => spec.kind)).toEqual(['GeoJsonLayer', 'TextLayer']);
+  expect(specs[1].getText(polygon)).toBe('128');
+  expect(specs[1].getPosition(polygon)[0]).toBeCloseTo(76.7);
+  expect(specs[1].getPosition(polygon)[1]).toBeCloseTo(12.4);
+});
+
 describe.each(['PATH', 'ARC'])('%s', renderer => {
   test('is explicitly unsupported by the reusable canvas adapter', () => {
     expect(() => buildDeckLayerSpecs({

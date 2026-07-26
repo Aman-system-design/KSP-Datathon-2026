@@ -81,6 +81,10 @@ function boundsSignature(bounds) {
 export function MapCanvas({
   layers = [],
   viewport,
+  basemapStyle = OPENFREEMAP_STYLE_URL,
+  showBasemapAttribution = true,
+  showNavigationControls = true,
+  fitOptions,
   onViewportChange,
   onFeatureSelect,
   onLayerError,
@@ -96,6 +100,7 @@ export function MapCanvas({
   const errorCallbackRef = useRef(onLayerError);
   const overlayGenerationRef = useRef(0);
   const initialViewportRef = useRef(viewport);
+  const fitOptionsRef = useRef(fitOptions);
   viewportCallbackRef.current = onViewportChange;
   featureCallbackRef.current = onFeatureSelect;
   errorCallbackRef.current = onLayerError;
@@ -147,14 +152,15 @@ export function MapCanvas({
     }
     const options = {
       container: containerRef.current,
-      style: OPENFREEMAP_STYLE_URL,
+      style: basemapStyle,
       center: initialViewport?.center ?? DEFAULT_CENTER,
       zoom: initialViewport?.zoom ?? 1.3,
-      attributionControl: { compact: false, customAttribution: OPENFREEMAP_ATTRIBUTION },
+      attributionControl: showBasemapAttribution ? { compact: true, customAttribution: OPENFREEMAP_ATTRIBUTION } : false,
     };
     if (initialViewport?.bounds) {
       const [west, south, east, north] = initialViewport.bounds;
       options.bounds = [[west, south], [east, north]];
+      options.fitBoundsOptions = fitOptionsRef.current;
       lastRequestedBoundsRef.current = boundsSignature(initialViewport.bounds);
     }
     const map = new maplibregl.Map(options);
@@ -177,7 +183,7 @@ export function MapCanvas({
     map.on('moveend', handleMove);
     map.on('error', handleError);
     map.on('load', handleLoad);
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true, visualizePitch: true }), 'top-right');
+    if (showNavigationControls) map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true, visualizePitch: true }), 'top-right');
     map.addControl(overlay);
     mapRef.current = map;
     overlayRef.current = overlay;
@@ -212,7 +218,7 @@ export function MapCanvas({
       lastRequestedBoundsRef.current = signature;
       if (cameraMatches(camera, nextViewport)) return;
       const [west, south, east, north] = nextViewport.bounds;
-      map.fitBounds([[west, south], [east, north]]);
+      map.fitBounds([[west, south], [east, north]], fitOptionsRef.current);
       return;
     }
     lastRequestedBoundsRef.current = null;
@@ -232,9 +238,9 @@ export function MapCanvas({
   return <div className="geospatial-map-frame">
     <div className="geospatial-map" ref={containerRef} role="region" aria-label="Geospatial intelligence map" />
     {rendererLoading ? <span className="geospatial-renderer-loading" role="status">Loading selected map renderer…</span> : null}
-    <small className="geospatial-map-attribution">
+    {showBasemapAttribution ? <small className="geospatial-map-attribution">
       Basemap by <a href="https://openfreemap.org/">OpenFreeMap</a> ·
       {' '}<a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>
-    </small>
+    </small> : null}
   </div>;
 }

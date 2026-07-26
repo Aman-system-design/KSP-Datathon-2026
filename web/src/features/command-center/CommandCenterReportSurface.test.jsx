@@ -1,48 +1,15 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, expect, test, vi } from 'vitest';
+import { expect, test, vi } from 'vitest';
 
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 
-afterEach(cleanup);
-
-test('renders a governed table through the report preview', () => {
-  render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-1', reportId: 'R-1', title: 'District movement', status: 'ready', definition: { name: 'District movement', dimensions: ['district'], measures: [{ field: 'case', aggregate: 'count' }], visualization: { type: 'table' }, style: {} }, data: [{ district: 'Mysuru', case_count: 12 }] }} /></MemoryRouter>);
-  expect(screen.getAllByRole('heading', { name: 'District movement' })).toHaveLength(2);
-  expect(screen.getByLabelText('table report visualization')).toBeInTheDocument();
+test('renders returned governed rows without inventing a metric', () => {
+  render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-1', reportId: 'R-1', title: 'District movement', status: 'ready', visualization: 'table', data: [{ district: 'Mysuru', case_count: 12 }] }} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'District movement' })).toBeInTheDocument();
   expect(screen.getByRole('table')).toHaveTextContent('Mysuru');
   expect(screen.getByRole('table')).toHaveTextContent('12');
-});
-
-test('renders charts as visualizations and forwards the selected governed row', () => {
-  const onSelect = vi.fn();
-  const item = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', definition: { name: 'Case ageing', dimensions: ['ageingBucket'], measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'bar' }, style: {} }, data: [{ ageingBucket: '60+ days', recordCount_sum: 4 }] };
-  render(<MemoryRouter><CommandCenterReportSurface item={item} onSelect={onSelect} /></MemoryRouter>);
-  expect(screen.getByLabelText('bar report visualization')).toBeInTheDocument();
-  expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByTitle('60+ days: 4'));
-  expect(onSelect).toHaveBeenCalledWith(item, {
-    field: 'ageingBucket', value: '60+ days',
-    row: { ageingBucket: '60+ days', recordCount_sum: 4 },
-  });
-});
-
-test('normalizes category chart selections from the report first dimension', () => {
-  const onSelect = vi.fn();
-  const row = { majorHead: 'Property', recordCount_sum: 7 };
-  const item = { id: 'I-7', reportId: 'R-7', title: 'Crime Category', status: 'ready', definition: { name: 'Crime Category', dimensions: ['majorHead'], measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'pie' }, style: {} }, data: [row] };
-  render(<MemoryRouter><CommandCenterReportSurface item={item} onSelect={onSelect} /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Property: 7' }));
-  expect(onSelect).toHaveBeenCalledWith(item, { field: 'majorHead', value: 'Property', row });
-});
-
-test('forwards a meaningful Open Case Register row selection', () => {
-  const onSelect = vi.fn();
-  const row = { caseId: 'CASE-17', caseNumber: '17/2026', status: 'Under Investigation' };
-  const item = { id: 'I-9', reportId: 'R-9', title: 'Open Case Register', status: 'ready', definition: { name: 'Open Case Register', dimensions: ['caseId', 'caseNumber', 'status'], measures: [], visualization: { type: 'table' }, style: {} }, data: [row] };
-  render(<MemoryRouter><CommandCenterReportSurface item={item} onSelect={onSelect} /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Open case 17/2026' }));
-  expect(onSelect).toHaveBeenCalledWith(item, { field: 'caseId', value: 'CASE-17', row });
+  expect(screen.queryByText('Governed report')).not.toBeInTheDocument();
 });
 
 test('contains a failed report with a safe reference', () => {
@@ -50,8 +17,20 @@ test('contains a failed report with a safe reference', () => {
   expect(screen.getByRole('alert')).toHaveTextContent('Reference REPORT_FAILED');
 });
 
-test('retains the isolated governed map surface', () => {
-  render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-3', reportId: 'R-3', title: 'Map', status: 'ready', mapExecution: { mapView: {} } }} /></MemoryRouter>);
-  expect(screen.getByText('Governed map output')).toBeInTheDocument();
-  expect(screen.queryByLabelText('Report preview')).not.toBeInTheDocument();
+test('renders a governed number visualization from its report definition', () => {
+  render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-3', reportId: 'R-3', title: 'Statewide FIR Volume', status: 'ready', syntheticData: true, definition: { name: 'Statewide FIR Volume', description: 'Synthetic submission dataset', dimensions: [], measures: [{ field: 'RecordCount', aggregate: 'sum' }], visualization: { type: 'number' }, style: {} }, data: [{ RecordCount_sum: 4900 }] }} /></MemoryRouter>);
+  expect(screen.getByTestId('report-number')).toHaveTextContent('4,900');
+});
+
+test('exposes explicit edit and remove actions only in dashboard edit mode', () => {
+  const onRemove = vi.fn();
+  const item = { id: 'I-4', reportId: 'R-4', title: 'Category share', status: 'ready', data: [] };
+  const { rerender } = render(<MemoryRouter initialEntries={['/?persona=STATE_LEADERSHIP']}><CommandCenterReportSurface item={item} onRemove={onRemove} /></MemoryRouter>);
+  expect(screen.queryByRole('link', { name: 'Edit Category share report' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Remove Category share report' })).not.toBeInTheDocument();
+
+  rerender(<MemoryRouter initialEntries={['/?persona=STATE_LEADERSHIP']}><CommandCenterReportSurface item={item} editing onRemove={onRemove} returnTo="state-leadership" /></MemoryRouter>);
+  expect(screen.getByRole('link', { name: 'Edit Category share report' })).toHaveAttribute('href', '/reports/R-4?persona=STATE_LEADERSHIP&returnTo=state-leadership');
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Category share report' }));
+  expect(onRemove).toHaveBeenCalledWith('I-4');
 });

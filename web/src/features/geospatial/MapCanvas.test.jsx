@@ -157,6 +157,20 @@ test('creates one map and overlay, updates them imperatively, and shows attribut
   });
 });
 
+test('supports a focused boundary-only map with capped district fitting', () => {
+  const navigationControlCount = mocks.navigationControls.length;
+  const focusedStyle = { version: 8, sources: {}, layers: [{ id: 'background', type: 'background' }] };
+  const requested = [77, 12, 78, 13];
+  const { rerender } = render(<MapCanvas layers={[]} viewport={{ center: [77.5, 12.5], zoom: 6 }} basemapStyle={focusedStyle} showBasemapAttribution={false} showNavigationControls={false} fitOptions={{ padding: 36, maxZoom: 8, duration: 220 }} />);
+  const map = mocks.maps.at(-1);
+  expect(map.options.style).toBe(focusedStyle);
+  expect(map.options.attributionControl).toBe(false);
+  expect(mocks.navigationControls).toHaveLength(navigationControlCount);
+  expect(screen.queryByRole('link', { name: 'OpenFreeMap' })).not.toBeInTheDocument();
+  rerender(<MapCanvas layers={[]} viewport={{ bounds: requested }} basemapStyle={focusedStyle} showBasemapAttribution={false} fitOptions={{ padding: 36, maxZoom: 8, duration: 220 }} />);
+  expect(map.fitBounds).toHaveBeenCalledWith([[77, 12], [78, 13]], { padding: 36, maxZoom: 8, duration: 220 });
+});
+
 test('uses current callbacks without recreating map subscriptions', () => {
   const first = vi.fn();
   const second = vi.fn();

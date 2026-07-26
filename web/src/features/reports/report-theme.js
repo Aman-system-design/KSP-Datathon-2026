@@ -2,6 +2,8 @@ const palettes = {
   categorical: ['#2563eb', '#0891b2', '#7c3aed', '#db2777', '#d97706', '#059669'],
   risk: ['#0f766e', '#65a30d', '#d97706', '#dc2626', '#991b1b'],
   sequential: ['#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8', '#172554'],
+  mapBlue: ['#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6'],
+  dashboardPie: ['#2563eb', '#38bdf8', '#14b8a6', '#8b5cf6', '#6366f1', '#0ea5e9'],
   diverging: ['#1d4ed8', '#93c5fd', '#e2e8f0', '#fca5a5', '#b91c1c'],
   ksp: ['#174f78', '#367da9', '#65a9d8', '#d6a84b', '#b64145', '#0f6b64'],
 };

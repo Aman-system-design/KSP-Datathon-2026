@@ -17,7 +17,17 @@ const stateLeadershipModules = Object.freeze([
   { to: '/dashboards', label: 'Dashboards', icon: 'dashboard' },
 ]);
 
+const commandCenterModules = Object.freeze([
+  { to: '/', label: 'Home', icon: 'home' },
+  { to: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
+  { to: '/alerts', label: 'Alerts', icon: 'alerts' },
+  { to: '/reports', label: 'Reports', icon: 'report' },
+  { to: '/utilities', label: 'Utilities', icon: 'utilities' },
+  { to: '/dashboards', label: 'Dashboards', icon: 'dashboard' },
+]);
+
 const roleDefinitions = Object.freeze({
+  COMMAND_CENTER: { workspaceLabel: 'Operational Command Center', modules: commandCenterModules },
   STATE_LEADERSHIP: { workspaceLabel: 'State Intelligence Brief', modules: stateLeadershipModules },
   REGIONAL_LEADERSHIP: { workspaceLabel: 'Jurisdiction Intelligence Pulse', modules: intelligenceModules },
   DISTRICT_LEADERSHIP: { workspaceLabel: 'Jurisdiction Intelligence Pulse', modules: intelligenceModules },

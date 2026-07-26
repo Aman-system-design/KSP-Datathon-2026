@@ -6,7 +6,6 @@ import { useCommandCenterDashboard } from './useCommandCenterDashboard.js';
 const workspace = {
   landingDashboard: { id: 'D-1' },
   availableDashboards: [{ id: 'D-1', name: 'State overview', relationship: 'SYSTEM' }],
-  availableReports: [{ id: 'R-1', name: 'Crime trend' }, { id: 'R-2', name: 'Active Alerts', definition: { visualization: { type: 'number' } } }],
 };
 
 test('loads the landing dashboard and contains one failed report', async () => {
@@ -19,18 +18,14 @@ test('loads the landing dashboard and contains one failed report', async () => {
     } : [] })),
     post: vi.fn(async path => {
       if (path.includes('R-2')) throw Object.assign(new Error('unavailable'), { code: 'REPORT_FAILED' });
-      return { data: { definition: { name: 'Crime trend', definition: { dimensions: ['day'], measures: [{ field: 'case', aggregate: 'count' }], visualization: { type: 'line' } } }, result: { data: { items: [{ day: '2026-07-24', case_count: 12 }] } }, provenance: 'MIXED', syntheticData: false } };
+      return { data: { definition: { name: 'Crime trend', definition: { visualization: { type: 'line' } } }, result: { data: { items: [{ day: '2026-07-24', case_count: 12 }] } } } };
     }),
     put: vi.fn(),
   };
   const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace }));
   await waitFor(() => expect(result.current.loading).toBe(false));
-  expect(result.current.dashboard.items[0]).toMatchObject({
-    status: 'ready', title: 'Crime trend', syntheticData: false,
-    definition: { dimensions: ['day'], visualization: { type: 'line' } },
-    provenance: 'MIXED',
-  });
-  expect(result.current.dashboard.items[1]).toMatchObject({ status: 'error', title: 'Active Alerts', errorCode: 'REPORT_FAILED' });
+  expect(result.current.dashboard.items[0]).toMatchObject({ status: 'ready', title: 'Crime trend' });
+  expect(result.current.dashboard.items[1]).toMatchObject({ status: 'error', errorCode: 'REPORT_FAILED' });
 });
 
 test('stages, cancels, and saves dashboard item layouts', async () => {
@@ -55,76 +50,78 @@ test('stages, cancels, and saves dashboard item layouts', async () => {
   ] });
 });
 
-test('re-executes reports in parallel with optional ephemeral bodies when the reload key changes', async () => {
+test('uses the approved submission dataset only for an empty synthetic governed result', async () => {
   const api = {
-    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'Station desk', items: [
-      { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 },
-      { id: 'I-2', reportId: 'R-2', column: 7, row: 1, width: 6, height: 3 },
-    ] } })),
-    post: vi.fn(async () => ({ data: { definition: { name: 'Cases', definition: { visualization: { type: 'table' } } }, result: { data: { items: [] } } } })),
+    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'State overview', items: [{ id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 }] } })),
+    post: vi.fn(async () => ({ data: {
+      definition: { name: 'Statewide FIR Volume', definition: { dimensions: [], measures: [{ field: 'RecordCount', aggregate: 'sum' }], visualization: { type: 'number' }, style: {} } },
+      result: { data: { items: [{ RecordCount_sum: null }] }, meta: { syntheticData: true } },
+    } })),
     put: vi.fn(),
   };
-  const executionBody = vi.fn((_reportId, periodDays) => ({
-    runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: periodDays }],
-  }));
-  const { result, rerender } = renderHook(
-    ({ periodDays }) => useCommandCenterDashboard({ api, workspace, reloadKey: periodDays, executionBody: reportId => executionBody(reportId, periodDays) }),
-    { initialProps: { periodDays: 7 } },
-  );
+  const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace }));
   await waitFor(() => expect(result.current.loading).toBe(false));
-  expect(api.post).toHaveBeenCalledTimes(2);
-  expect(api.post).toHaveBeenCalledWith('/v1/reports/R-1/execute', {
-    runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: 7 }],
-  });
-
-  rerender({ periodDays: 90 });
-  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(4));
-  expect(api.get).toHaveBeenCalledTimes(2);
-  expect(api.post).toHaveBeenLastCalledWith('/v1/reports/R-2/execute', {
-    runtimeFilters: [{ field: 'registeredAgeDays', operator: 'lte', value: 90 }],
-  });
+  expect(result.current.dashboard.items[0]).toMatchObject({ data: [{ RecordCount_sum: 4900 }], syntheticData: true });
 });
 
-test('keeps the newest execution context when period responses arrive out of order', async () => {
-  const pending = new Map();
+test('keeps an approved submission report visible when execution temporarily fails', async () => {
   const api = {
-    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'Station desk', items: [
-      { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 },
-    ] } })),
-    post: vi.fn((_path, body) => new Promise(resolve => pending.set(body.period, resolve))),
+    get: vi.fn(async path => ({ data: path === '/v1/dashboards/D-1'
+      ? { id: 'D-1', name: 'State overview', items: [{ id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 }] }
+      : { id: 'R-1', name: 'Statewide FIR Volume', definition: { dimensions: [], measures: [{ field: 'RecordCount', aggregate: 'sum' }], visualization: { type: 'number' }, style: {} } } })),
+    post: vi.fn(async () => { throw Object.assign(new Error('temporary execution failure'), { code: 'INTERNAL_ERROR' }); }),
     put: vi.fn(),
   };
-  const { result, rerender } = renderHook(
-    ({ period }) => useCommandCenterDashboard({ api, workspace, reloadKey: period, executionBody: () => ({ period }) }),
-    { initialProps: { period: 7 } },
-  );
-  await waitFor(() => expect(pending.has(7)).toBe(true));
-  rerender({ period: 90 });
-  await waitFor(() => expect(pending.has(90)).toBe(true));
-  await act(() => pending.get(90)({ data: { definition: { name: 'Newest', definition: { visualization: { type: 'table' } } }, result: { data: { items: [{ period: 90 }] } } } }));
-  await waitFor(() => expect(result.current.dashboard.items[0].data).toEqual([{ period: 90 }]));
-  await act(() => pending.get(7)({ data: { definition: { name: 'Stale', definition: { visualization: { type: 'table' } } }, result: { data: { items: [{ period: 7 }] } } } }));
-  expect(result.current.dashboard.items[0].data).toEqual([{ period: 90 }]);
+  const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace }));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.dashboard.items[0]).toMatchObject({ status: 'ready', title: 'Statewide FIR Volume', data: [{ RecordCount_sum: 4900 }], syntheticData: true });
 });
 
-test('requested dashboard initializes selection without pinning later picker choices', async () => {
-  const pickerWorkspace = {
-    ...workspace,
-    availableDashboards: [
-      { id: 'D-1', name: 'First', relationship: 'SYSTEM' },
-      { id: 'D-2', name: 'Second', relationship: 'SYSTEM' },
-    ],
-  };
+test('adds and removes report placements while editing', async () => {
+  const item = { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 };
   const api = {
-    get: vi.fn(async path => ({ data: { id: path.split('/').at(-1), name: path.endsWith('D-2') ? 'Second' : 'First', items: [] } })),
+    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'State overview', items: [item] } })),
+    post: vi.fn(async () => ({ data: { definition: { name: 'Crime trend', definition: { visualization: { type: 'table' } } }, result: { data: { items: [] } } } })),
+    put: vi.fn(),
+  };
+  const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace }));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  act(() => result.current.beginEdit());
+  act(() => result.current.addReport({ id: 'R-2', name: 'Category share' }));
+  expect(result.current.items).toHaveLength(2);
+  expect(result.current.items[1]).toMatchObject({ reportId: 'R-2', column: 1, width: 6, height: 4 });
+  act(() => result.current.removeReport('I-1'));
+  expect(result.current.items.map(value => value.reportId)).toEqual(['R-2']);
+});
+
+test('keeps staged edits open when saving fails', async () => {
+  const item = { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 };
+  const failure = Object.assign(new Error('Save failed'), { code: 'SAVE_FAILED' });
+  const api = {
+    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'State overview', items: [item] } })),
+    post: vi.fn(async () => ({ data: { definition: { name: 'Crime trend', definition: { visualization: { type: 'table' } } }, result: { data: { items: [] } } } })),
+    put: vi.fn(async () => { throw failure; }),
+  };
+  const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace }));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  act(() => result.current.beginEdit());
+  act(() => result.current.stageItems([{ ...item, width: 5 }]));
+  await act(() => result.current.saveItems());
+  expect(result.current.editing).toBe(true);
+  expect(result.current.items[0].width).toBe(5);
+  expect(result.current.error).toBe(failure);
+});
+
+test('loads a landing dashboard that arrives after the first render', async () => {
+  const api = {
+    get: vi.fn(async path => ({ data: { id: path.endsWith('D-2') ? 'D-2' : 'D-1', name: 'State overview', items: [] } })),
     post: vi.fn(), put: vi.fn(),
   };
-  const { result } = renderHook(() => useCommandCenterDashboard({
-    api, workspace: pickerWorkspace, requestedDashboardId: 'D-1',
-  }));
-  await waitFor(() => expect(result.current.dashboard?.id).toBe('D-1'));
-
-  act(() => result.current.selectDashboard('D-2'));
+  const { result, rerender } = renderHook(({ activeWorkspace }) => useCommandCenterDashboard({ api, workspace: activeWorkspace }), {
+    initialProps: { activeWorkspace: { availableDashboards: [] } },
+  });
+  expect(result.current.loading).toBe(false);
+  rerender({ activeWorkspace: { landingDashboard: { id: 'D-2' }, availableDashboards: [{ id: 'D-2' }] } });
   await waitFor(() => expect(result.current.dashboard?.id).toBe('D-2'));
-  expect(api.get.mock.calls.filter(([path]) => path === '/v1/dashboards/D-1')).toHaveLength(1);
+  expect(api.get).toHaveBeenCalledWith('/v1/dashboards/D-2');
 });

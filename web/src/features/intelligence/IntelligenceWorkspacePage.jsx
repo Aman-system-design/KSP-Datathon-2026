@@ -1,6 +1,7 @@
 import { Busy, Failure } from '../../app/AsyncStates.jsx';
 import { useLoad } from '../../app/useLoad.js';
 import { PersonaWorkspace } from '../workspaces/PersonaWorkspace.jsx';
+import { CommandCenterIntelligence } from '../command-center/CommandCenterIntelligence.jsx';
 
 export function IntelligenceWorkspacePage({ api, role }) {
   const state = useLoad(async () => {
@@ -28,5 +29,5 @@ export function IntelligenceWorkspacePage({ api, role }) {
   }, [api]);
   if (state.loading) return <Busy />;
   if (state.error) return <Failure error={state.error} />;
-  return <PersonaWorkspace role={role} data={state.data} />;
+  return role === 'COMMAND_CENTER' ? <CommandCenterIntelligence data={state.data} /> : <PersonaWorkspace role={role} data={state.data} />;
 }

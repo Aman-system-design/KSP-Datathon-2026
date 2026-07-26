@@ -40,4 +40,11 @@ describe('platform viewport layout contract', () => {
     expect(catalystAuthCss).toMatch(/body\s*{[^}]*overflow-y:\s*auto/s);
     expect(catalystAuthCss).not.toMatch(/(?:#forgotpassword|\.bluetext_action|\.fed_div)[^{]*{[^}]*display:\s*none/s);
   });
+
+  test('keeps the State Leadership dashboard contained and responsive', () => {
+    expect(appCss).toMatch(/\.state-leadership-dashboard\s*{[^}]*min-height:\s*0/s);
+    expect(appCss).toMatch(/\.state-leadership-dashboard\s*>\s*\.command-center-dashboard-canvas\s*{[^}]*min-height:/s);
+    expect(appCss).toMatch(/@media\s*\(max-width:\s*700px\)[^{]*{[\s\S]*\.state-leadership-dashboard__header\s*{[^}]*flex-direction:\s*column/s);
+    expect(appCss).toMatch(/@media\s*\(max-width:\s*700px\)[^{]*{[\s\S]*\.state-leadership-dashboard\s*\.command-center-dashboard-placement\s*{[^}]*position:\s*relative/s);
+  });
 });

@@ -15,7 +15,7 @@ const data = {
 
 test.each([
   ['STATE_LEADERSHIP', 'State Intelligence Brief'],
-  ['DISTRICT_LEADERSHIP', 'Jurisdiction Intelligence Pulse'],
+  ['DISTRICT_LEADERSHIP', 'Authorized district operational pulse'],
   ['CRIME_ANALYST', 'Analyst Workbench'],
   ['STATION_OPERATIONS', 'Operational Intelligence'],
   ['INVESTIGATOR', 'Investigation Tasks'],
@@ -35,26 +35,26 @@ test('analyst workspace keeps model output, limitations and evidence review visi
 
 test('workspace with unavailable governed results renders an honest partial state', () => {
   render(<MemoryRouter><PersonaWorkspace role="DISTRICT_LEADERSHIP" data={{ partial: true }} /></MemoryRouter>);
-  expect(screen.getByText(/some intelligence services are unavailable/i)).toBeInTheDocument();
+  expect(screen.getByText(/some district intelligence is unavailable/i)).toBeInTheDocument();
   expect(screen.queryByText(/0 alerts/i)).not.toBeInTheDocument();
 });
 
 test('missing analytical values are unavailable rather than invented zeroes', () => {
-  render(<MemoryRouter><PersonaWorkspace role="DISTRICT_LEADERSHIP" data={{
+  render(<MemoryRouter><PersonaWorkspace role="CRIME_ANALYST" data={{
     anomalies: [{ id: 'A-1', label: 'Incomplete anomaly result' }],
     hotspots: [{ id: 'H-1', area: 'Central corridor' }],
   }} /></MemoryRouter>);
 
   expect(screen.getByText(/observed unavailable against baseline unavailable/i)).toBeInTheDocument();
-  expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Unavailable/).length).toBeGreaterThan(0);
   expect(screen.queryByText('0%')).not.toBeInTheDocument();
 });
 
 test('district leadership receives a jurisdiction decision flow, not the generic platform home', () => {
   render(<MemoryRouter><PersonaWorkspace role="DISTRICT_LEADERSHIP" data={data} /></MemoryRouter>);
-  expect(screen.getByRole('heading', { name: 'Jurisdiction Intelligence Pulse' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'What changed' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Operational ownership' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Authorized district operational pulse' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Monthly FIR trend' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Station concentration' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Open district map' })).toHaveAttribute('href', '/geospatial');
 });
 

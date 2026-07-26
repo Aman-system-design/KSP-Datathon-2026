@@ -83,7 +83,7 @@ export function commandCenterDashboardLocation(currentSearch = '', { mode = 'can
 }
 
 export function commandCenterModuleLocation(currentSearch = '', moduleId = 'home') {
-  const routes = Object.freeze({ analytics: '/intelligence', alerts: '/alerts', map: '/geospatial', network: '/networks', reports: '/reports', utilities: '/utilities' });
+  const routes = Object.freeze({ intelligence: '/intelligence', alerts: '/alerts', reports: '/reports', utilities: '/utilities' });
   if (moduleId === 'home') return Object.freeze({ pathname: '/', search: personaSearch(currentSearch, 'COMMAND_CENTER') });
   const pathname = routes[moduleId];
   if (!pathname) throw new TypeError('A Command Center module is required');

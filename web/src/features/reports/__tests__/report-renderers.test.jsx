@@ -101,10 +101,34 @@ test('doughnut reports expose the governed total in the chart centre', () => {
   expect(screen.getByLabelText('Total 19')).toBeInTheDocument();
 });
 
+test('pie legends expose category percentages for fast comparison', () => {
+  render(<ReportPreview preview={preview} definition={{ ...definition, visualization: { type: 'pie', variant: 'doughnut' }, style: { legend: 'right', valueLabels: true } }} />);
+  const legend = screen.getByTestId('report-legend');
+  expect(legend).toHaveTextContent('63%');
+  expect(legend).toHaveTextContent('37%');
+});
+
 test('line reports identify the peak evidence point', () => {
   render(<ReportPreview preview={preview} definition={{ ...definition, visualization: { type: 'line', variant: 'area' } }} />);
   expect(screen.getByTestId('report-line-peak')).toHaveAccessibleName(/Bengaluru/);
   expect(screen.getByTestId('report-chart-grid')).toBeInTheDocument();
+});
+
+test('lifecycle funnels show stage shares and the chargesheet conversion insight', () => {
+  render(<ReportPreview preview={[
+    { CaseStatusLabel: 'Under Investigation', RecordCount_sum: 3920 },
+    { CaseStatusLabel: 'Chargesheet Filed', RecordCount_sum: 980 },
+  ]} definition={{
+    ...definition,
+    dimensions: ['CaseStatusLabel'],
+    measures: [{ field: 'RecordCount', aggregate: 'sum' }],
+    visualization: { type: 'funnel' },
+    style: { valueLabels: true },
+  }} />);
+  expect(screen.getByText('80%')).toBeInTheDocument();
+  expect(screen.getByText('20%')).toBeInTheDocument();
+  expect(screen.getByText('Chargesheet conversion')).toBeInTheDocument();
+  expect(screen.getByText('25%')).toBeInTheDocument();
 });
 
 test('risk report has a summary score and contributing evidence bars', () => {

@@ -2,14 +2,14 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Info, X } from 'lucide-react';
 
 import districtBoundaryText from '../../../assets/geospatial/karnataka-districts.geojson?raw';
-import { OPENFREEMAP_SUBDUED_STYLE_URL } from '../../geospatial/map-style.js';
+import { KARNATAKA_FOCUSED_STYLE } from '../../geospatial/map-style.js';
 import { paletteColors } from '../report-theme.js';
 import './MapReport.css';
 
 const LazyMapCanvas = lazy(() => import('../../geospatial/MapCanvas.jsx').then(module => ({ default: module.MapCanvas })));
 
 export const KARNATAKA_BOUNDS = Object.freeze([74.04, 11.59, 78.59, 18.48]);
-export const MAP_PALETTE = Object.freeze(['#e8f1fb', '#bdd7ee', '#75add3', '#367da9', '#174f78']);
+export const MAP_PALETTE = Object.freeze(['#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6']);
 const districtBoundaries = JSON.parse(districtBoundaryText);
 
 function rowValue(row) {
@@ -93,6 +93,8 @@ export function MapReport({ rows = [], mapMetadata = {}, MapComponent, palette =
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
   const [fitRequest, setFitRequest] = useState(0);
+  const [showCaseNumbers, setShowCaseNumbers] = useState(true);
+  const [showLegend, setShowLegend] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoTriggerRef = useRef(null);
   const infoPanelRef = useRef(null);
@@ -119,6 +121,7 @@ export function MapReport({ rows = [], mapMetadata = {}, MapComponent, palette =
       colorField: 'caseCount', selectedFeatureId: selected?.id, colorRange,
       lineColor: '#ffffff', selectedLineColor: '#ffffff',
       tooltipFields: ['districtName', 'caseCount'],
+      labelValueField: density === 'dashboard' && showCaseNumbers ? 'caseCount' : undefined,
     },
     featureCollection: districtCollection,
   }];
@@ -171,21 +174,21 @@ export function MapReport({ rows = [], mapMetadata = {}, MapComponent, palette =
           viewport={viewport}
           fitRequest={fitRequest}
           fitDuration={fitDuration}
-          styleUrl={OPENFREEMAP_SUBDUED_STYLE_URL}
+          basemapStyle={KARNATAKA_FOCUSED_STYLE}
+          showBasemapAttribution={false}
+          showNavigationControls={!dashboard}
+          fitOptions={{ padding: dashboard ? 34 : 48, maxZoom: 8, duration: fitDuration }}
           onFeatureHover={selection => setHovered(selection)}
           onFeatureSelect={selection => {
             if (selection?.layerId === 'report-hotspots') return;
             setSelected(selection);
-            if (dashboard) {
-              const activeElement = document.activeElement;
-              const returnFocus = activeElement && activeElement !== document.body ? activeElement : infoTriggerRef.current;
-              openInfo({ focusPanel: true, returnFocus });
-            }
           }}
         />
       </Suspense>
       <button className="map-report__fit" type="button" onClick={fitKarnataka}>Fit Karnataka</button>
-      {dashboard ? <button ref={infoTriggerRef} className="map-report__info-trigger" type="button" aria-expanded={infoOpen} aria-controls="map-report-information" aria-label="Map information" onClick={() => infoOpen ? closeInfo() : openInfo()}><Info aria-hidden="true" /></button> : null}
+      {dashboard ? <div className="map-report__compact-controls"><button type="button" aria-label={showCaseNumbers ? 'Hide case numbers' : 'Show case numbers'} aria-pressed={showCaseNumbers} onClick={() => setShowCaseNumbers(visible => !visible)}>Numbers</button><button type="button" aria-label={showLegend ? 'Hide case count legend' : 'Show case count legend'} aria-expanded={showLegend} onClick={() => setShowLegend(visible => !visible)}>Legend</button></div> : null}
+      {dashboard && showLegend ? <ul aria-label="Case count legend" className="map-report__legend map-report__legend--overlay">{legendStops(maximum, colorRange).map(stop => <li key={`${stop.color}-${stop.label}`}><span aria-hidden="true" style={{ backgroundColor: stop.color }} />{stop.label}</li>)}</ul> : null}
+      {dashboard && selectedFeature ? <div className="map-report__selected-label" role="status" aria-label={`Selected district ${selectedFeature.properties.districtName}`}><span>Selected district</span><strong>{selectedFeature.properties.districtName}</strong><small>{selectedFeature.properties.caseCount.toLocaleString()} cases</small></div> : null}
       {!dashboard ? <p className="map-report__hover" role="status" aria-live="polite">
         {hovered ? `${hovered.properties.districtName}: ${hovered.properties.caseCount.toLocaleString()} cases` : 'Hover a district for its case count'}
       </p> : null}
@@ -200,8 +203,9 @@ export function MapReport({ rows = [], mapMetadata = {}, MapComponent, palette =
       </small>
     </aside> : null}
     {dashboard && infoOpen ? <aside ref={infoPanelRef} id="map-report-information" className="map-report__info" role="region" aria-label="Map information" tabIndex={-1}>
-      <header><div><span>Map intelligence</span><strong>District choropleth</strong></div><button type="button" aria-label="Close map information" onClick={closeInfo}><X aria-hidden="true" /></button></header>
+      <header><div><span>{selectedFeature ? 'Selected district' : 'Karnataka intelligence'}</span><strong>{selectedFeature?.properties.districtName ?? 'Karnataka districts'}</strong>{selectedFeature ? <small>{selectedFeature.properties.caseCount.toLocaleString()} cases</small> : null}</div><button type="button" aria-label="Close map information" onClick={closeInfo}><X aria-hidden="true" /></button></header>
       <dl>
+        {selectedFeature ? <div className="map-report__selected-row"><dt>District</dt><dd>{selectedFeature.properties.districtName} · {selectedFeature.properties.caseCount.toLocaleString()}</dd></div> : null}
         <div><dt>Total cases</dt><dd>{totalCases.toLocaleString()}</dd></div>
         <div><dt>Highest district</dt><dd>{highestDistrict.properties.districtName} · {highestDistrict.properties.caseCount.toLocaleString()}</dd></div>
         <div><dt>District data</dt><dd>{suppliedDistrictCodes.size} of {districtCollection.features.length} districts supplied</dd></div>

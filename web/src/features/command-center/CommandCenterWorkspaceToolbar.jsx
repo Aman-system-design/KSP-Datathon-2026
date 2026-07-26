@@ -1,17 +1,29 @@
 import { useState } from 'react';
-import { ChevronDown, Maximize2 } from 'lucide-react';
+import { Check, Maximize2, MoreHorizontal, Pencil, Plus, Save, X } from 'lucide-react';
 
-export function CommandCenterWorkspaceToolbar({ dashboard, activeTab = 'overview', editing = false, saving = false, onTab = () => {}, onEdit = () => {}, onSave = () => {}, onCancel = () => {}, onPresent = () => {} }) {
-  const [tabsOpen, setTabsOpen] = useState(false);
+export function CommandCenterWorkspaceToolbar({ dashboard, activeTab = 'overview', editing = false, saving = false, onTab = () => {}, onEdit = () => {}, onAdd = () => {}, onSave = () => {}, onCancel = () => {}, onPresent = () => {} }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   if (!dashboard) return null;
   const tabs = dashboard.tabs ?? [];
   const active = tabs.find(tab => tab.id === activeTab) ?? tabs[0];
+  const closeAfter = callback => () => { callback(); setMenuOpen(false); };
   return <header className="command-center-workspace-toolbar">
     <div className="command-center-workspace-title"><strong>{dashboard.name}</strong>{dashboard.defaultRole ? <span>Default</span> : null}</div>
     <div className="command-center-workspace-actions">
-      <div className="command-center-tab-control"><button type="button" aria-label={`${active?.name ?? 'Overview'} dashboard tab`} aria-expanded={tabsOpen} onClick={() => setTabsOpen(open => !open)}>{active?.name ?? 'Overview'}<ChevronDown aria-hidden="true" /></button>{tabsOpen ? <div role="menu" aria-label="Dashboard tabs">{tabs.map(tab => <button role="menuitem" type="button" key={tab.id} onClick={() => { onTab(tab.id); setTabsOpen(false); }}>{tab.name}</button>)}</div> : null}</div>
-      {editing ? <><button type="button" onClick={onCancel}>Cancel</button><button className="primary" type="button" disabled={saving} onClick={onSave}>{saving ? 'Savingâ€¦' : 'Save'}</button></> : <button type="button" onClick={onEdit}>Edit dashboard</button>}
-      <button type="button" onClick={onPresent}><Maximize2 aria-hidden="true" />Present</button>
+      <div className="command-center-toolbar-menu">
+        <button type="button" aria-label="Dashboard options" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}><MoreHorizontal aria-hidden="true" /></button>
+        {menuOpen ? <div role="menu" aria-label="Dashboard tabs" className="command-center-toolbar-menu__popover">
+          <span>Dashboard view</span>
+          {tabs.map(tab => <button role="menuitem" type="button" key={tab.id} onClick={closeAfter(() => onTab(tab.id))}>{tab.id === active?.id ? <Check aria-hidden="true" /> : <i />}{tab.name}</button>)}
+          <hr />
+          {editing ? <>
+            <button role="menuitem" type="button" onClick={closeAfter(onAdd)}><Plus aria-hidden="true" />Add chart</button>
+            <button role="menuitem" type="button" onClick={closeAfter(onCancel)}><X aria-hidden="true" />Cancel editing</button>
+            <button role="menuitem" type="button" disabled={saving} onClick={closeAfter(onSave)}><Save aria-hidden="true" />{saving ? 'Saving…' : 'Save dashboard'}</button>
+          </> : <button role="menuitem" type="button" onClick={closeAfter(onEdit)}><Pencil aria-hidden="true" />Edit dashboard</button>}
+          <button role="menuitem" type="button" onClick={closeAfter(onPresent)}><Maximize2 aria-hidden="true" />Present dashboard</button>
+        </div> : null}
+      </div>
     </div>
   </header>;
 }

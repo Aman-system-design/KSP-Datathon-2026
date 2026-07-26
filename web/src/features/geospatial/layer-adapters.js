@@ -80,6 +80,13 @@ function signalColor(feature, layer, palette) {
   return palette.monitoring;
 }
 
+function rgba(value, alpha = 255) {
+  if (Array.isArray(value)) return value.length === 4 ? value : [...value, alpha];
+  const hex = String(value ?? '').replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return [148, 163, 184, alpha];
+  return [Number.parseInt(hex.slice(0, 2), 16), Number.parseInt(hex.slice(2, 4), 16), Number.parseInt(hex.slice(4, 6), 16), alpha];
+}
+
 function pointSpec(layer, data, onFeatureSelect, selectionLayerId = layer.id) {
   return {
     kind: 'ScatterplotLayer',
@@ -262,12 +269,35 @@ function hasStructuralPolygonGeometry(geometry) {
       && nonDegenerateRing(ring)));
 }
 
+function polygonLabelPosition(feature) {
+  const positions = [];
+  const collect = value => {
+    if (Array.isArray(value) && value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) positions.push(value);
+    else if (Array.isArray(value)) value.forEach(collect);
+  };
+  collect(feature?.geometry?.coordinates);
+  const longitudes = positions.map(position => position[0]);
+  const latitudes = positions.map(position => position[1]);
+  return [(Math.min(...longitudes) + Math.max(...longitudes)) / 2, (Math.min(...latitudes) + Math.max(...latitudes)) / 2];
+}
+
 function choroplethSpec(layer, data, onFeatureSelect) {
   for (const feature of data) {
     if (!hasStructuralPolygonGeometry(feature?.geometry)) {
       throw new Error(`feature ${feature?.id ?? ''} must have structural polygon geometry`);
     }
   }
+  const configuredRange = Array.isArray(layer.colorRange) && layer.colorRange.length > 0
+    ? layer.colorRange.map(color => rgba(color, 230)) : null;
+  const values = configuredRange ? data.map(feature => Number(feature?.properties?.[layer.colorField])).filter(Number.isFinite) : [];
+  const minimum = values.length ? Math.min(...values) : 0;
+  const maximum = values.length ? Math.max(...values) : 0;
+  const configuredColor = feature => {
+    const value = Number(feature?.properties?.[layer.colorField]);
+    if (!Number.isFinite(value)) return configuredRange[0];
+    const ratio = maximum === minimum ? 1 : (value - minimum) / (maximum - minimum);
+    return configuredRange[Math.max(0, Math.min(configuredRange.length - 1, Math.round(ratio * (configuredRange.length - 1))))];
+  };
   return {
     kind: 'GeoJsonLayer',
     id: `${layer.id}:choropleth`,
@@ -275,15 +305,34 @@ function choroplethSpec(layer, data, onFeatureSelect) {
     pickable: true,
     filled: true,
     stroked: true,
-    getFillColor: feature => signalColor(feature, layer, {
+    getFillColor: configuredRange ? configuredColor : feature => signalColor(feature, layer, {
       monitoring: POLYGON_MONITORING,
       elevated: POLYGON_ELEVATED,
       critical: POLYGON_CRITICAL,
     }),
-    getLineColor: [148, 163, 184, 190],
+    getLineColor: layer.lineColor ? rgba(layer.lineColor) : [148, 163, 184, 190],
     lineWidthMinPixels: 1,
     onClick: clickHandler(onFeatureSelect, layer.id),
   };
+}
+
+function choroplethSpecs(layer, data, onFeatureSelect) {
+  const polygon = choroplethSpec(layer, data, onFeatureSelect);
+  if (!layer.labelField && !layer.labelValueField) return [polygon];
+  return [polygon, {
+    kind: 'TextLayer', id: `${layer.id}:labels`, data,
+    getPosition: polygonLabelPosition,
+    getText: feature => {
+      const label = feature?.properties?.[layer.labelField] ?? '';
+      const value = layer.labelValueField ? feature?.properties?.[layer.labelValueField] : undefined;
+      if (value === undefined) return String(label);
+      if (!label) return Number(value).toLocaleString();
+      return `${label}\n${Number(value).toLocaleString()}`;
+    },
+    getSize: 10, sizeMinPixels: 8, sizeMaxPixels: 13,
+    getColor: [23, 55, 92, 235], getTextAnchor: 'middle', getAlignmentBaseline: 'center',
+    fontWeight: 700, outlineWidth: 2, outlineColor: [255, 255, 255, 230],
+  }];
 }
 
 export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeatureSelect }) {
@@ -308,7 +357,7 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
     }];
   }
   if (layer.renderer === 'H3') return [h3Spec(layer, features, onFeatureSelect)];
-  if (layer.renderer === 'CHOROPLETH') return [choroplethSpec(layer, features, onFeatureSelect)];
+  if (layer.renderer === 'CHOROPLETH') return choroplethSpecs(layer, features, onFeatureSelect);
   if (layer.renderer === 'PATH' || layer.renderer === 'ARC') {
     throw new Error(`${layer.renderer} renderer is not supported by the reusable canvas`);
   }

@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { governedAppLocation } from '../../app/runtime.js';
 import { DataState, StatusBadge, WorkspaceHeader } from '../../components/PlatformPrimitives.jsx';
 import { LeadershipView } from '../intelligence/LeadershipView.jsx';
+import { DistrictLeadershipDashboard } from './DistrictLeadershipDashboard.jsx';
+import { CrimeAnalystDashboard } from './CrimeAnalystDashboard.jsx';
 
 const definitions = {
   REGIONAL_LEADERSHIP: ['Jurisdiction Intelligence Pulse', 'Regional evidence requiring coordinated review.'],
@@ -101,8 +103,9 @@ function GovernanceWorkspace({ role }) {
 
 export function PersonaWorkspace({ role, data = {} }) {
   if (role === 'STATE_LEADERSHIP') return <LeadershipView data={data} />;
-  if (['REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP'].includes(role)) return <JurisdictionLeadershipWorkspace role={role} data={data} />;
-  if (role === 'CRIME_ANALYST') return <AnalystWorkspace data={data} />;
+  if (role === 'DISTRICT_LEADERSHIP') return <DistrictLeadershipDashboard data={data} />;
+  if (role === 'REGIONAL_LEADERSHIP') return <JurisdictionLeadershipWorkspace role={role} data={data} />;
+  if (role === 'CRIME_ANALYST') return <CrimeAnalystDashboard data={data} />;
   if (role === 'STATION_OPERATIONS') return <StationWorkspace data={data} />;
   if (role === 'INVESTIGATOR') return <InvestigatorWorkspace data={data} />;
   if (['PLATFORM_ADMIN', 'AUDITOR'].includes(role)) return <GovernanceWorkspace role={role} />;

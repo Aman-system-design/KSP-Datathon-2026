@@ -4,7 +4,7 @@ import { governedAppLocation } from './runtime.js';
 import { titleCase } from './workspace-labels.js';
 import { getWorkspaceNavigation } from './workspace-navigation.js';
 
-export function AppSidebar({ workspace, collapsed = false, onCollapsedChange = () => {} }) {
+export function AppSidebar({ workspace, collapsed = false, locked = false, onCollapsedChange = () => {} }) {
   const navigate = useNavigate();
   const location = useLocation();
   const navigation = getWorkspaceNavigation(workspace);
@@ -18,7 +18,7 @@ export function AppSidebar({ workspace, collapsed = false, onCollapsedChange = (
       </NavLink>)}
     </div></nav>
     <aside className="context-sidebar">
-      <button className="context-toggle" type="button" aria-expanded={!collapsed} aria-label={`${collapsed ? 'Expand' : 'Collapse'} workspace panel`} onClick={() => onCollapsedChange(!collapsed)}>{collapsed ? '›' : '‹'}</button>
+      {!locked ? <button className="context-toggle" type="button" aria-expanded={!collapsed} aria-label={`${collapsed ? 'Expand' : 'Collapse'} workspace panel`} onClick={() => onCollapsedChange(!collapsed)}>{collapsed ? '›' : '‹'}</button> : null}
       {!collapsed && <nav aria-label="Workspace navigation">
         <span className="context-eyebrow">Current workspace</span><h2>{navigation.workspaceLabel}</h2>
         <div className="context-block"><small>Role</small><strong>{titleCase(workspace?.role)}</strong></div>

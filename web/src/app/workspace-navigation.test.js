@@ -4,6 +4,14 @@ import { getPersonaPresentation, getWorkspaceNavigation } from './workspace-navi
 
 const paths = role => getWorkspaceNavigation({ role }).modules.map(item => item.to);
 
+test('command center keeps one operational navigation contract across every screen', () => {
+  expect(getWorkspaceNavigation({ role: 'COMMAND_CENTER' }).modules.map(item => item.label)).toEqual([
+    'Home', 'Intelligence', 'Alerts', 'Reports', 'Utilities', 'Dashboards',
+  ]);
+  expect(paths('COMMAND_CENTER')).not.toContain('/geospatial');
+  expect(paths('COMMAND_CENTER')).not.toContain('/networks');
+});
+
 test('state and jurisdiction leaders receive governed intelligence tools within their authorized scope', () => {
   expect(getWorkspaceNavigation({ role: 'STATE_LEADERSHIP' }).home).toBe('/');
   expect(paths('STATE_LEADERSHIP')).toEqual(['/', '/utilities', '/intelligence', '/alerts', '/reports', '/dashboards']);
