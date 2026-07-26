@@ -17,7 +17,9 @@ function authorizedWorkspaces(workspace) {
     ...getPersonaPresentation(role),
     destination: Object.freeze({ type: 'persona', role }),
   }));
-  return workspace?.role === 'DEMO_PRESENTER' ? [commandCentreWorkspace, ...personas] : personas;
+  return workspace?.role === 'DEMO_PRESENTER'
+    ? [commandCentreWorkspace, ...personas.filter(persona => persona.role !== commandCentreWorkspace.role)]
+    : personas;
 }
 
 export function WorkspaceSelector({ workspace, onSelect, onSignOut }) {

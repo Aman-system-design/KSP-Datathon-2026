@@ -174,9 +174,9 @@ test('legacy command-centre URL redirects to the canonical command center worksp
 test('command center persona verifies the ordinary workspace and renders without intelligence requests', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {
-      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true,
+      role: 'COMMAND_CENTER', scopeUnitId: 1, syntheticData: true,
       availableDashboards: [], alertSummary: { total: 0 },
-      personaSwitch: { allowed: true, personas: [] },
+      personaSwitch: { allowed: true, personas: ['COMMAND_CENTER'] },
     } };
     throw new Error(`Unexpected request: ${path}`);
   }) };
@@ -186,6 +186,34 @@ test('command center persona verifies the ordinary workspace and renders without
   expect(await screen.findByRole('application', { name: 'KSP Command Center' })).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledTimes(1);
   expect(api.get).toHaveBeenCalledWith('/v1/workspace');
+});
+
+test('command center forwards its governed persona and opens Utilities under that role', async () => {
+  const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
+  vi.stubGlobal('catalyst', { auth: {
+    generateAuthToken: vi.fn(async () => ({ access_token: 'TOKEN-COMMAND' })),
+    isUserAuthenticated: vi.fn(async () => ({ content: { user_id: 'CAT-DEMO' } })),
+  } });
+  const fetch = vi.fn(async (url, options) => {
+    const path = String(url).slice(developmentApi.length);
+    const data = path === '/v1/workspace' ? {
+      role: 'COMMAND_CENTER', scopeUnitId: 1, syntheticData: true,
+      availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['COMMAND_CENTER'] },
+    } : path === '/v1/utilities' ? [] : null;
+    if (data === null) throw new Error(`Unexpected request: ${path}`);
+    return { ok: true, status: 200, json: async () => ({ data }) };
+  });
+  vi.stubGlobal('fetch', fetch);
+
+  render(<MemoryRouter initialEntries={['/?persona=COMMAND_CENTER']}><Application /><LocationProbe /></MemoryRouter>);
+
+  expect(await screen.findByRole('application', { name: 'KSP Command Center' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Utilities' }));
+  expect(await screen.findByRole('heading', { name: 'Intelligence Utilities' })).toBeInTheDocument();
+  expect(screen.getByTestId('location')).toHaveTextContent('/utilities?persona=COMMAND_CENTER');
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, options] of fetch.mock.calls) expect(options.headers['X-Demo-Persona']).toBe('COMMAND_CENTER');
 });
 
 test('authorized workspace lazy-loads Geospatial Studio from the governed catalog', async () => {

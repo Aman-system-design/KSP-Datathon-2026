@@ -100,6 +100,20 @@ test('API composition serves utility categories and one utility definition', asy
   assert.equal(utility.body.data.alertPolicy.enabled, false);
 });
 
+test('API composition serves Command Center workspace and utilities under its governed persona', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
+  const headers = { 'X-Demo-Persona': 'COMMAND_CENTER' };
+
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers, body: null });
+  assert.equal(workspace.status, 200);
+  assert.equal(workspace.body.data.role, 'COMMAND_CENTER');
+  assert.equal(workspace.body.data.syntheticData, true);
+
+  const utilities = await application({ method: 'GET', url: '/v1/utilities', headers, body: null });
+  assert.equal(utilities.status, 200);
+  assert.equal(utilities.body.data.length, 4);
+});
+
 test('API composition denies utility catalogue reads to a role without READ_UTILITY', async () => {
   const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
 

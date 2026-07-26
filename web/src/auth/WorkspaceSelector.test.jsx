@@ -52,6 +52,16 @@ test('opens Command Centre through Continue as the governed command center perso
   expect(onSelect).toHaveBeenCalledWith({ type: 'persona', role: 'COMMAND_CENTER' });
 });
 
+test('renders the allowlisted Command Centre workspace exactly once', () => {
+  render(<WorkspaceSelector workspace={{
+    role: 'DEMO_PRESENTER',
+    personaSwitch: { allowed: true, personas: ['COMMAND_CENTER', 'STATE_LEADERSHIP'] },
+  }} onSelect={() => {}} onSignOut={() => {}} />);
+
+  expect(screen.getAllByRole('radio', { name: /Command Centre/i })).toHaveLength(1);
+  expect(screen.getAllByRole('radio')).toHaveLength(2);
+});
+
 test('fails closed when persona switching is not authorized', () => {
   render(<WorkspaceSelector workspace={{ personaSwitch: { allowed: false, personas: [] } }} onSelect={() => {}} onSignOut={() => {}} />);
 

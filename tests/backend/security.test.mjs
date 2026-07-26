@@ -73,6 +73,34 @@ test('demo persona is allowlisted, synthetic, authenticated, and Development-onl
   })), 'FORBIDDEN_ACTION');
 });
 
+test('Command Center is a Development-only synthetic persona with an exact read and utility policy', () => {
+  const presenter = {
+    ...profile, DefaultRole: 'DEMO_PRESENTER', DemoPersonaAllowed: true, SyntheticData: true,
+  };
+  const expectedActions = [
+    'READ_BRIEF', 'READ_PATTERN', 'READ_HOTSPOT', 'READ_ANOMALY', 'READ_AREA_RISK',
+    'READ_NETWORK', 'READ_DISTRICT_CONTEXT', 'READ_ALERT', 'READ_INTELLIGENCE_RUNS',
+    'READ_UTILITY', 'MANAGE_UTILITY_RULE', 'RUN_UTILITY_EVALUATION',
+  ];
+  const access = resolveAccess({
+    currentUser: user, profile: presenter, requestedPersona: 'COMMAND_CENTER',
+    environment: 'Development', policy,
+  });
+
+  assert.equal(policy.personaAllowlist.filter(role => role === 'COMMAND_CENTER').length, 1);
+  assert.equal(Object.keys(policy.roles).filter(role => role === 'COMMAND_CENTER').length, 1);
+  assert.equal(new Set(policy.roles.COMMAND_CENTER).size, policy.roles.COMMAND_CENTER.length);
+  assert.deepEqual(access.actions, expectedActions);
+  assert.equal(access.role, 'COMMAND_CENTER');
+  assert.equal(access.actualRole, 'DEMO_PRESENTER');
+  assert.equal(access.demoPersona, true);
+  assert.equal(access.syntheticData, true);
+  assert.equal(errorCode(() => resolveAccess({
+    currentUser: user, profile: presenter, requestedPersona: 'COMMAND_CENTER',
+    environment: 'Production', policy,
+  })), 'FORBIDDEN_ACTION');
+});
+
 test('unit hierarchy authorizes descendants and rejects siblings and invalid graphs', () => {
   const units = [
     { UnitID: 1, ParentUnit: null },

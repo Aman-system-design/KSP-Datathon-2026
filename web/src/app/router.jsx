@@ -94,7 +94,7 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
   const workspace = state.data;
   const commandCenterShellRoute = location.pathname === '/' || location.pathname === '/dashboards';
   if (requestedPersona === 'COMMAND_CENTER' && commandCenterShellRoute) {
-    if (workspace.role !== 'DEMO_PRESENTER') return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
+    if (workspace.role !== 'COMMAND_CENTER') return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
     return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading Command Centre…" /></main>}><CommandCenterShell
       api={api}
       workspace={workspace}
@@ -148,7 +148,7 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
 export function Application({ api: providedApi }) {
   const location = useLocation();
   const demoPersona = readDemoPersona(location.search);
-  const forwardedPersona = demoPersona === 'COMMAND_CENTER' ? null : demoPersona;
+  const forwardedPersona = demoPersona;
   const runtime = readRuntime();
   const auth = useMemo(() => createCatalystAuth({ authOrigin: runtime.authOrigin }), [runtime.authOrigin]);
   const api = useMemo(() => providedApi ?? createApiClient({
