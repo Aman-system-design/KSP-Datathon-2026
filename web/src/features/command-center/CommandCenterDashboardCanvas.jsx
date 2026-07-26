@@ -4,7 +4,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BarChart3, Expand, Plus, Shr
 import { placementStyle } from './command-center-dashboard-model.js';
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 
-export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {} }) {
+export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {}, onSelect = () => {} }) {
   const tab = dashboard?.tabs?.find(item => item.id === activeTab) ?? dashboard?.tabs?.[0];
   const items = tab?.items ?? [];
   if (!dashboard) return <main className="command-center-dashboard-canvas" data-testid="command-center-canvas"><div className="command-center-dashboard-empty"><strong>Intelligence Workspace</strong><span>Create or open a dashboard to compose your operational intelligence view.</span></div></main>;
@@ -19,6 +19,6 @@ export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview'
   </div>;
   return <main className={`command-center-dashboard-canvas${editing ? ' is-editing' : ''}`} data-testid="command-center-canvas">
     {items.length === 0 ? <div className="command-center-dashboard-empty"><BarChart3 aria-hidden="true" /><strong>This dashboard has no reports yet.</strong><span>Add governed reports when you are ready. No sample intelligence is shown.</span><div><Link to="/reports">Open report library</Link><Link className="primary" to="/reports/new"><Plus aria-hidden="true" />Create report</Link></div></div>
-      : items.map(item => <div className="command-center-dashboard-placement" style={placementStyle(item)} key={item.id}>{editing ? controls(item) : null}<CommandCenterReportSurface item={item} editing={editing} /></div>)}
+      : items.map(item => <div className="command-center-dashboard-placement" style={placementStyle(item)} key={item.id}>{editing ? controls(item) : null}<CommandCenterReportSurface item={item} editing={editing} onSelect={onSelect} /></div>)}
   </main>;
 }

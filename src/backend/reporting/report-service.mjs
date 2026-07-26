@@ -96,6 +96,7 @@ export function createReportService({ repository, readServices, mapViewService, 
       const result = await service({ access, query: { limit: Math.min(report.definition.limit, 200) } });
       return {
         definition: clientReport(report),
+        syntheticData: result.syntheticData === true,
         result: {
           data: { items: executeReportDefinition(report.definition, projectReportRows(source.key, result)) },
           meta: result.meta,

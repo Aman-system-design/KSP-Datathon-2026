@@ -18,7 +18,7 @@ test('projects governed read envelopes into the published semantic fields', () =
 
   assert.deepEqual(projectReportRows('alerts', {
     data: { items: [{ id: 'ALT-1', type: 'PATTERN', status: 'GENERATED', scopeUnitId: 101, severity: 0.8, createdAt: '2026-07-01T00:00:00Z' }] },
-  }), [{ alertId: 'ALT-1', alertType: 'PATTERN', state: 'GENERATED', unitId: '101', severity: 0.8, createdAt: '2026-07-01T00:00:00Z' }]);
+  }), [{ alertId: 'ALT-1', alertType: 'PATTERN', state: 'GENERATED', unitId: '101', severity: 0.8, createdAt: '2026-07-01T00:00:00Z', recordCount: 1 }]);
 });
 
 test('flattens command metrics and district indicators into report rows', () => {

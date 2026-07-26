@@ -43,6 +43,18 @@ test('station case reports expose only the governed analytical allowlist', () =>
   }
 });
 
+test('alert reports expose a truthful row count measure for active alert totals', () => {
+  const source = getReportSource('alerts');
+  assert.deepEqual(source.fields.recordCount.aggregates, ['sum', 'count']);
+  const definition = normalizeReportDefinition({
+    name: 'Active alerts', sourceKey: 'alerts',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'state', operator: 'in', value: ['GENERATED', 'ASSIGNED', 'ACKNOWLEDGED', 'CONCLUDED'] }],
+    visualization: { type: 'number' },
+  }, source);
+  assert.deepEqual(definition.measures, [{ field: 'recordCount', aggregate: 'sum' }]);
+});
+
 test('semantic aggregate allowlists are deeply immutable', () => {
   const source = getReportSource('stationCases');
   const aggregates = source.fields.recordCount.aggregates;

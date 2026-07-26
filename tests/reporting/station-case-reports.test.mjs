@@ -66,6 +66,7 @@ test('station case number reports count open cases', async () => {
     visualization: { type: 'number' },
   });
   assert.deepEqual(result.result.data.items, [{ recordCount_sum: 2 }]);
+  assert.equal(result.syntheticData, true);
 });
 
 test('station case reports aggregate complete analytical reads beyond the 200-row HTTP limit', async () => {

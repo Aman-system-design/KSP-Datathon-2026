@@ -84,6 +84,7 @@ export const REPORT_SOURCES = Object.freeze({
       state: field('string', { dimension: true }), unitId: field('string', { dimension: true }),
       severity: field('number', { aggregates: ['avg', 'min', 'max'] }),
       createdAt: field('date', { dimension: true }),
+      recordCount: field('number', { aggregates: ['sum', 'count'] }),
     },
     visualizations: ['number', 'table', 'bar', 'line'],
   }),

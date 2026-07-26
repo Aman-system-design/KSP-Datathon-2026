@@ -10,16 +10,20 @@ function executedItem(item, result) {
     errorCode: result.reason?.code ?? 'REPORT_EXECUTION_FAILED',
   };
   const payload = result.value?.data ?? {};
-  const definition = payload.definition ?? {};
+  const report = payload.definition ?? {};
+  const definition = report.definition ?? {};
   const data = payload.result?.data;
   return {
     ...item,
     status: 'ready',
-    title: definition.name ?? 'Governed report',
-    visualization: definition.definition?.visualization?.type ?? definition.visualization?.type ?? 'table',
+    title: report.name ?? definition.name ?? 'Governed report',
+    definition: structuredClone(definition),
+    visualization: definition.visualization?.type ?? 'table',
     data: data?.items ?? (Array.isArray(data) ? data : []),
     mapExecution: data?.mapView ? data : undefined,
     freshness: payload.result?.freshness ?? data?.freshness,
+    syntheticData: payload.syntheticData === true || payload.result?.syntheticData === true,
+    provenance: payload.result?.meta?.provenance ?? payload.provenance,
   };
 }
 

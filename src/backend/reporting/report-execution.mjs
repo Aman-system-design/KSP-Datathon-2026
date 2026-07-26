@@ -147,7 +147,7 @@ export function projectReportRows(sourceKey, envelope) {
   })));
   if (sourceKey === 'alerts') return rows.map(row => ({
     alertId: row.id, alertType: row.type, state: row.status, unitId: String(row.scopeUnitId),
-    severity: row.severity, createdAt: row.createdAt,
+    severity: row.severity, createdAt: row.createdAt, recordCount: 1,
   }));
   if (sourceKey === 'stationCases') return rows.map(row => ({
     caseId: row.caseId,
