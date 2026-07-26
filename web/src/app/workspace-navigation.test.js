@@ -27,6 +27,7 @@ test('analyst and station navigation expose work tools without governance contro
   expect(paths('CRIME_ANALYST')).toEqual(expect.arrayContaining(['/reports', '/dashboards', '/networks']));
   expect(paths('CRIME_ANALYST')).toContain('/geospatial');
   expect(getWorkspaceNavigation({ role: 'STATION_OPERATIONS' }).workspaceLabel).toBe('Operational Intelligence');
+  expect(paths('STATION_OPERATIONS')).toContain('/reports');
   expect(paths('STATION_OPERATIONS')).not.toContain('/admin/personas');
 });
 

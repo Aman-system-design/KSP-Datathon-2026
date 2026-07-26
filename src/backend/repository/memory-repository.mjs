@@ -317,8 +317,53 @@ export class MemoryIntelligenceRepository {
     else this.#state.userPreferences.push(clone(preference));
     return clone(existing ?? preference);
   }
+  async deleteUserPreference(userId) {
+    const index = this.#state.userPreferences.findIndex(row => row.userId === userId);
+    if (index < 0) return false;
+    this.#state.userPreferences.splice(index, 1);
+    return true;
+  }
   async getAccessProfile(userId) { return clone(this.#state.profiles.find(row => String(row.CatalystUserID) === String(userId))); }
   async getUnits() { return clone(this.#state.units); }
+  async listStationCaseRows({ unitIds } = {}) {
+    const source = this.#state.source?.tables ?? {};
+    const units = new Map((source.Unit ?? []).map(row => [Number(row.UnitID), row.UnitName]));
+    const statuses = new Map((source.CaseStatusMaster ?? [])
+      .map(row => [Number(row.CaseStatusID), row.CaseStatusName]));
+    const majorRows = source.CrimeMajorHeadMaster ?? source.CrimeHead ?? [];
+    const minorRows = source.CrimeMinorHeadMaster ?? source.CrimeSubHead ?? [];
+    const majors = new Map(majorRows.map(row => [
+      Number(row.CrimeMajorHeadID ?? row.CrimeHeadID),
+      row.CrimeMajorHeadName ?? row.CrimeGroupName,
+    ]));
+    const minors = new Map(minorRows.map(row => [
+      Number(row.CrimeMinorHeadID ?? row.CrimeSubHeadID),
+      row.CrimeMinorHeadName ?? row.CrimeHeadName,
+    ]));
+    const authorizedUnitIds = new Set([...(unitIds ?? [])].map(Number).filter(Number.isSafeInteger));
+    if (authorizedUnitIds.size === 0) return [];
+    return clone((source.CaseMaster ?? [])
+      .filter(row => authorizedUnitIds.has(Number(row.PoliceStationID)))
+      .map(row => ({
+      caseId: String(row.CaseMasterID),
+      caseNumber: row.CaseNo ?? row.CrimeNo,
+      unitId: Number(row.PoliceStationID),
+      unitName: units.get(Number(row.PoliceStationID)) ?? 'Unknown',
+      status: statuses.get(Number(row.CaseStatusID)) ?? 'Unknown',
+      registeredAt: row.FIRDate ?? row.CrimeRegisteredDate ?? row.InfoReceivedPSDate,
+      incidentAt: row.IncidentFromDate,
+      majorHead: majors.get(Number(row.CrimeMajorHeadID)) ?? 'Unknown',
+      minorHead: minors.get(Number(row.CrimeMinorHeadID)) ?? 'Unknown',
+      syntheticData: true,
+    })));
+  }
+  async getStationCaseRow(caseId) {
+    const row = (this.#state.source?.tables?.CaseMaster ?? [])
+      .find(item => String(item.CaseMasterID) === String(caseId));
+    if (!row) return undefined;
+    return (await this.listStationCaseRows({ unitIds: [row.PoliceStationID] }))
+      .find(item => item.caseId === String(caseId));
+  }
   async getAlert(alertId) { return clone(this.#state.alerts.find(row => row.AlertID === alertId)); }
   async listAlerts() { return clone(this.#state.alerts); }
   async createAlertIfAbsent(alert) {

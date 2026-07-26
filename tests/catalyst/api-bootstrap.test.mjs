@@ -82,7 +82,116 @@ test('API composition serves the role workspace and governed report sources', as
   assert.equal(workspace.body.data.syntheticData, true);
   const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
   assert.equal(sources.status, 200);
-  assert.equal(sources.body.data.length, 7);
+  assert.equal(sources.body.data.length, 8);
+});
+
+test('API composition serves station-scoped case lists and hides unauthorized case detail', async () => {
+  const state = buildDemoState();
+  state.profiles.push({
+    CatalystUserID: 'CAT-STATION', EmployeeID: 9001, DefaultRole: 'STATION_OPERATIONS', ScopeUnitID: 1001,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  const { application } = harness({ currentUser: { user_id: 'CAT-STATION', status: 'ACTIVE' }, state });
+
+  const listed = await application({ method: 'GET', url: '/v1/cases?openOnly=false', headers: {}, body: null });
+  assert.equal(listed.status, 200);
+  assert.ok(listed.body.data.items.length > 0);
+  assert.ok(listed.body.data.items.every(row => row.unitId === 1001));
+  assert.doesNotMatch(JSON.stringify(listed.body), /BriefFacts|Complainant|Accused|latitude|longitude/iu);
+
+  const authorized = await application({ method: 'GET', url: '/v1/cases/200000001', headers: {}, body: null });
+  assert.equal(authorized.status, 200);
+  assert.equal(authorized.body.data.caseId, '200000001');
+
+  const unauthorized = await application({ method: 'GET', url: '/v1/cases/200000036', headers: {}, body: null });
+  assert.equal(unauthorized.status, 404);
+  assert.equal(unauthorized.body.error.code, 'NOT_FOUND');
+});
+
+test('station reporting API exposes only local sources and hides disallowed global reports', async () => {
+  const state = buildDemoState();
+  state.profiles.push({
+    CatalystUserID: 'CAT-STATION-REPORTS', EmployeeID: 9001, DefaultRole: 'STATION_OPERATIONS', ScopeUnitID: 1001,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  state.reports = [{
+    id: 'R-GLOBAL-ANOMALY', ownerUserId: 'CAT-ADMIN', name: 'State anomaly', visibility: 'GLOBAL', version: 1,
+    definition: {
+      name: 'State anomaly', sourceKey: 'anomalies', dimensions: ['unitId'],
+      measures: [{ field: 'observed', aggregate: 'sum' }], filters: [], sort: [],
+      visualization: { type: 'bar' }, limit: 100,
+    },
+  }, {
+    id: 'R-STATION-CASE', ownerUserId: 'CAT-ADMIN', name: 'Open cases', visibility: 'GLOBAL', version: 1,
+    definition: { name: 'Open cases', sourceKey: 'stationCases', dimensions: [], measures: [], filters: [], sort: [], visualization: { type: 'table' }, limit: 100 },
+  }];
+  state.dashboards = [
+    { id: 'D-STATE', ownerUserId: 'CAT-ADMIN', name: 'State Intelligence', visibility: 'GLOBAL', version: 1 },
+    { id: 'D-STATION-SYSTEM', ownerUserId: 'CAT-ADMIN', name: 'Station Operations', visibility: 'GLOBAL', defaultRole: 'STATION_OPERATIONS', version: 1 },
+  ];
+  state.dashboardItems = [{ id: 'I-STATION', dashboardId: 'D-STATION-SYSTEM', reportId: 'R-STATION-CASE', column: 1, row: 1, width: 4, height: 2, version: 1 }];
+  const { application } = harness({ currentUser: { user_id: 'CAT-STATION-REPORTS', status: 'ACTIVE' }, state });
+
+  const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
+  assert.deepEqual(sources.body.data.map(source => source.key), ['alerts', 'stationCases']);
+  const reports = await application({ method: 'GET', url: '/v1/reports', headers: {}, body: null });
+  assert.equal(reports.body.data.some(report => report.id === 'R-GLOBAL-ANOMALY'), false);
+  const hidden = await application({ method: 'POST', url: '/v1/reports/R-GLOBAL-ANOMALY/execute', headers: {}, body: {} });
+  assert.equal(hidden.status, 404);
+  assert.equal(hidden.body.error.code, 'NOT_FOUND');
+  const rejected = await application({ method: 'POST', url: '/v1/reports', headers: {}, body: state.reports[0].definition });
+  assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.error.code, 'INVALID_REQUEST');
+  const deniedDashboard = await application({ method: 'GET', url: '/v1/dashboards/D-STATE', headers: {}, body: null });
+  assert.equal(deniedDashboard.status, 404);
+  const deniedLanding = await application({ method: 'PUT', url: '/v1/preferences/landing-dashboard', headers: {}, body: { dashboardId: 'D-STATE' } });
+  assert.equal(deniedLanding.status, 404);
+  const clone = await application({ method: 'POST', url: '/v1/dashboards/D-STATION-SYSTEM/clone', headers: {}, body: { description: 'Local station copy' } });
+  assert.equal(clone.status, 200);
+  assert.equal(clone.body.data.ownerUserId, 'CAT-STATION-REPORTS');
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers: {}, body: null });
+  assert.equal(workspace.body.data.landingDashboard.id, clone.body.data.id);
+});
+
+test('API case resources deny base presenter and auditor roles but honor an assumed station persona', async () => {
+  const auditorState = buildDemoState();
+  auditorState.profiles.push({
+    CatalystUserID: 'CAT-AUDITOR', EmployeeID: 9001, DefaultRole: 'AUDITOR', ScopeUnitID: 1,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  const auditor = harness({ currentUser: { user_id: 'CAT-AUDITOR', status: 'ACTIVE' }, state: auditorState }).application;
+  const deniedAuditor = await auditor({ method: 'GET', url: '/v1/cases', headers: {}, body: null });
+  assert.equal(deniedAuditor.status, 403);
+  assert.equal(deniedAuditor.body.error.code, 'FORBIDDEN_ACTION');
+
+  const presenter = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } }).application;
+  const deniedBase = await presenter({ method: 'GET', url: '/v1/cases', headers: {}, body: null });
+  assert.equal(deniedBase.status, 403);
+  assert.equal(deniedBase.body.error.code, 'FORBIDDEN_ACTION');
+  const assumed = await presenter({
+    method: 'GET', url: '/v1/cases?openOnly=false', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+  });
+  assert.equal(assumed.status, 200);
+  assert.ok(assumed.body.data.items.length > 0);
+  assert.ok(assumed.body.data.items.every(row => row.unitId === 1001));
+  const outside = await presenter({
+    method: 'GET', url: '/v1/cases/200000036', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+  });
+  assert.equal(outside.status, 404);
+  assert.equal(outside.body.error.code, 'NOT_FOUND');
+});
+
+test('assumed station persona is rejected when its server-governed station is unavailable', async () => {
+  const state = buildDemoState();
+  state.units = state.units.filter(row => Number(row.UnitID) !== 1001);
+  const presenter = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' }, state }).application;
+
+  const response = await presenter({
+    method: 'GET', url: '/v1/cases', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+  });
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error.code, 'FORBIDDEN_ACTION');
 });
 
 test('API composition serves utility categories and one utility definition', async () => {

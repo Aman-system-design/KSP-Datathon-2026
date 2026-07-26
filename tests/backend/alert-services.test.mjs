@@ -44,6 +44,22 @@ test('legacy alert discovery remains scoped and exposes explainable immutable fi
   assert.deepEqual(detail.data.limitations, ['SYNTHETIC_DATA', 'SIMILARITY_IS_NOT_PROOF']);
 });
 
+test('alert discovery derives synthetic, operational, mixed, and empty provenance', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const base = (await repository.listAlerts()).find(row => row.ScopeUnitID === 101);
+  for (const [sourceRows, provenance, syntheticData] of [
+    [[{ ...base, SyntheticData: true }], 'SYNTHETIC', true],
+    [[{ ...base, SyntheticData: false }], 'OPERATIONAL', false],
+    [[{ ...base, AlertID: 'ALT-SYNTHETIC', SyntheticData: true }, { ...base, AlertID: 'ALT-OPERATIONAL', SyntheticData: false }], 'MIXED', false],
+    [[], 'EMPTY', false],
+  ]) {
+    repository.listAlerts = async () => sourceRows;
+    const result = await createAlertServices({ repository }).listAlerts({ access: access([101]), query: {} });
+    assert.equal(result.provenance, provenance);
+    assert.equal(result.syntheticData, syntheticData);
+  }
+});
+
 test('utility alert discovery and detail require the access role to be an intended recipient', async () => {
   const { repository, alert } = await utilityAlertFixture(['COMMAND_CENTER', 'CRIME_ANALYST']);
   const alerts = createAlertServices({ repository });

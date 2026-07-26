@@ -3,7 +3,9 @@ import { Plus, Search, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { readDemoPersona } from '../../app/runtime.js';
 
-export function CommandCenterAddReportDrawer({ api, open = false, onAdd = () => {}, onClose = () => {} }) {
+const INCLUDE_ALL_REPORTS = () => true;
+
+export function CommandCenterAddReportDrawer({ api, open = false, onAdd = () => {}, onClose = () => {}, reportPredicate = INCLUDE_ALL_REPORTS }) {
   const location = useLocation();
   const [reports, setReports] = useState([]);
   const [query, setQuery] = useState('');
@@ -19,7 +21,8 @@ export function CommandCenterAddReportDrawer({ api, open = false, onAdd = () => 
     }).catch(() => { if (active) setStatus('Reports are unavailable.'); });
     return () => { active = false; };
   }, [api, open]);
-  const filtered = useMemo(() => reports.filter(report => report.name?.toLowerCase().includes(query.toLowerCase())), [reports, query]);
+  const filtered = useMemo(() => reports.filter(report => reportPredicate(report)
+    && report.name?.toLowerCase().includes(query.toLowerCase())), [reports, query, reportPredicate]);
   if (!open) return null;
   const reportParams = new URLSearchParams({ persona: readDemoPersona(location.search) ?? 'COMMAND_CENTER' });
   reportParams.set('returnTo', 'command-center');

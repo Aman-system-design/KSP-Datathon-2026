@@ -1,5 +1,6 @@
 import { fail } from './errors.mjs';
 import { isValidUtilityRecipientRoles } from '../utilities/rule-contract.mjs';
+import { provenanceFields } from './result-provenance.mjs';
 
 const STATUSES = new Set(['GENERATED', 'ASSIGNED', 'ACKNOWLEDGED', 'CONCLUDED', 'CLOSED']);
 
@@ -56,7 +57,7 @@ export function createAlertServices({ repository }) {
           syntheticData: alert.SyntheticData === true,
         });
       }
-      return { data: { items }, syntheticData: true };
+      return { data: { items }, ...provenanceFields(items) };
     },
     async getAlertDetail({ access, params }) {
       requireRead(access);
@@ -66,8 +67,7 @@ export function createAlertServices({ repository }) {
       if (!isIntendedRecipient(access, finding)) fail('NOT_FOUND');
       if (!await isCurrentUtilityAlert(repository, alert, finding)) fail('NOT_FOUND');
       const evidence = (finding.evidence ?? []).filter(({ unitId }) => access.authorizedUnitIds.has(unitId));
-      return {
-        data: {
+      const data = {
           id: alert.AlertID, status: alert.Status, version: alert.AlertVersion,
           title: finding.title, recommendation: finding.recommendation,
           explanation: {
@@ -87,9 +87,8 @@ export function createAlertServices({ repository }) {
           ...(finding.provenance ? { provenance: finding.provenance } : {}),
           originalFinding: { status: 'IMMUTABLE', hashSource: 'OriginalFindingJSON' },
           syntheticData: alert.SyntheticData === true,
-        },
-        syntheticData: true,
-      };
+        };
+      return { data, ...provenanceFields([data]) };
     },
   });
 }

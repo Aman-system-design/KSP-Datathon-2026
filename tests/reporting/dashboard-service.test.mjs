@@ -109,3 +109,196 @@ test('visible dashboards expose a safe owned shared or system relationship', asy
   );
   assert.equal(visible.some(item => 'shareTargets' in item), false);
 });
+
+test('station bootstrap marker permits only the pending-to-complete transition', async () => {
+  const { service } = harness();
+  const owner = access('STATION', 'STATION_OPERATIONS');
+  const pending = await service.create({
+    access: owner,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  });
+  const complete = await service.update({
+    access: owner, dashboardId: pending.id, expectedVersion: pending.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:complete]' },
+  });
+
+  assert.equal(complete.description, '[ACE:station-operations:v1:complete]');
+  await assert.rejects(service.update({
+    access: owner, dashboardId: complete.id, expectedVersion: complete.version,
+    input: { name: 'Station Operations', description: 'User rewrite' },
+  }), { code: 'INVALID_REQUEST' });
+});
+
+test('station bootstrap may adopt only an empty or exact legacy owned dashboard', async () => {
+  const { service, repository } = harness();
+  const owner = access('STATION', 'STATION_OPERATIONS');
+  const empty = await service.create({ access: owner, input: { name: 'Station Operations', description: 'Empty custom shell' } });
+  const adoptedEmpty = await service.update({
+    access: owner, dashboardId: empty.id, expectedVersion: empty.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  });
+  assert.equal(adoptedEmpty.description, '[ACE:station-operations:v1:pending]');
+
+  const customized = await service.create({ access: owner, input: { name: 'Station Operations', description: 'User dashboard' } });
+  await repository.createReport({ id: 'R-CUSTOM', ownerUserId: owner.actualUserId, visibility: 'PRIVATE', version: 1, definition: { sourceKey: 'stationCases' } });
+  await repository.createDashboardItem({ id: 'I-CUSTOM', dashboardId: customized.id, reportId: 'R-CUSTOM', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  await assert.rejects(service.update({
+    access: owner, dashboardId: customized.id, expectedVersion: customized.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  }), { code: 'INVALID_REQUEST' });
+  assert.equal((await repository.listDashboardItems(customized.id)).length, 1);
+
+  const legacy = await service.create({
+    access: owner,
+    input: { name: 'Station Operations', description: 'Private operational dashboard for the current police station.' },
+  });
+  for (let index = 0; index < 9; index += 1) {
+    await repository.createReport({ id: `R-LEGACY-${index}`, ownerUserId: owner.actualUserId, visibility: 'PRIVATE', version: 1, definition: { sourceKey: 'stationCases' } });
+    await repository.createDashboardItem({
+      id: `I-LEGACY-${index}`, dashboardId: legacy.id, reportId: `R-LEGACY-${index}`,
+      column: (index % 4) * 3 + 1, row: Math.floor(index / 4) * 3 + 1, width: 3, height: 2, version: 1,
+    });
+  }
+  const adoptedLegacy = await service.update({
+    access: owner, dashboardId: legacy.id, expectedVersion: legacy.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  });
+  assert.equal(adoptedLegacy.description, '[ACE:station-operations:v1:pending]');
+});
+
+test('station dashboards reject and filter reports outside station cases and alerts', async () => {
+  const { service, repository } = harness();
+  const station = access('STATION-OWNER', 'STATION_OPERATIONS');
+  const dashboard = await service.create({ access: station, input: { name: 'Station Operations' } });
+  await repository.createReport({
+    id: 'R-STATION', ownerUserId: station.actualUserId, name: 'Open cases', version: 1, visibility: 'PRIVATE',
+    definition: { sourceKey: 'stationCases' },
+  });
+  await repository.createReport({
+    id: 'R-STATE', ownerUserId: station.actualUserId, name: 'State map', version: 1, visibility: 'PRIVATE',
+    definition: { sourceKey: 'hotspots' },
+  });
+  const layout = { column: 1, row: 1, width: 4, height: 2 };
+
+  await service.addItem({ access: station, dashboardId: dashboard.id, reportId: 'R-STATION', layout });
+  await assert.rejects(
+    service.addItem({ access: station, dashboardId: dashboard.id, reportId: 'R-STATE', layout }),
+    { code: 'INVALID_REQUEST' },
+  );
+  await repository.createDashboardItem({ id: 'LEGACY-STATE', dashboardId: dashboard.id, reportId: 'R-STATE', ...layout, version: 1 });
+
+  const loaded = await service.get({ access: station, dashboardId: dashboard.id });
+  assert.deepEqual(loaded.items.map(item => item.reportId), ['R-STATION']);
+});
+
+test('station dashboard policy hides unrelated and unsafe system dashboards everywhere', async () => {
+  const { service, repository } = harness();
+  const station = access('STATION', 'STATION_OPERATIONS');
+  const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+  const unrelated = await service.create({ access: admin, input: { name: 'State Intelligence' } });
+  await repository.updateDashboard(unrelated.id, unrelated.version, { visibility: 'GLOBAL' });
+  await assert.rejects(service.get({ access: station, dashboardId: unrelated.id }), { code: 'NOT_FOUND' });
+  await assert.rejects(service.setPersonalLanding({ access: station, dashboardId: unrelated.id }), { code: 'NOT_FOUND' });
+  assert.equal((await service.list({ access: station })).some(row => row.id === unrelated.id), false);
+
+  await repository.createReport({ id: 'R-BAD', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'hotspots' } });
+  const unsafe = await service.create({ access: admin, input: { name: 'Station Operations' } });
+  await service.setRoleDefault({ access: admin, dashboardId: unsafe.id, role: 'STATION_OPERATIONS' });
+  await repository.createDashboardItem({ id: 'I-BAD', dashboardId: unsafe.id, reportId: 'R-BAD', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  await assert.rejects(service.get({ access: station, dashboardId: unsafe.id }), { code: 'NOT_FOUND' });
+});
+
+test('station clone copies validated items, persists landing, and compensates replacement failures', async () => {
+  const { service, repository } = harness();
+  const station = access('STATION', 'STATION_OPERATIONS');
+  const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+  await repository.createReport({ id: 'R-CASE', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'stationCases' } });
+  const source = await service.create({ access: admin, input: { name: 'Station Operations' } });
+  await service.setRoleDefault({ access: admin, dashboardId: source.id, role: 'STATION_OPERATIONS' });
+  await repository.createDashboardItem({ id: 'I-CASE', dashboardId: source.id, reportId: 'R-CASE', column: 1, row: 1, width: 4, height: 2, version: 1 });
+
+  const cloned = await service.cloneForOwner({ access: station, dashboardId: source.id, input: { description: 'Local' } });
+  assert.equal(cloned.ownerUserId, 'STATION');
+  assert.deepEqual(cloned.items.map(item => item.reportId), ['R-CASE']);
+  assert.equal((await service.resolveLanding({ access: station })).id, cloned.id);
+
+  const before = (await repository.listDashboards()).length;
+  repository.replaceDashboardItems = async () => { throw new Error('storage detail'); };
+  await assert.rejects(service.cloneForOwner({ access: access('STATION-2', 'STATION_OPERATIONS'), dashboardId: source.id }), { code: 'DATA_NOT_READY' });
+  assert.equal((await repository.listDashboards()).length, before);
+
+  const originalDelete = MemoryIntelligenceRepository.prototype.deleteDashboard.bind(repository);
+  let cleanupAttempts = 0;
+  repository.deleteDashboard = async id => {
+    cleanupAttempts += 1;
+    if (cleanupAttempts === 1) throw new Error('cleanup detail');
+    return originalDelete(id);
+  };
+  await assert.rejects(service.cloneForOwner({ access: access('STATION-3', 'STATION_OPERATIONS'), dashboardId: source.id }), { code: 'DATA_NOT_READY' });
+  assert.equal(cleanupAttempts, 2);
+  assert.equal((await repository.listDashboards()).length, before);
+});
+
+test('station role-default validation is preflighted and replacement failure restores the prior default', async () => {
+  const { service, repository } = harness();
+  const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+  await repository.createReport({ id: 'R-OK', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'stationCases' } });
+  await repository.createReport({ id: 'R-BAD-DEFAULT', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'hotspots' } });
+  const current = await service.create({ access: admin, input: { name: 'Current station default' } });
+  await repository.createDashboardItem({ id: 'I-OK', dashboardId: current.id, reportId: 'R-OK', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  await service.setRoleDefault({ access: admin, dashboardId: current.id, role: 'STATION_OPERATIONS' });
+  const invalid = await service.create({ access: admin, input: { name: 'Invalid replacement' } });
+  await repository.createDashboardItem({ id: 'I-BAD-DEFAULT', dashboardId: invalid.id, reportId: 'R-BAD-DEFAULT', column: 1, row: 1, width: 4, height: 2, version: 1 });
+
+  await assert.rejects(service.setRoleDefault({ access: admin, dashboardId: invalid.id, role: 'STATION_OPERATIONS' }), { code: 'INVALID_REQUEST' });
+  assert.equal((await repository.getDashboard(current.id)).defaultRole, 'STATION_OPERATIONS');
+  assert.equal((await repository.getDashboard(invalid.id)).defaultRole, undefined);
+
+  const replacement = await service.create({ access: admin, input: { name: 'Valid replacement' } });
+  await repository.createDashboardItem({ id: 'I-OK-2', dashboardId: replacement.id, reportId: 'R-OK', column: 1, row: 1, width: 4, height: 2, version: 1 });
+  const originalUpdate = repository.updateDashboard.bind(repository);
+  repository.updateDashboard = async (id, version, changes) => id === replacement.id
+    ? { conflict: true } : originalUpdate(id, version, changes);
+  await assert.rejects(service.setRoleDefault({ access: admin, dashboardId: replacement.id, role: 'STATION_OPERATIONS' }), { code: 'VERSION_CONFLICT' });
+  assert.equal((await repository.getDashboard(current.id)).defaultRole, 'STATION_OPERATIONS');
+  assert.equal((await repository.getDashboard(replacement.id)).defaultRole, undefined);
+});
+
+test('role-default replacement reconciles write-then-throw outcomes at both mutation stages', async () => {
+  for (const failureStage of ['unset-current', 'publish-candidate']) {
+    const { service, repository } = harness();
+    const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+    await repository.createReport({ id: `R-OK-${failureStage}`, ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'stationCases' } });
+    const current = await service.create({ access: admin, input: { name: `Current ${failureStage}` } });
+    const candidate = await service.create({ access: admin, input: { name: `Candidate ${failureStage}` } });
+    await repository.createDashboardItem({ id: `I-CURRENT-${failureStage}`, dashboardId: current.id, reportId: `R-OK-${failureStage}`, column: 1, row: 1, width: 4, height: 2, version: 1 });
+    await repository.createDashboardItem({ id: `I-CANDIDATE-${failureStage}`, dashboardId: candidate.id, reportId: `R-OK-${failureStage}`, column: 1, row: 1, width: 4, height: 2, version: 1 });
+    await service.setRoleDefault({ access: admin, dashboardId: current.id, role: 'STATION_OPERATIONS' });
+    const originalUpdate = repository.updateDashboard.bind(repository);
+    let injected = false;
+    repository.updateDashboard = async (id, version, changes) => {
+      const result = await originalUpdate(id, version, changes);
+      const isTargetStage = failureStage === 'unset-current'
+        ? id === current.id && Object.hasOwn(changes, 'defaultRole') && changes.defaultRole === undefined
+        : id === candidate.id && changes.defaultRole === 'STATION_OPERATIONS';
+      if (isTargetStage && !injected) {
+        injected = true;
+        throw new Error(`uncertain ${failureStage}`);
+      }
+      return result;
+    };
+
+    await assert.rejects(
+      service.setRoleDefault({ access: admin, dashboardId: candidate.id, role: 'STATION_OPERATIONS' }),
+      new RegExp(`uncertain ${failureStage}`, 'u'),
+    );
+
+    const restoredCurrent = await repository.getDashboard(current.id);
+    const restoredCandidate = await repository.getDashboard(candidate.id);
+    assert.equal(restoredCurrent.defaultRole, 'STATION_OPERATIONS');
+    assert.equal(restoredCurrent.visibility, 'GLOBAL');
+    assert.equal(restoredCandidate.defaultRole, undefined);
+    assert.equal(restoredCandidate.visibility, 'PRIVATE');
+    assert.deepEqual((await repository.listDashboards()).filter(row => row.defaultRole === 'STATION_OPERATIONS').map(row => row.id), [current.id]);
+  }
+});

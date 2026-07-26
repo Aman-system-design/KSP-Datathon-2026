@@ -1,7 +1,11 @@
+import { createHash } from 'node:crypto';
+
 import { fail } from '../services/errors.mjs';
+import { canonicalStringify } from '../workflow/canonical-json.mjs';
 import { getReportSource } from './semantic-sources.mjs';
 import { normalizeReportDefinition } from './report-definition.mjs';
 import { executeReportDefinition, projectMapReportExecution, projectReportRows } from './report-execution.mjs';
+import { isReportSourceAllowed } from './report-source-policy.mjs';
 
 const hasAction = (access, action) => access?.actions?.includes(action);
 const owns = (row, access) => row.ownerUserId === access?.actualUserId;
@@ -12,6 +16,8 @@ const clientReport = report => Object.freeze({
   id: report.id, name: report.name, visibility: report.visibility,
   version: report.version, definition: structuredClone(report.definition),
 });
+const idempotentId = (actor, key) => `REPORT-IDEMP-${createHash('sha256')
+  .update(canonicalStringify({ actor, key, resource: 'REPORT' })).digest('hex').slice(0, 48)}`;
 
 function normalizedReport(input) {
   try { return normalizeReportDefinition(input, getReportSource(input?.sourceKey)); }
@@ -21,9 +27,29 @@ function normalizedReport(input) {
   }
 }
 
+function withRuntimeFilters(definition, runtimeFilters) {
+  if (runtimeFilters === undefined) return definition;
+  if (!Array.isArray(runtimeFilters) || runtimeFilters.length > 8) fail('INVALID_REQUEST');
+  for (const filter of runtimeFilters) {
+    if (!filter || typeof filter !== 'object' || Array.isArray(filter)
+      || Object.keys(filter).some(key => !['field', 'operator', 'value'].includes(key))) {
+      fail('INVALID_REQUEST');
+    }
+  }
+  const replacedFields = new Set(runtimeFilters.map(filter => filter.field));
+  return normalizedReport({
+    ...definition,
+    filters: [
+      ...(definition.filters ?? []).filter(filter => !replacedFields.has(filter.field)),
+      ...runtimeFilters,
+    ],
+  });
+}
+
 export function createReportService({ repository, readServices, mapViewService, now, idFactory }) {
   async function visible(report, access) {
     if (!report) return false;
+    if (!isReportSourceAllowed(access, report.definition?.sourceKey)) return false;
     if (owns(report, access) || report.visibility === 'GLOBAL') return true;
     const shares = await repository.listContentShares('REPORT', report.id);
     return shares.some((share) => matchesShare(share, access));
@@ -36,6 +62,7 @@ export function createReportService({ repository, readServices, mapViewService, 
   async function requireOwner(reportId, access) {
     const report = await repository.getReport(reportId);
     if (!report) fail('NOT_FOUND');
+    if (!isReportSourceAllowed(access, report.definition?.sourceKey)) fail('NOT_FOUND');
     if (!owns(report, access) && !hasAction(access, 'MANAGE_GLOBAL_CONTENT')) fail('FORBIDDEN_ACTION');
     return report;
   }
@@ -49,27 +76,51 @@ export function createReportService({ repository, readServices, mapViewService, 
   }
 
   return Object.freeze({
-    async create({ access, input, requestId }) {
+    async create({ access, input, requestId, idempotencyKey }) {
       if (!access?.actualUserId) fail('FORBIDDEN_ACTION');
       const definition = normalizedReport(input);
+      if (!isReportSourceAllowed(access, definition.sourceKey)) fail('INVALID_REQUEST');
       await authorizeMapReference(definition, access, requestId);
       const timestamp = now();
-      return repository.createReport({
-        id: idFactory(), ownerUserId: access.actualUserId, visibility: 'PRIVATE', version: 1,
+      const key = typeof idempotencyKey === 'string' && idempotencyKey.trim() ? idempotencyKey.trim() : null;
+      const id = key ? idempotentId(access.actualUserId, key) : idFactory();
+      const intended = {
+        id, ownerUserId: access.actualUserId, visibility: 'PRIVATE', version: 1,
         definition: structuredClone(definition), name: definition.name, createdAt: timestamp,
         updatedAt: timestamp, syntheticData: true,
-      });
+      };
+      const replay = async () => {
+        const existing = await repository.getReport(id);
+        if (!existing || existing.ownerUserId !== intended.ownerUserId || existing.visibility !== 'PRIVATE'
+          || canonicalStringify(existing.definition) !== canonicalStringify(intended.definition)) return null;
+        return existing;
+      };
+      if (key) {
+        const existing = await replay();
+        if (existing) return existing;
+      }
+      try { return await repository.createReport(intended); }
+      catch (error) {
+        if (!key) throw error;
+        const existing = await replay();
+        if (existing) return existing;
+        fail('IDEMPOTENCY_CONFLICT');
+      }
     },
     async get({ access, reportId }) { return requireVisible(reportId, access); },
     async list({ access }) {
       const reports = await repository.listReports();
       const result = [];
-      for (const report of reports) if (await visible(report, access)) result.push(report);
+      for (const report of reports) if (await visible(report, access)) result.push({
+        ...report,
+        relationship: owns(report, access) ? 'OWNED' : report.visibility === 'GLOBAL' ? 'SYSTEM' : 'SHARED',
+      });
       return result;
     },
     async update({ access, reportId, expectedVersion, input, requestId }) {
       await requireOwner(reportId, access);
       const definition = normalizedReport(input);
+      if (!isReportSourceAllowed(access, definition.sourceKey)) fail('INVALID_REQUEST');
       await authorizeMapReference(definition, access, requestId);
       const updated = await repository.updateReport(reportId, expectedVersion, {
         definition: structuredClone(definition), name: definition.name, updatedAt: now(),
@@ -78,9 +129,11 @@ export function createReportService({ repository, readServices, mapViewService, 
       if (!updated) fail('NOT_FOUND');
       return updated;
     },
-    async execute({ access, reportId, requestId }) {
+    async execute({ access, reportId, requestId, runtimeFilters }) {
       const report = await requireVisible(reportId, access);
+      const executionDefinition = withRuntimeFilters(report.definition, runtimeFilters);
       if (report.definition.visualization.type === 'map') {
+        if (runtimeFilters?.length) fail('INVALID_REQUEST');
         if (typeof mapViewService?.getMapView !== 'function') fail('DATA_NOT_READY');
         const governed = await mapViewService.getMapView({
           access, params: { mapViewId: report.definition.visualization.mapViewId }, requestId,
@@ -90,14 +143,16 @@ export function createReportService({ repository, readServices, mapViewService, 
           result: { data: projectMapReportExecution(governed.data), meta: governed.meta },
         };
       }
-      const source = getReportSource(report.definition.sourceKey);
+      const source = getReportSource(executionDefinition.sourceKey);
       const service = readServices[source.service];
       if (typeof service !== 'function') fail('DATA_NOT_READY');
-      const result = await service({ access, query: { limit: Math.min(report.definition.limit, 200) } });
+      const result = await service({ access, query: { limit: Math.min(executionDefinition.limit, 200) } });
       return {
         definition: clientReport(report),
+        syntheticData: result.syntheticData === true,
+        ...(result.provenance ? { provenance: result.provenance } : {}),
         result: {
-          data: { items: executeReportDefinition(report.definition, projectReportRows(source.key, result)) },
+          data: { items: executeReportDefinition(executionDefinition, projectReportRows(source.key, result)) },
           meta: result.meta,
         },
       };
@@ -116,6 +171,7 @@ export function createReportService({ repository, readServices, mapViewService, 
       if (!hasAction(access, 'MANAGE_GLOBAL_CONTENT')) fail('FORBIDDEN_ACTION');
       const report = await repository.getReport(reportId);
       if (!report) fail('NOT_FOUND');
+      if (!isReportSourceAllowed(access, report.definition?.sourceKey)) fail('NOT_FOUND');
       const updated = await repository.updateReport(reportId, report.version, { visibility: 'GLOBAL', updatedAt: now() });
       if (updated?.conflict) fail('VERSION_CONFLICT');
       return updated;

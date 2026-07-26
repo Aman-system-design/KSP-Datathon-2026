@@ -40,6 +40,7 @@ export const repositoryMethods = Object.freeze([
   'deleteContentShare',
   'getUserPreference',
   'upsertUserPreference',
+  'deleteUserPreference',
   'getAccessProfile',
   'getUnits',
   'getAlert',

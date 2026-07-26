@@ -42,3 +42,32 @@ test('stages bounded keyboard movement and resizing while editing', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Make Governed result wider' }));
   expect(onStage).toHaveBeenLastCalledWith([{ ...report, width: 7 }]);
 });
+
+test('optionally exposes removal while editing without changing ordinary canvas callers', () => {
+  const onStage = vi.fn();
+  const report = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 };
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [report] }] };
+  const { rerender } = render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} editing onStage={onStage} /></MemoryRouter>);
+  expect(screen.queryByRole('button', { name: 'Remove Case ageing' })).not.toBeInTheDocument();
+
+  rerender(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} editing onStage={onStage} allowRemove /></MemoryRouter>);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Case ageing' }));
+  expect(onStage).toHaveBeenCalledWith([]);
+});
+
+test('forwards report selections with the dashboard item', () => {
+  const onSelect = vi.fn();
+  const report = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', definition: { name: 'Case ageing', dimensions: ['ageingBucket'], measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'bar' }, style: {} }, data: [{ ageingBucket: '60+ days', recordCount_sum: 4 }], column: 1, row: 1, width: 6, height: 3 };
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={{ id: 'D-1', tabs: [{ id: 'overview', items: [report] }] }} onSelect={onSelect} /></MemoryRouter>);
+  fireEvent.click(screen.getByTitle('60+ days: 4'));
+  expect(onSelect).toHaveBeenCalledWith(report, {
+    field: 'ageingBucket', value: '60+ days',
+    row: { ageingBucket: '60+ days', recordCount_sum: 4 },
+  });
+});
+
+test('keeps report selection optional for command centre callers', () => {
+  const report = { id: 'I-1', reportId: 'R-1', title: 'Case ageing', status: 'ready', definition: { name: 'Case ageing', dimensions: ['ageingBucket'], measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'bar' }, style: {} }, data: [{ ageingBucket: '0–7 days', recordCount_sum: 2 }], column: 1, row: 1, width: 6, height: 3 };
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={{ id: 'D-1', tabs: [{ id: 'overview', items: [report] }] }} /></MemoryRouter>);
+  expect(() => fireEvent.click(screen.getByTitle('0–7 days: 2'))).not.toThrow();
+});

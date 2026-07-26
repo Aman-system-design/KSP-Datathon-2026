@@ -49,6 +49,18 @@ test('map-view policy grants ownership actions without broad management to opera
   assert.ok(policy.roles.PLATFORM_ADMIN.includes('MANAGE_MAP_VIEWS'));
 });
 
+test('case reads are restricted to operational, analyst, and leadership roles', () => {
+  for (const role of [
+    'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP',
+    'CRIME_ANALYST', 'STATION_OPERATIONS',
+  ]) {
+    assert.ok(policy.roles[role].includes('READ_CASE'), role);
+  }
+  for (const role of ['COMMAND_CENTER', 'DEMO_PRESENTER', 'PLATFORM_ADMIN', 'AUDITOR']) {
+    assert.equal(policy.roles[role].includes('READ_CASE'), false, role);
+  }
+});
+
 test('demo persona is allowlisted, synthetic, authenticated, and Development-only', () => {
   const presenter = {
     ...profile, DefaultRole: 'DEMO_PRESENTER', DemoPersonaAllowed: true, SyntheticData: true,

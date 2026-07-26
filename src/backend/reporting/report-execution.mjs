@@ -5,9 +5,9 @@ function matches(row, { field, operator, value }) {
   if (operator === 'eq') return actual === value;
   if (operator === 'neq') return actual !== value;
   if (operator === 'in') return Array.isArray(value) && value.includes(actual);
-  if (operator === 'gte') return actual >= value;
-  if (operator === 'lte') return actual <= value;
-  if (operator === 'between') return Array.isArray(value) && value.length === 2 && actual >= value[0] && actual <= value[1];
+  if (operator === 'gte') return actual !== null && actual !== undefined && actual >= value;
+  if (operator === 'lte') return actual !== null && actual !== undefined && actual <= value;
+  if (operator === 'between') return actual !== null && actual !== undefined && Array.isArray(value) && value.length === 2 && actual >= value[0] && actual <= value[1];
   return false;
 }
 
@@ -113,7 +113,7 @@ export function reportRowsFromEnvelope(envelope) {
 }
 
 const periodOf = envelope => envelope?.meta?.observationPeriod?.to;
-const unitOf = envelope => envelope?.meta?.scopeUnitId;
+const unitOf = envelope => String(envelope?.meta?.scopeUnitId);
 
 export function projectReportRows(sourceKey, envelope) {
   const rows = reportRowsFromEnvelope(envelope);
@@ -143,11 +143,28 @@ export function projectReportRows(sourceKey, envelope) {
     score: row.score, period,
   }));
   if (sourceKey === 'districtContext') return rows.flatMap(row => Object.entries(row.indicators ?? {}).map(([indicator, value]) => ({
-    unitId: row.unitId, indicator, value, period: row.period ?? period,
+    unitId: String(row.unitId), indicator, value, period: row.period ?? period,
   })));
   if (sourceKey === 'alerts') return rows.map(row => ({
-    alertId: row.id, alertType: row.type, state: row.status, unitId: row.scopeUnitId,
-    severity: row.severity, createdAt: row.createdAt,
+    alertId: row.id, alertType: row.type, state: row.status, unitId: String(row.scopeUnitId),
+    severity: row.severity, createdAt: row.createdAt, recordCount: 1,
+  }));
+  if (sourceKey === 'stationCases') return rows.map(row => ({
+    caseId: row.caseId,
+    caseNumber: row.caseNumber,
+    unitId: row.unitId,
+    unitName: row.unitName,
+    status: row.status,
+    registeredAt: row.registeredAt,
+    incidentAt: row.incidentAt,
+    incidentHour: row.incidentHour,
+    majorHead: row.majorHead,
+    minorHead: row.minorHead,
+    ageDays: row.ageDays,
+    registeredAgeDays: row.registeredAgeDays,
+    ageingBucket: row.ageingBucket,
+    isOpen: row.isOpen,
+    recordCount: 1,
   }));
   throw new TypeError(`Unsupported report source: ${sourceKey}`);
 }

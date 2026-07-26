@@ -27,3 +27,19 @@ test('renders nothing outside operator edit mode', () => {
   expect(container).toBeEmptyDOMElement();
   expect(api.get).not.toHaveBeenCalled();
 });
+
+test('an optional predicate excludes reports that the workspace cannot add', async () => {
+  const api = { get: vi.fn(async () => ({ data: [
+    { id: 'R-STATION', name: 'Open cases', definition: { sourceKey: 'stationCases', visualization: { type: 'table' } } },
+    { id: 'R-MAP', name: 'Karnataka district map', definition: { sourceKey: 'hotspots', visualization: { type: 'map' } } },
+  ] })) };
+  const onAdd = vi.fn();
+  render(<MemoryRouter><CommandCenterAddReportDrawer
+    api={api} open onAdd={onAdd}
+    reportPredicate={report => ['stationCases', 'alerts'].includes(report.definition?.sourceKey)}
+  /></MemoryRouter>);
+
+  expect(await screen.findByText('Open cases')).toBeInTheDocument();
+  expect(screen.queryByText('Karnataka district map')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add Karnataka district map' })).not.toBeInTheDocument();
+});

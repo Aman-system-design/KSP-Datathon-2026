@@ -163,6 +163,38 @@ test('invalid report source and shape become stable 400 service errors', async (
   ]) await assert.rejects(service.create({ access: access('OWNER'), input }), { code: 'INVALID_REQUEST', status: 400 });
 });
 
+test('report listings distinguish owned content from shared private content', async () => {
+  const { service } = harness();
+  const owner = access('OWNER');
+  const viewer = access('VIEWER');
+  const created = await service.create({ access: owner, input: definition });
+  await service.share({ access: owner, reportId: created.id, target: { userId: viewer.actualUserId } });
+
+  assert.equal((await service.list({ access: owner })).find(row => row.id === created.id).relationship, 'OWNED');
+  assert.equal((await service.list({ access: viewer })).find(row => row.id === created.id).relationship, 'SHARED');
+});
+
+test('station report policy hides and rejects non-station sources across report operations', async () => {
+  const { service, repository } = harness();
+  const station = access('STATION', 'STATION_OPERATIONS', [1001]);
+  await repository.createReport({
+    id: 'R-GLOBAL-STATE', ownerUserId: 'ADMIN', name: definition.name,
+    definition, visibility: 'GLOBAL', version: 1,
+  });
+  await repository.createReport({
+    id: 'R-OWNED-STATE', ownerUserId: station.actualUserId, name: definition.name,
+    definition, visibility: 'PRIVATE', version: 1,
+  });
+
+  assert.equal((await service.list({ access: station })).some(report => report.id === 'R-GLOBAL-STATE'), false);
+  await assert.rejects(service.get({ access: station, reportId: 'R-GLOBAL-STATE' }), { code: 'NOT_FOUND' });
+  await assert.rejects(service.execute({ access: station, reportId: 'R-GLOBAL-STATE' }), { code: 'NOT_FOUND' });
+  await assert.rejects(service.update({
+    access: station, reportId: 'R-OWNED-STATE', expectedVersion: 1, input: definition,
+  }), { code: 'NOT_FOUND' });
+  await assert.rejects(service.create({ access: station, input: definition }), { code: 'INVALID_REQUEST' });
+});
+
 test('map report create and update authorize the referenced view before persistence', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const calls = [];

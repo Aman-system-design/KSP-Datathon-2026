@@ -7,9 +7,9 @@ import {
 } from '../../src/backend/reporting/semantic-sources.mjs';
 import { normalizeReportDefinition } from '../../src/backend/reporting/report-definition.mjs';
 
-test('semantic registry exposes exactly seven governed intelligence sources', () => {
+test('semantic registry exposes exactly eight governed intelligence sources', () => {
   assert.deepEqual(Object.keys(REPORT_SOURCES), [
-    'brief', 'patterns', 'hotspots', 'anomalies', 'areaRisk', 'districtContext', 'alerts',
+    'brief', 'patterns', 'hotspots', 'anomalies', 'areaRisk', 'districtContext', 'alerts', 'stationCases',
   ]);
   for (const source of Object.values(REPORT_SOURCES)) {
     assert.match(source.service, /^[a-z][A-Za-z]+$/);
@@ -19,6 +19,89 @@ test('semantic registry exposes exactly seven governed intelligence sources', ()
     assert.equal('query' in source, false);
   }
   assert.throws(() => getReportSource('SRC_CaseMaster'), /invalid report source/i);
+});
+
+test('station case reports expose only the governed analytical allowlist', () => {
+  const source = getReportSource('stationCases');
+  assert.equal(source.service, 'listStationCasesForAnalytics');
+  assert.deepEqual(Object.keys(source.fields), [
+    'caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt', 'incidentAt',
+    'incidentHour', 'majorHead', 'minorHead', 'ageDays', 'registeredAgeDays',
+    'ageingBucket', 'isOpen', 'recordCount',
+  ]);
+  assert.deepEqual(source.visualizations, ['number', 'table', 'bar', 'line', 'pie', 'funnel']);
+  assert.deepEqual(source.fields.ageDays.aggregates, ['avg', 'min', 'max']);
+  assert.equal(source.fields.incidentHour.dimension, true);
+  assert.deepEqual(source.fields.registeredAgeDays.aggregates, ['avg', 'min', 'max']);
+  assert.deepEqual(source.fields.recordCount.aggregates, ['sum', 'count']);
+  for (const field of ['caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt',
+    'incidentAt', 'incidentHour', 'majorHead', 'minorHead', 'ageingBucket', 'isOpen']) {
+    assert.equal(source.fields[field].dimension, true, field);
+  }
+
+  for (const rawField of ['BriefFacts', 'ComplainantName', 'accused', 'syntheticData']) {
+    assert.throws(() => normalizeReportDefinition({
+      name: 'Unsafe station cases', sourceKey: 'stationCases', dimensions: [rawField],
+    }, source), /unknown field/i);
+  }
+});
+
+test('alert reports expose a truthful row count measure for active alert totals', () => {
+  const source = getReportSource('alerts');
+  assert.deepEqual(source.fields.recordCount.aggregates, ['sum', 'count']);
+  const definition = normalizeReportDefinition({
+    name: 'Active alerts', sourceKey: 'alerts',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'state', operator: 'in', value: ['GENERATED', 'ASSIGNED', 'ACKNOWLEDGED', 'CONCLUDED'] }],
+    visualization: { type: 'number' },
+  }, source);
+  assert.deepEqual(definition.measures, [{ field: 'recordCount', aggregate: 'sum' }]);
+});
+
+test('semantic aggregate allowlists are deeply immutable', () => {
+  const source = getReportSource('stationCases');
+  const aggregates = source.fields.recordCount.aggregates;
+  try {
+    assert.throws(() => aggregates.push('avg'), TypeError);
+  } finally {
+    if (aggregates.at(-1) === 'avg') aggregates.pop();
+  }
+  assert.equal(Object.isFrozen(aggregates), true);
+  assert.throws(() => normalizeReportDefinition({
+    name: 'Unsafe average', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'avg' }],
+  }, source), /aggregate/i);
+});
+
+test('validates report filter operators and values against semantic field types', () => {
+  const source = getReportSource('stationCases');
+  const validFilters = [
+    { field: 'isOpen', operator: 'eq', value: true },
+    { field: 'ageDays', operator: 'gte', value: 7 },
+    { field: 'registeredAt', operator: 'between', value: ['2026-07-01', '2026-07-31T23:59:59Z'] },
+    { field: 'status', operator: 'in', value: ['Under Investigation', 'Chargesheet Filed'] },
+  ];
+  assert.deepEqual(normalizeReportDefinition({
+    name: 'Typed filters', sourceKey: 'stationCases', filters: validFilters,
+  }, source).filters, validFilters);
+
+  for (const filter of [
+    { field: 'isOpen', operator: 'gte', value: true },
+    { field: 'isOpen', operator: 'eq', value: 1 },
+    { field: 'ageDays', operator: 'eq', value: '7' },
+    { field: 'ageDays', operator: 'between', value: [1] },
+    { field: 'ageDays', operator: 'between', value: [1, '30'] },
+    { field: 'registeredAt', operator: 'lte', value: 'not-a-date' },
+    { field: 'registeredAt', operator: 'eq', value: '2026-02-30' },
+    { field: 'registeredAt', operator: 'between', value: ['2026-07-01', false] },
+    { field: 'status', operator: 'between', value: ['A', 'Z'] },
+    { field: 'status', operator: 'in', value: [] },
+    { field: 'status', operator: 'in', value: ['Open', 2] },
+    { field: 'status', operator: 'in', value: Array.from({ length: 101 }, () => 'Open') },
+    { field: 'status', operator: 'eq', value: ['Open'] },
+  ]) assert.throws(() => normalizeReportDefinition({
+    name: 'Invalid typed filter', sourceKey: 'stationCases', filters: [filter],
+  }, source), /filter/i);
 });
 
 test('normalizes a bounded anomaly trend from governed fields', () => {
@@ -122,7 +205,7 @@ test('map reports reject transforms that would be silently ignored', () => {
   for (const transform of [
     { dimensions: ['unitId'] },
     { measures: [{ field: 'caseCount', aggregate: 'sum' }] },
-    { filters: [{ field: 'unitId', operator: 'eq', value: 999 }] },
+    { filters: [{ field: 'unitId', operator: 'eq', value: '999' }] },
     { sort: [{ field: 'unitId', direction: 'asc' }] },
   ]) assert.throws(() => normalizeReportDefinition({
     name: 'Misleading district map', sourceKey: 'hotspots',

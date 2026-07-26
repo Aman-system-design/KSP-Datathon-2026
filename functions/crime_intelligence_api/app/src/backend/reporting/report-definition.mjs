@@ -3,6 +3,7 @@ const ALLOWED_KEYS = new Set([
   'visualization', 'limit',
 ]);
 const FILTER_OPERATORS = new Set(['eq', 'neq', 'in', 'gte', 'lte', 'between']);
+const MAX_FILTER_VALUES = 100;
 const MAP_VIEW_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u;
 
 function requireObject(value, label) {
@@ -16,6 +17,50 @@ function requireField(source, name, { dimension = false } = {}) {
   if (!definition) throw new TypeError(`Unknown field: ${name}`);
   if (dimension && !definition.dimension) throw new TypeError(`Field is not a dimension: ${name}`);
   return definition;
+}
+
+function validFilterScalar(type, value) {
+  if (type === 'string') return typeof value === 'string';
+  if (type === 'number') return typeof value === 'number' && Number.isFinite(value);
+  if (type === 'boolean') return typeof value === 'boolean';
+  if (type === 'date') {
+    const match = typeof value === 'string' && value.match(
+      /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/u,
+    );
+    if (!match || !Number.isFinite(Date.parse(value))) return false;
+    const calendar = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    return calendar.getUTCFullYear() === Number(match[1])
+      && calendar.getUTCMonth() === Number(match[2]) - 1
+      && calendar.getUTCDate() === Number(match[3]);
+  }
+  return false;
+}
+
+function requireValidFilter(definition, operator, value) {
+  if (operator === 'eq' || operator === 'neq') {
+    if (!validFilterScalar(definition.type, value)) throw new TypeError('Filter value does not match field type');
+    return;
+  }
+  if (operator === 'in') {
+    if (!Array.isArray(value) || value.length < 1 || value.length > MAX_FILTER_VALUES
+      || value.some(item => !validFilterScalar(definition.type, item))) {
+      throw new TypeError('Filter in value must be a bounded typed array');
+    }
+    return;
+  }
+  if (!['number', 'date'].includes(definition.type)) {
+    throw new TypeError('Filter comparison operator is incompatible with field type');
+  }
+  if (operator === 'between') {
+    if (!Array.isArray(value) || value.length !== 2
+      || value.some(item => !validFilterScalar(definition.type, item))) {
+      throw new TypeError('Filter between value must contain two typed bounds');
+    }
+    return;
+  }
+  if (!validFilterScalar(definition.type, value)) {
+    throw new TypeError('Filter comparison value does not match field type');
+  }
 }
 
 export function normalizeReportDefinition(input, source) {
@@ -52,9 +97,10 @@ export function normalizeReportDefinition(input, source) {
   if (!Array.isArray(filters)) throw new TypeError('Filters must be an array');
   const normalizedFilters = filters.map((filter) => {
     requireObject(filter, 'Filter');
-    requireField(source, filter.field);
+    const definition = requireField(source, filter.field);
     if (!FILTER_OPERATORS.has(filter.operator)) throw new TypeError('Unsupported filter operator');
     if (filter.value === undefined) throw new TypeError('Filter value is required');
+    requireValidFilter(definition, filter.operator, filter.value);
     return { field: filter.field, operator: filter.operator, value: structuredClone(filter.value) };
   });
 

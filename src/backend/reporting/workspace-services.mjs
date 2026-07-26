@@ -1,21 +1,37 @@
 import { createAlertServices } from '../services/alert-services.mjs';
+import { fail } from '../services/errors.mjs';
 import { REPORT_SOURCES } from './semantic-sources.mjs';
 import { createDashboardService } from './dashboard-service.mjs';
 import { createReportService } from './report-service.mjs';
+import { visibleReportSources } from './report-source-policy.mjs';
 
 const envelope = data => ({ data, syntheticData: true });
+const header = (headers, name) => Object.entries(headers ?? {})
+  .find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1];
 
-export function createWorkspaceServices({ repository, readServices, mapViewService, now, idFactory }) {
+export function createWorkspaceServices({ repository, readServices, mapViewService, caseService, now, idFactory }) {
   const reports = createReportService({ repository, readServices, mapViewService, now, idFactory: () => idFactory('REPORT') });
   const dashboards = createDashboardService({ repository, now, idFactory: () => idFactory('DASH') });
   const alerts = createAlertServices({ repository });
 
   const services = {
-    async listReportSources() {
-      return envelope(Object.values(REPORT_SOURCES).map(source => structuredClone(source)));
+    async listStationCases({ access, query }) {
+      if (typeof caseService?.list !== 'function') fail('DATA_NOT_READY');
+      return caseService.list({ access, query });
+    },
+    async getStationCase({ access, params }) {
+      if (typeof caseService?.get !== 'function') fail('DATA_NOT_READY');
+      return caseService.get({ access, caseId: params.caseId });
+    },
+    async listReportSources({ access } = {}) {
+      return envelope(visibleReportSources(access, Object.values(REPORT_SOURCES)).map(source => structuredClone(source)));
     },
     async listReports({ access }) { return envelope(await reports.list({ access })); },
-    async createReport({ access, body, requestId }) { return envelope(await reports.create({ access, input: body, requestId })); },
+    async createReport({ access, body, headers, requestId }) {
+      return envelope(await reports.create({
+        access, input: body, requestId, idempotencyKey: header(headers, 'Idempotency-Key'),
+      }));
+    },
     async getReport({ access, params }) { return envelope(await reports.get({ access, reportId: params.reportId })); },
     async updateReport({ access, params, body, requestId }) {
       return envelope(await reports.update({
@@ -23,12 +39,18 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       }));
     },
     async deleteReport({ access, params }) { return envelope(await reports.remove({ access, reportId: params.reportId })); },
-    async executeReport({ access, params, requestId }) {
-      return envelope(await reports.execute({ access, reportId: params.reportId, requestId }));
+    async executeReport({ access, params, body, requestId }) {
+      return envelope(await reports.execute({
+        access, reportId: params.reportId, requestId, runtimeFilters: body?.runtimeFilters,
+      }));
     },
 
     async listDashboards({ access }) { return envelope(await dashboards.list({ access })); },
-    async createDashboard({ access, body }) { return envelope(await dashboards.create({ access, input: body })); },
+    async createDashboard({ access, body, headers }) {
+      return envelope(await dashboards.create({
+        access, input: body, idempotencyKey: header(headers, 'Idempotency-Key'),
+      }));
+    },
     async getDashboard({ access, params }) { return envelope(await dashboards.get({ access, dashboardId: params.dashboardId })); },
     async updateDashboard({ access, params, body }) {
       return envelope(await dashboards.update({
@@ -36,8 +58,14 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       }));
     },
     async deleteDashboard({ access, params }) { return envelope(await dashboards.remove({ access, dashboardId: params.dashboardId })); },
-    async replaceDashboardItems({ access, params, body }) {
-      return envelope(await dashboards.replaceItems({ access, dashboardId: params.dashboardId, items: body?.items }));
+    async replaceDashboardItems({ access, params, body, headers }) {
+      return envelope(await dashboards.replaceItems({
+        access, dashboardId: params.dashboardId, items: body?.items,
+        idempotencyKey: header(headers, 'Idempotency-Key'),
+      }));
+    },
+    async cloneDashboard({ access, params, body }) {
+      return envelope(await dashboards.cloneForOwner({ access, dashboardId: params.dashboardId, input: body }));
     },
     async shareDashboard({ access, params, body }) {
       return envelope(await dashboards.share({
@@ -56,16 +84,28 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       const alertPromise = access.actions?.includes('READ_ALERT')
         ? alerts.listAlerts({ access, query: {} })
         : Promise.resolve({ data: { items: [] } });
-      const [landingResult, dashboardsResult, reportsResult, alertsResult] = await Promise.allSettled([
+      const [landingResult, dashboardsResult, reportsResult, alertsResult, unitsResult] = await Promise.allSettled([
         dashboards.resolveLanding({ access }), dashboards.list({ access }), reports.list({ access }),
-        alertPromise,
+        alertPromise, repository.getUnits(),
       ]);
       const landingDashboard = landingResult.status === 'fulfilled' ? landingResult.value : undefined;
-      const availableDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
+      const allDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
+      const availableDashboards = access.role === 'STATION_OPERATIONS'
+        ? allDashboards.filter(row => row.defaultRole === 'STATION_OPERATIONS'
+          || row.relationship === 'OWNED')
+        : allDashboards;
       const availableReports = reportsResult.status === 'fulfilled' ? reportsResult.value : [];
+      const semanticSources = visibleReportSources(access, Object.values(REPORT_SOURCES)).map(source => source.key);
       const alertResult = alertsResult.status === 'fulfilled' ? alertsResult.value : { data: { items: [] } };
+      const scopedUnit = unitsResult.status === 'fulfilled'
+        ? unitsResult.value.find(unit => Number(unit.UnitID) === Number(access.scopeUnitId)) : undefined;
+      const unitTypes = new Map([[1, 'State headquarters'], [2, 'District'], [3, 'Police station']]);
       return envelope({
         role: access.role, scopeUnitId: access.scopeUnitId,
+        ...(scopedUnit ? { scopeUnit: {
+          name: scopedUnit.UnitName,
+          type: unitTypes.get(Number(scopedUnit.TypeID)) ?? 'Police unit',
+        } } : {}),
         identity: {
           employeeId: access.employeeId,
           actualRole: access.actualRole,
@@ -77,7 +117,7 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
           personas: [...(access.availablePersonas ?? [])],
         },
         landingDashboard, availableDashboards, availableReports,
-        semanticSources: Object.keys(REPORT_SOURCES),
+        semanticSources,
         alertSummary: { total: alertResult.data.items.length }, syntheticData: true,
       });
     },

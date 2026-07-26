@@ -10,7 +10,13 @@ const LazyGeospatialStudio = lazy(() => import('../geospatial/GeospatialStudio.j
 const STEPS = ['Data', 'Type', 'Configure', 'Style', 'Review'];
 
 function parseFilterValue(raw, type, operator) {
-  const parse = value => type === 'number' ? Number(value.trim()) : value.trim();
+  const parse = (value) => {
+    const normalized = value.trim();
+    if (type === 'number') return Number(normalized);
+    if (type === 'boolean' && normalized.toLowerCase() === 'true') return true;
+    if (type === 'boolean' && normalized.toLowerCase() === 'false') return false;
+    return normalized;
+  };
   if (operator === 'in' || operator === 'between') return raw.split(',').map(parse).filter(value => value !== '');
   return parse(raw);
 }

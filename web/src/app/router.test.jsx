@@ -188,6 +188,77 @@ test('command center persona verifies the ordinary workspace and renders without
   expect(api.get).toHaveBeenCalledWith('/v1/workspace');
 });
 
+test('station operations persona renders its distinct workspace inside the normal ACE platform shell', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'STATION_OPERATIONS', scopeUnitId: 1001,
+      scopeUnit: { name: 'Central Police Station', type: 'Police station' },
+      availableDashboards: [], availableReports: [], alertSummary: { total: 0 },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }), post: vi.fn(), put: vi.fn() };
+
+  render(<MemoryRouter initialEntries={['/?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
+  expect(screen.getAllByText('Central Police Station')).toHaveLength(2);
+  expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Reports' })).toBeInTheDocument();
+  expect(screen.queryByRole('application', { name: 'KSP Command Center' })).not.toBeInTheDocument();
+});
+
+test('station dashboard detail route remains inside the station operations shell', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'STATION_OPERATIONS', scopeUnitId: 1001,
+      scopeUnit: { name: 'Central Police Station', type: 'Police station' },
+      availableDashboards: [], availableReports: [], alertSummary: { total: 0 },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }), post: vi.fn(), put: vi.fn() };
+
+  render(<MemoryRouter initialEntries={['/dashboards/D-BLOCKED?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Requested station dashboard is unavailable.');
+  expect(api.post).not.toHaveBeenCalled();
+  expect(api.put).not.toHaveBeenCalled();
+  expect(screen.queryByRole('heading', { name: /Dashboard library/i })).not.toBeInTheDocument();
+});
+
+test('station case detail route remains in ACE and loads the governed case projection', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'STATION_OPERATIONS', scopeUnitId: 1001,
+      scopeUnit: { name: 'Central Police Station', type: 'Police station' },
+      availableDashboards: [], availableReports: [], alertSummary: { total: 0 },
+    } };
+    if (path === '/v1/cases/CASE-1') return { data: {
+      caseId: 'CASE-1', caseNumber: '001/2026', status: 'Under Investigation',
+      unitName: 'Central Police Station', syntheticData: true,
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }), post: vi.fn(), put: vi.fn() };
+
+  render(<MemoryRouter initialEntries={['/cases/CASE-1?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Case 001/2026' })).toBeInTheDocument();
+  expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledWith('/v1/cases/CASE-1');
+});
+
+test('case route fails governed for a non-station workspace without requesting the case', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: analystWorkspace };
+    throw new Error(`Unexpected request: ${path}`);
+  }) };
+
+  render(<MemoryRouter initialEntries={['/cases/CASE-1?persona=CRIME_ANALYST']}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Access is not provisioned' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledTimes(1);
+});
+
 test('command center forwards its governed persona and opens Utilities under that role', async () => {
   const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
   vi.stubGlobal('catalyst', { auth: {

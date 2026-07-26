@@ -49,8 +49,8 @@ export function evaluateCatalystPreflight({
   const intelligenceSchemaErrors = validateIntelligenceSchema(intelligenceSchema);
   invariant(intelligenceSchemaErrors.length === 0,
     `intelligence manifest is not canonical: ${intelligenceSchemaErrors[0] ?? 'unknown error'}`);
-  invariant(apiOperations?.length === 49, 'API contract must contain exactly 49 operations');
-  invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 49, 'API operations must be unique');
+  invariant(apiOperations?.length === 51, 'API contract must contain exactly 51 operations');
+  invariant(new Set(apiOperations.map(({ method, path: route }) => `${method} ${route}`)).size === 51, 'API operations must be unique');
   invariant(versionAtLeast(cliVersion, projectConfig.cliMinimumVersion), `Catalyst CLI must be at least ${projectConfig.cliMinimumVersion}`);
 
   const clean = String(gitStatus ?? '').trim() === '';
