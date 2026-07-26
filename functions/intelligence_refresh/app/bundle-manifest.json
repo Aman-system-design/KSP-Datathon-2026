@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "4b336c653cd4b6ad3b302ec0a614abf68433f8bd67b372a63d3adebfcf2e5c0f",
-      "bytes": 1808
+      "sha256": "d501ac535046762e46788d59aa92276a67b82c35d5fcefefe9d9c01ac3137e93",
+      "bytes": 2143
     },
     {
       "path": "data/synthetic-demo-input.json",
@@ -15,8 +15,8 @@
     },
     {
       "path": "data/synthetic-identity-authority.json",
-      "sha256": "6fd54cd26c3db1dfccaa7fa8c6610ae471cca7417a12575e05fa6489b8f5c1d3",
-      "bytes": 580
+      "sha256": "d28ee1b9c6b8df45acfc99eb381dcde5f8f3a6fdce38e615ff86c0da6e6588e7",
+      "bytes": 774
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -35,8 +35,8 @@
     },
     {
       "path": "src/backend/catalyst/refresh-bootstrap.mjs",
-      "sha256": "83f8a6dd0aec2c0b6643447d96729d650e7b3a23c5f2c29ea974e9f811b6af71",
-      "bytes": 4931
+      "sha256": "9b6aa71d38234b4dfc45ddec891d3ec98a29d09534ce2cd61387cabbde98fb6e",
+      "bytes": 5762
     },
     {
       "path": "src/backend/catalyst/runtime-config.mjs",
@@ -50,8 +50,8 @@
     },
     {
       "path": "src/backend/refresh/refresh-service.mjs",
-      "sha256": "57deb4217a2f90157debad80a01f180292da8efa944d0c60c3ac59765e6195f4",
-      "bytes": 9985
+      "sha256": "bca5e8171850d3aa01b58a35132f0bf415c4cc7e9b28c792d32eeb2d62700507",
+      "bytes": 12825
     },
     {
       "path": "src/backend/refresh/run-groups.mjs",
@@ -60,8 +60,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "d615983d9fb07529096b14a6d55faa54f4bd1fb334253592b4ffafd630b5bc43",
-      "bytes": 79907
+      "sha256": "c70cd5ba973782f2db2bc1b666452824862f8e626fa35c79c5f57e2ea49fff28",
+      "bytes": 90659
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
@@ -94,6 +94,26 @@
       "bytes": 615
     },
     {
+      "path": "src/backend/utilities/rule-contract.mjs",
+      "sha256": "3eb53313dfed9d38222f35e5e80b1fce7974705667a9a7103ddaf71fded8f237",
+      "bytes": 4463
+    },
+    {
+      "path": "src/backend/utilities/utility-evaluator.mjs",
+      "sha256": "0e86279e879b8d2364ad604a9cc8e26892bab59e5578c30fc3d28a531e076f22",
+      "bytes": 6403
+    },
+    {
+      "path": "src/backend/utilities/utility-registry.mjs",
+      "sha256": "a77b2f1a21e0fb9fbaa84f1c2349cf4fee57c1e3c446b2e03cd5b1cb24fa1790",
+      "bytes": 4878
+    },
+    {
+      "path": "src/backend/utilities/utility-run-evaluation.mjs",
+      "sha256": "4fe1580084d947ad6e8496f724efaedca94d0575ff025c8891f0ff1f61446663",
+      "bytes": 8012
+    },
+    {
       "path": "src/backend/workflow/audit.mjs",
       "sha256": "93d3966123a7e8309ba3e569c20e9537c23006fc7e1f1d342fc6ffbac8d42088",
       "bytes": 2798
@@ -110,8 +130,8 @@
     },
     {
       "path": "src/ingestion/to-intelligence-input.mjs",
-      "sha256": "75d31907effb12f9d2f1ef2c654c36345ce7d127d47cbf41a7fb909a88902bf2",
-      "bytes": 5811
+      "sha256": "085ac9bebf9d65cfb8a592d2d133147a003b8f78f8e4d9eb0d7c16f3af59ac82",
+      "bytes": 6057
     },
     {
       "path": "src/ingestion/validate-source-seed.mjs",
@@ -120,8 +140,13 @@
     },
     {
       "path": "src/synthetic/source-seed.mjs",
-      "sha256": "8d011ba2ce5f26caf4fadff6e247de3434c31c8d082a2bb9a85435677fb8fa59",
-      "bytes": 13116
+      "sha256": "968e304f01e00dda5fbc841a6976451c93e8194a1e65d91a508fc533734df395",
+      "bytes": 13495
+    },
+    {
+      "path": "src/synthetic/statewide-source-seed.mjs",
+      "sha256": "072eb27682c1353face3fb84a8b3e1d6d9c5175123c35d612a0e1e66d234aaa4",
+      "bytes": 16446
     },
     {
       "path": "vendor/intelligence-core/index.mjs",
@@ -145,8 +170,8 @@
     },
     {
       "path": "vendor/intelligence-core/src/candidates.mjs",
-      "sha256": "d145f4e8d55977590b9c93da7c2ac9acd122cb3c4787b7f432d94c9a4069e7c6",
-      "bytes": 5467
+      "sha256": "cb5eacae0283df32c56811907745df10db33773fa92ee02c42e558c5b7f61936",
+      "bytes": 5924
     },
     {
       "path": "vendor/intelligence-core/src/contracts.mjs",

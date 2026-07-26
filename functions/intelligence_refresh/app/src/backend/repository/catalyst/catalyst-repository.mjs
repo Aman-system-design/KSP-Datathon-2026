@@ -13,6 +13,7 @@ const TABLES = Object.freeze({
   evidence: 'INT_FindingEvidence', nodes: 'INT_NetworkNode', edges: 'INT_NetworkEdge',
   repeatSignals: 'INT_RepeatOffenderSignal', districtContexts: 'TRN_DistrictContext',
   profiles: 'CFG_UserAccess', units: 'SRC_Unit', alerts: 'WF_Alert',
+  utilityRules: 'CFG_UtilityAlertRule',
   reports: 'CFG_ReportDefinition', dashboards: 'CFG_Dashboard', dashboardItems: 'CFG_DashboardItem',
   contentShares: 'CFG_ContentShare', userPreferences: 'CFG_UserPreference',
   mapViews: 'CFG_MapView', mapViewVersions: 'CFG_MapViewVersion',
@@ -28,6 +29,7 @@ const BUSINESS_ID = Object.freeze({
   INT_Hotspot: 'HotspotID', INT_Anomaly: 'AnomalyID', INT_AreaRisk: 'AreaRiskID',
   INT_NetworkNode: 'NetworkNodeID', INT_NetworkEdge: 'NetworkEdgeID',
   INT_RepeatOffenderSignal: 'RepeatSignalID', WF_Alert: 'AlertID',
+  CFG_UtilityAlertRule: 'RuleID',
   CFG_ReportDefinition: 'ReportDefinitionID', CFG_Dashboard: 'DashboardID',
   CFG_DashboardItem: 'DashboardItemID', CFG_ContentShare: 'ContentShareID',
   CFG_UserPreference: 'UserPreferenceID', CFG_MapView: 'MapViewID',
@@ -58,6 +60,7 @@ const DATETIME_COLUMNS = Object.freeze({
   WF_AuditEvent: ['OccurredAt'],
   CFG_ReportDefinition: ['CreatedAt', 'UpdatedAt'], CFG_Dashboard: ['CreatedAt', 'UpdatedAt'],
   CFG_ContentShare: ['CreatedAt'], CFG_UserPreference: ['UpdatedAt'],
+  CFG_UtilityAlertRule: ['CreatedAt', 'UpdatedAt'],
   CFG_MapView: ['CreatedAt', 'UpdatedAt'], CFG_MapViewVersion: ['PublishedAt', 'CreatedAt'],
   WF_AlertNote: ['CreatedAt'], WF_Escalation: ['EscalatedAt'],
   OPS_IntelligenceRunRequest: ['RequestedAt', 'StartedAt', 'CompletedAt', 'UpdatedAt'],
@@ -70,6 +73,10 @@ const RUN_REQUEST_TRANSITIONS = Object.freeze({
   FAILED_RETRYABLE: new Set(['SUBMITTED']),
   PUBLISHED: new Set(), FAILED_FINAL: new Set(),
 });
+const UTILITY_RULE_MUTABLE_FIELDS = new Set([
+  'Enabled', 'ScopeUnitID', 'ThresholdsJSON', 'EvaluationWindowDays', 'Severity',
+  'RecipientRolesJSON', 'UpdatedAt',
+]);
 
 const clone = value => value === undefined ? undefined : structuredClone(value);
 const positiveVersion = (value, name) => {
@@ -102,6 +109,28 @@ const mapViewSummary = (version, current) => {
   return { name, visibility };
 };
 const zcqlText = value => value.replaceAll("'", "''");
+const zcqlValue = (value) => {
+  if (value === null) return 'NULL';
+  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string') return `'${zcqlText(value)}'`;
+  fail('INVALID_REQUEST', 'utility rule changes contain invalid field values');
+};
+const validateUtilityRuleUpdatedAt = (changes) => {
+  if (changes === null || typeof changes !== 'object' || !Object.hasOwn(changes, 'UpdatedAt')) return;
+  const match = typeof changes.UpdatedAt === 'string'
+    ? changes.UpdatedAt.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/u) : null;
+  const parts = match?.slice(1).map(Number);
+  const calendar = parts && new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]));
+  if (!match || !Number.isFinite(Date.parse(changes.UpdatedAt))
+    || calendar.getUTCFullYear() !== parts[0] || calendar.getUTCMonth() !== parts[1] - 1
+    || calendar.getUTCDate() !== parts[2] || calendar.getUTCHours() !== parts[3]
+    || calendar.getUTCMinutes() !== parts[4] || calendar.getUTCSeconds() !== parts[5]) {
+    fail('INVALID_REQUEST', 'utility rule UpdatedAt must be a valid datetime');
+  }
+  try { catalystDateTime(changes.UpdatedAt); }
+  catch { fail('INVALID_REQUEST', 'utility rule UpdatedAt must be a valid datetime'); }
+};
 const normalizeMapVersion = (version) => {
   if (!version || typeof version !== 'object') throw new TypeError('Map view version is required.');
   safeId(version.MapViewID, 'MapViewID', 64);
@@ -207,20 +236,27 @@ export class CatalystIntelligenceRepository {
     if (!this.#cache.has(tableName)) {
       this.#cache.set(tableName, readPagedRows({
         table: this.#datastore.table(tableName), maxRows: 200, maxPages: 50,
-      }).then(result => result.rows.map(row => mapCatalystRow(row, { includeRowId: true }))));
+      }).then((result) => {
+        if (result.nextToken !== null) fail('DATA_NOT_READY', `${tableName} exceeds its governed read limit.`);
+        return result.rows.map(row => mapCatalystRow(row, { includeRowId: true }));
+      }));
     }
     return clone(await this.#cache.get(tableName));
   }
 
   async #queryIndexed(tableName, column, value, { maxRows = 5000 } = {}) {
     if (!ALLOWED_TABLES.has(tableName)) throw new TypeError('Table is not allowlisted.');
+    const literal = typeof value === 'string'
+      ? `'${zcqlText(value)}'`
+      : typeof value === 'number' && Number.isFinite(value)
+        ? String(value)
+        : undefined;
+    if (literal === undefined) throw new TypeError('Indexed query value must be text or a finite number.');
     if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
       return (await this.#read(tableName)).filter(row => String(row[column]) === String(value));
     }
     const pageSize = 200;
     const rows = [];
-    const literal = typeof value === 'number' || /^(0|[1-9]\d*)$/u.test(String(value))
-      ? String(value) : `'${zcqlText(String(value))}'`;
     for (let offset = 0; offset <= maxRows; offset += pageSize) {
       let result;
       try {
@@ -418,7 +454,7 @@ export class CatalystIntelligenceRepository {
   }
 
   async listPatterns(options = {}) {
-    const rows = await this.#currentRows(TABLES.patterns, 'PATTERN');
+    const rows = await this.#currentRows(TABLES.patterns, 'PATTERN', options.runGroup);
     return page(rows.map(row => this.#pattern(row)).sort((left, right) => left.id.localeCompare(right.id)), options);
   }
 
@@ -459,14 +495,27 @@ export class CatalystIntelligenceRepository {
   }
 
   async listAnomalies(options = {}) {
-    const rows = await this.#currentRows(TABLES.anomalies, 'ANOMALY');
-    return page(rows.map(row => ({
-      id: row.AnomalyID, seriesId: row.AreaID, method: row.SignalType,
-      observed: row.ObservedValue, expected: row.BaselineValue,
-      deviation: row.ObservedValue - row.BaselineValue, isAnomaly: true,
-      confidence: row.Severity, version: row.MethodVersion,
-      limitations: limitations(row.Limitation), synthetic: row.SyntheticData === true,
-    })).sort((left, right) => left.id.localeCompare(right.id)), options);
+    const rows = await this.#currentRows(TABLES.anomalies, 'ANOMALY', options.runGroup);
+    const runRefs = new Set(rows.map(row => String(row.AnalysisRunRef)));
+    const evidenceRows = [];
+    for (const runRef of runRefs) evidenceRows.push(...await this.#queryIndexed(TABLES.evidence, 'AnalysisRunRef', runRef));
+    const evidence = evidenceRows.filter(row => row.FindingType === 'ANOMALY');
+    return page(rows.map((row) => {
+      const contributing = evidence.filter(item => item.FindingBusinessID === row.AnomalyID).map(item => ({
+        caseId: item.SourceBusinessID,
+        unitId: Number(parseJson(item.EvidenceSummary, {}).unitId),
+      }));
+      return {
+        id: row.AnomalyID, seriesId: row.AreaID, method: row.SignalType,
+        observed: row.ObservedValue, expected: row.BaselineValue,
+        deviation: row.ObservedValue - row.BaselineValue, isAnomaly: true,
+        confidence: row.Severity, version: row.MethodVersion,
+        limitations: limitations(row.Limitation), synthetic: row.SyntheticData === true,
+        evidenceCaseIds: contributing.map(item => item.caseId),
+        evidenceUnits: Object.fromEntries(contributing.filter(item => Number.isInteger(item.unitId))
+          .map(item => [item.caseId, item.unitId])),
+      };
+    }).sort((left, right) => left.id.localeCompare(right.id)), options);
   }
 
   async getAreaRisk() {
@@ -789,6 +838,85 @@ export class CatalystIntelligenceRepository {
     return (await reconcile()) ?? fail('VERSION_CONFLICT', 'Map view version changed.');
   }
 
+  #mapUtilityRule(row) {
+    return row ? mapCatalystRow(row) : undefined;
+  }
+
+  async listUtilityRules({ utilityKey, createdByUserId } = {}) {
+    const rows = utilityKey !== undefined
+      ? await this.#queryIndexed(TABLES.utilityRules, 'UtilityKey', utilityKey)
+      : createdByUserId !== undefined
+        ? await this.#queryIndexed(TABLES.utilityRules, 'CreatedByUserID', createdByUserId)
+        : await this.#read(TABLES.utilityRules);
+    return rows
+      .filter(row => (utilityKey === undefined || row.UtilityKey === utilityKey)
+        && (createdByUserId === undefined || row.CreatedByUserID === createdByUserId))
+      .map(row => this.#mapUtilityRule(row));
+  }
+
+  async getUtilityRule(ruleId) {
+    const rows = await this.#queryIndexed(TABLES.utilityRules, 'RuleID', ruleId, { maxRows: 2 });
+    if (rows.length > 1) fail('DATA_NOT_READY', 'Utility rule business ID is not unique.');
+    return this.#mapUtilityRule(rows[0]);
+  }
+
+  async createUtilityRule(row) {
+    await this.#insert(TABLES.utilityRules, row);
+    return this.getUtilityRule(row.RuleID);
+  }
+
+  async updateUtilityRule(ruleId, expectedVersion, changes) {
+    validateUtilityRuleUpdatedAt(changes);
+    const rows = await this.#queryIndexed(TABLES.utilityRules, 'RuleID', ruleId, { maxRows: 2 });
+    if (rows.length > 1) fail('DATA_NOT_READY', 'Utility rule business ID is not unique.');
+    const [row] = rows;
+    if (!row) return undefined;
+    if (row.Version !== expectedVersion) return { conflict: true };
+    if (changes === null || typeof changes !== 'object' || Array.isArray(changes)
+      || Object.getPrototypeOf(changes) !== Object.prototype || Object.keys(changes).length === 0
+      || Object.keys(changes).some(key => !UTILITY_RULE_MUTABLE_FIELDS.has(key))) {
+      fail('INVALID_REQUEST', 'utility rule changes contain immutable or unknown fields');
+    }
+    if (!this.#zcql || typeof this.#zcql.executeZCQLQuery !== 'function') {
+      fail('DATA_NOT_READY', 'Catalyst compare-and-swap is unavailable.');
+    }
+    const prepared = prepareCatalystRow(TABLES.utilityRules, changes);
+    const rowId = String(row.ROWID);
+    if (!/^[1-9]\d*$/u.test(rowId)) fail('DATA_NOT_READY', 'Utility rule ROWID is invalid.');
+    const targetVersion = expectedVersion + 1;
+    const assignments = Object.entries(prepared)
+      .map(([name, value]) => `${name} = ${zcqlValue(value)}`)
+      .join(', ');
+    const intended = { ...row, ...prepared, Version: targetVersion };
+    const reconciled = async () => {
+      this.#invalidate(TABLES.utilityRules);
+      const currentRows = await this.#queryIndexed(TABLES.utilityRules, 'RuleID', ruleId, { maxRows: 2 });
+      if (currentRows.length > 1) fail('DATA_NOT_READY', 'Utility rule business ID is not unique.');
+      const [current] = currentRows;
+      return current?.Version === targetVersion
+        && Object.entries(prepared).every(([name, value]) => current[name] === value)
+        ? this.#mapUtilityRule(current) : undefined;
+    };
+    let result;
+    try {
+      result = await this.#zcql.executeZCQLQuery(
+        `UPDATE ${TABLES.utilityRules} SET ${assignments}, Version = ${targetVersion} WHERE ROWID = ${rowId} AND Version = ${expectedVersion}`,
+      );
+    } catch (error) {
+      const committed = await reconciled();
+      if (committed) return committed;
+      throw sanitizeCatalystSdkError(error, { operation: 'UPDATE_CFG_UtilityAlertRule_CAS' });
+    }
+    this.#invalidate(TABLES.utilityRules);
+    const affected = (Array.isArray(result) ? result[0] : result)?.affected_rows;
+    if (affected !== undefined && Number(affected) === 0) return { conflict: true };
+    if (affected !== undefined && Number(affected) === 1) return this.#mapUtilityRule(intended);
+    if (affected !== undefined && Number(affected) !== 1) {
+      fail('DATA_NOT_READY', 'Catalyst utility rule update result is invalid.');
+    }
+    return (await reconciled()) ?? { conflict: true };
+  }
+
   #mapReport(row) {
     if (!row) return undefined;
     return {
@@ -1002,8 +1130,12 @@ export class CatalystIntelligenceRepository {
       : undefined;
     return {
       AlertID: row.AlertID, PatternID: row.FindingBusinessID, ScopeUnitID: row.ScopeUnitID,
+      AnalysisRunRef: row.AnalysisRunRef, FindingType: row.FindingType,
+      FindingBusinessID: row.FindingBusinessID,
       Status: row.Status, AlertVersion: row.AlertVersion, LastCommandID: command?.CommandID ?? null,
-      OriginalFindingJSON: row.OriginalFindingJSON, SyntheticData: row.SyntheticData === true,
+      Severity: row.Severity, OriginalFindingJSON: row.OriginalFindingJSON,
+      MethodVersion: row.MethodVersion, CreatedAt: row.CreatedAt,
+      SyntheticData: row.SyntheticData === true,
     };
   }
 
@@ -1013,10 +1145,77 @@ export class CatalystIntelligenceRepository {
     const commandByRef = new Map(commands.map(row => [String(row.ROWID), row.CommandID]));
     return alerts.map(row => ({
       AlertID: row.AlertID, PatternID: row.FindingBusinessID, ScopeUnitID: row.ScopeUnitID,
+      AnalysisRunRef: row.AnalysisRunRef, FindingType: row.FindingType,
+      FindingBusinessID: row.FindingBusinessID,
       Status: row.Status, AlertVersion: row.AlertVersion,
       LastCommandID: row.LastCommandRef ? commandByRef.get(String(row.LastCommandRef)) ?? null : null,
-      OriginalFindingJSON: row.OriginalFindingJSON, SyntheticData: row.SyntheticData === true,
+      Severity: row.Severity, OriginalFindingJSON: row.OriginalFindingJSON,
+      MethodVersion: row.MethodVersion, CreatedAt: row.CreatedAt,
+      SyntheticData: row.SyntheticData === true,
     }));
+  }
+
+  async createAlertIfAbsent(alert) {
+    safeId(alert?.AlertID, 'AlertID', 64);
+    safeId(alert?.FindingType, 'FindingType', 32);
+    safeId(alert?.FindingBusinessID, 'FindingBusinessID', 64);
+    const stored = {
+      AlertID: alert.AlertID,
+      AnalysisRunRef: decimalId(alert.AnalysisRunRef, 'AnalysisRunRef'),
+      FindingType: alert.FindingType,
+      FindingBusinessID: alert.FindingBusinessID,
+      ScopeUnitID: decimalId(alert.ScopeUnitID, 'ScopeUnitID'),
+      Status: alert.Status,
+      AlertVersion: alert.AlertVersion,
+      Severity: alert.Severity,
+      OriginalFindingJSON: alert.OriginalFindingJSON,
+      MethodVersion: alert.MethodVersion,
+      CreatedAt: alert.CreatedAt,
+      SyntheticData: alert.SyntheticData === true,
+    };
+    try {
+      await this.#insert(TABLES.alerts, stored);
+      return { alert: clone(alert), created: true };
+    } catch (error) {
+      this.#invalidate(TABLES.alerts);
+      const [existing] = await this.#queryIndexed(TABLES.alerts, 'AlertID', alert.AlertID, { maxRows: 1 });
+      if (!existing) throw error;
+      const mapped = await this.getAlert(alert.AlertID);
+      return { alert: mapped, created: false };
+    }
+  }
+
+  async createAlertsIfAbsent({ alerts, ruleGuard, publicationGuard }) {
+    if (!Array.isArray(alerts) || alerts.length > 1) {
+      throw new TypeError('manual utility evaluation supports one aggregated alert per rule run.');
+    }
+    const matchesGuard = rule => rule && rule.Version === ruleGuard?.expectedVersion
+      && rule.Enabled === true && rule.ScopeUnitID === ruleGuard.scopeUnitId
+      && rule.UtilityVersion === ruleGuard.utilityVersion;
+    if (!matchesGuard(await this.getUtilityRule(ruleGuard?.ruleId))) {
+      const error = new Error('utility rule changed before alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
+    }
+    const matchesPublication = async () => {
+      if (!publicationGuard) return true;
+      const current = await this.getCurrentRunGroup();
+      return current?.RunGroupID === publicationGuard.runGroupId
+        && current.runs.some(run => run.AnalysisRunID === publicationGuard.analysisRunId
+          && String(run.AnalysisRunRef ?? run.ROWID ?? run.AnalysisRunID)
+            === String(publicationGuard.analysisRunRef));
+    };
+    if (!await matchesPublication()) {
+      const error = new Error('intelligence publication changed before alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
+    }
+    if (alerts.length === 0) return [];
+    const result = await this.createAlertIfAbsent(alerts[0]);
+    if (!matchesGuard(await this.getUtilityRule(ruleGuard.ruleId)) || !await matchesPublication()) {
+      if (result.created) {
+        const [row] = await this.#queryIndexed(TABLES.alerts, 'AlertID', alerts[0].AlertID, { maxRows: 1 });
+        if (row?.ROWID) await this.#delete(TABLES.alerts, row.ROWID);
+      }
+      const error = new Error('utility rule or publication changed during alert commit'); error.code = 'VERSION_CONFLICT'; throw error;
+    }
+    return [result];
   }
 
   async getAssignmentsForAlert(alertId) {
@@ -1346,6 +1545,7 @@ export class CatalystIntelligenceRepository {
 
     const patterns = findings.patterns ?? [];
     const hotspots = findings.hotspots ?? [];
+    const anomalies = (findings.anomalies ?? []).filter(row => row.isAnomaly !== false);
     await this.#ensureMany(TABLES.patterns, patterns.map(pattern => ({
       PatternID: pattern.id, AnalysisRunRef: runRef('PATTERN'), PatternType: pattern.method,
       Title: pattern.title, Confidence: pattern.confidence,
@@ -1365,7 +1565,14 @@ export class CatalystIntelligenceRepository {
       EvidenceSummary: JSON.stringify({ caseId, unitId: hotspot.evidenceUnits?.[caseId] ?? null }),
       MethodVersion: hotspot.version, SyntheticData: true,
     })));
-    await this.#ensureMany(TABLES.evidence, [...patternEvidence, ...hotspotEvidence]);
+    const anomalyEvidence = anomalies.flatMap((anomaly, anomalyIndex) => (anomaly.evidenceCaseIds ?? []).map((caseId, evidenceIndex) => ({
+      FindingEvidenceID: `EVID-${key}-ANOM-${anomalyIndex + 1}-${evidenceIndex + 1}`,
+      AnalysisRunRef: runRef('ANOMALY'), FindingType: 'ANOMALY', FindingBusinessID: anomaly.id,
+      SourceEntity: 'CaseMaster', SourceBusinessID: caseId, EvidenceLabel: 'CONTRIBUTING_CASE',
+      EvidenceSummary: JSON.stringify({ caseId, unitId: anomaly.evidenceUnits?.[caseId] ?? null }),
+      MethodVersion: anomaly.version, SyntheticData: true,
+    })));
+    await this.#ensureMany(TABLES.evidence, [...patternEvidence, ...hotspotEvidence, ...anomalyEvidence]);
 
     await this.#ensureMany(TABLES.hotspots, hotspots.map(hotspot => ({
       HotspotID: hotspot.id, AnalysisRunRef: runRef('HOTSPOT'),
@@ -1374,7 +1581,7 @@ export class CatalystIntelligenceRepository {
       CaseCount: hotspot.magnitude, Severity: hotspot.confidence, MethodVersion: hotspot.version,
       Limitation: (hotspot.limitations ?? []).join('|'), SyntheticData: true,
     })));
-    await this.#ensureMany(TABLES.anomalies, (findings.anomalies ?? []).filter(row => row.isAnomaly !== false).map(anomaly => ({
+    await this.#ensureMany(TABLES.anomalies, anomalies.map(anomaly => ({
       AnomalyID: anomaly.id, AnalysisRunRef: runRef('ANOMALY'), AreaID: anomaly.seriesId,
       SignalType: anomaly.method, ObservedValue: anomaly.observed, BaselineValue: anomaly.expected,
       Severity: anomaly.confidence, MethodVersion: anomaly.version,

@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "4b336c653cd4b6ad3b302ec0a614abf68433f8bd67b372a63d3adebfcf2e5c0f",
-      "bytes": 1808
+      "sha256": "d501ac535046762e46788d59aa92276a67b82c35d5fcefefe9d9c01ac3137e93",
+      "bytes": 2143
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -20,8 +20,8 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "1e26a1764edc41bbd0ce10df2ecfdd83970806b5803acf2a6fcc838025539023",
-      "bytes": 8149
+      "sha256": "9e758133ce71b373a03c35129f84972ecdf1a727b8ff27fb71753eb62f822770",
+      "bytes": 8707
     },
     {
       "path": "src/backend/catalyst/job-scheduling-adapter.mjs",
@@ -50,8 +50,8 @@
     },
     {
       "path": "src/backend/http/api-contract.mjs",
-      "sha256": "6a4019cdf1824ddd24d031ebac9602c37daa508db8f1721610724b8f1bf18178",
-      "bytes": 4973
+      "sha256": "eb9cd9b0b4e7ed7160f387a45b819a22a14873b53457932673680e28ae2e56ff",
+      "bytes": 5828
     },
     {
       "path": "src/backend/http/dispatch.mjs",
@@ -85,8 +85,8 @@
     },
     {
       "path": "src/backend/reporting/report-service.mjs",
-      "sha256": "cc222fc4de7ee8435ca739c7d894b209b50a6f86b9f6b74293aeb1234f3f7e99",
-      "bytes": 6355
+      "sha256": "6e0dfd446031ed1d586304ab3fbe95d7a0389bfa68aa96d032fb8e9ded30e1fb",
+      "bytes": 6354
     },
     {
       "path": "src/backend/reporting/semantic-sources.mjs",
@@ -100,8 +100,8 @@
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
-      "sha256": "d615983d9fb07529096b14a6d55faa54f4bd1fb334253592b4ffafd630b5bc43",
-      "bytes": 79907
+      "sha256": "c70cd5ba973782f2db2bc1b666452824862f8e626fa35c79c5f57e2ea49fff28",
+      "bytes": 90659
     },
     {
       "path": "src/backend/repository/catalyst/paged-table.mjs",
@@ -155,8 +155,8 @@
     },
     {
       "path": "src/backend/services/alert-services.mjs",
-      "sha256": "1f3a508b195e4fa3b9f421d9475f896df6965c43dd02fcee3f4af515ca96b85f",
-      "bytes": 2481
+      "sha256": "98513900621936a9fb775a66deb670a46a35eab938077b1c04e92128fb8cd12c",
+      "bytes": 3527
     },
     {
       "path": "src/backend/services/envelope.mjs",
@@ -172,6 +172,26 @@
       "path": "src/backend/services/read-services.mjs",
       "sha256": "85479d34b472e346b891976cc2d0936232993f25471026b52970fc35dac8498e",
       "bytes": 4922
+    },
+    {
+      "path": "src/backend/utilities/rule-contract.mjs",
+      "sha256": "3eb53313dfed9d38222f35e5e80b1fce7974705667a9a7103ddaf71fded8f237",
+      "bytes": 4463
+    },
+    {
+      "path": "src/backend/utilities/utility-evaluator.mjs",
+      "sha256": "0e86279e879b8d2364ad604a9cc8e26892bab59e5578c30fc3d28a531e076f22",
+      "bytes": 6403
+    },
+    {
+      "path": "src/backend/utilities/utility-registry.mjs",
+      "sha256": "a77b2f1a21e0fb9fbaa84f1c2349cf4fee57c1e3c446b2e03cd5b1cb24fa1790",
+      "bytes": 4878
+    },
+    {
+      "path": "src/backend/utilities/utility-services.mjs",
+      "sha256": "082d7af8a8f93df950680eb0b564a551b8dfd36c0799af43e02366a6eced2414",
+      "bytes": 14373
     },
     {
       "path": "src/backend/workflow/audit.mjs",

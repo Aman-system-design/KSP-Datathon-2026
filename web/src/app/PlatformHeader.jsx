@@ -18,6 +18,7 @@ export function PlatformHeader({ workspace, auth, onPersonaChange }) {
       <input type="search" aria-label="Global search" placeholder="Search is available after governed indexing" disabled />
     </div>
     <NavLink className="header-alert" to={governedAppLocation('/alerts', location)} aria-label="Alerts"><Icon name="alerts" /></NavLink>
+    <button className="header-utility" type="button" aria-label="Settings"><Icon name="settings" /></button>
     <AccountMenu workspace={workspace} auth={auth} onPersonaChange={onPersonaChange} />
   </header>;
 }

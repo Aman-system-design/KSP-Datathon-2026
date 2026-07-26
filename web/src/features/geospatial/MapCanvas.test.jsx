@@ -8,11 +8,18 @@ const mocks = vi.hoisted(() => ({
   maps: [],
   overlays: [],
   protocols: [],
+  navigationControls: [],
   nextBounds: null,
   fitBoundsResult: null,
 }));
 
 vi.mock('maplibre-gl', () => {
+  class NavigationControl {
+    constructor(options) {
+      this.options = options;
+      mocks.navigationControls.push(this);
+    }
+  }
   class Map {
     constructor(options) {
       this.options = options;
@@ -52,7 +59,7 @@ vi.mock('maplibre-gl', () => {
       mocks.maps.push(this);
     }
   }
-  return { default: { Map, addProtocol: mocks.addProtocol } };
+  return { default: { Map, NavigationControl, addProtocol: mocks.addProtocol } };
 });
 
 vi.mock('@deck.gl/mapbox', () => ({
@@ -119,8 +126,10 @@ test('creates one map and overlay, updates them imperatively, and shows attribut
   const map = mocks.maps.at(-1);
   const overlay = mocks.overlays.at(-1);
   expect(map.options.style).toBe(OPENFREEMAP_STYLE_URL);
+  expect(OPENFREEMAP_STYLE_URL).toBe('https://tiles.openfreemap.org/styles/liberty');
   expect(map.options.attributionControl.customAttribution).toMatch(/OpenFreeMap/);
   expect(map.addControl).toHaveBeenCalledWith(overlay);
+  expect(map.addControl).toHaveBeenCalledWith(expect.any(Object), 'top-right');
   expect(screen.getByRole('region', { name: 'Geospatial intelligence map' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'OpenFreeMap' })).toBeInTheDocument();
   expect(map.jumpTo).not.toHaveBeenCalled();

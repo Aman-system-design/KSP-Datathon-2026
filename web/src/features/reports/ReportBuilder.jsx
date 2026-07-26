@@ -1,45 +1,121 @@
+import { ArrowLeft, ChevronLeft, ChevronRight, Play, Save } from 'lucide-react';
 import { lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { ReportBuilderFields } from './ReportBuilderFields.jsx';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ConfigureStep, DataStep, fieldLabel, StyleStep, TypeStep } from './ReportBuilderFields.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
+import { ReportMapAuthoring } from './ReportMapAuthoring.jsx';
 
 const LazyEmbeddedMapView = lazy(() => import('../geospatial/EmbeddedMapView.jsx'));
+const LazyGeospatialStudio = lazy(() => import('../geospatial/GeospatialStudio.jsx'));
+const STEPS = ['Data', 'Type', 'Configure', 'Style', 'Review'];
 
-export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView }) {
+function parseFilterValue(raw, type, operator) {
+  const parse = value => type === 'number' ? Number(value.trim()) : value.trim();
+  if (operator === 'in' || operator === 'between') return raw.split(',').map(parse).filter(value => value !== '');
+  return parse(raw);
+}
+
+export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView, MapComposerComponent = LazyGeospatialStudio }) {
+  const { reportId } = useParams();
+  const navigate = useNavigate();
+  const [step, setStep] = useState(0);
   const [sources, setSources] = useState([]); const [sourceKey, setSourceKey] = useState('');
-  const [name, setName] = useState(''); const [dimension, setDimension] = useState(''); const [measure, setMeasure] = useState('');
-  const [visualization, setVisualization] = useState('table'); const [preview, setPreview] = useState([]); const [status, setStatus] = useState('');
+  const [name, setName] = useState(''); const [description, setDescription] = useState('');
+  const [dimension, setDimension] = useState(''); const [measure, setMeasure] = useState('');
+  const [visualization, setVisualization] = useState('table'); const [preview, setPreview] = useState([]);
   const [mapViews, setMapViews] = useState([]); const [mapViewId, setMapViewId] = useState(''); const [mapPreview, setMapPreview] = useState(null);
-  const [savingGeneration, setSavingGeneration] = useState(null); const generation = useRef(0); const saving = savingGeneration !== null;
+  const [mapComposerOpen, setMapComposerOpen] = useState(false);
+  const [filter, setFilter] = useState({ field: '', operator: 'eq', value: '' }); const [sortDirection, setSortDirection] = useState(''); const [limit, setLimit] = useState(100);
+  const [version, setVersion] = useState(null); const [status, setStatus] = useState(''); const [busy, setBusy] = useState(false);
+  const generation = useRef(0);
 
-  useEffect(() => { let active = true; api.get('/v1/report-sources').then(({ data }) => { if (!active) return; const items = Array.isArray(data) ? data : []; setSources(items); setSourceKey(items[0]?.key ?? ''); setVisualization(items[0]?.visualizations?.[0] ?? 'table'); }).catch(() => { if (active) setStatus('Report sources are unavailable.'); }); return () => { active = false; }; }, [api]);
-  useEffect(() => { if (visualization !== 'map') return undefined; let active = true; api.get('/v1/geospatial/views').then(response => { if (!active) return; const items = Array.isArray(response?.data?.items) ? response.data.items : []; setMapViews(items); setMapViewId(current => items.some(item => item.id === current) ? current : (items[0]?.id ?? '')); }).catch(() => { if (active) { setMapViews([]); setMapViewId(''); } }); return () => { active = false; }; }, [api, visualization]);
+  useEffect(() => {
+    let active = true;
+    const requests = [api.get('/v1/report-sources'), reportId ? api.get(`/v1/reports/${reportId}`) : Promise.resolve(null)];
+    Promise.all(requests).then(([sourceResponse, reportResponse]) => {
+      if (!active) return;
+      const items = Array.isArray(sourceResponse.data) ? sourceResponse.data : [];
+      setSources(items);
+      const report = reportResponse?.data;
+      if (report) {
+        const definition = report.definition ?? {};
+        setName(report.name ?? definition.name ?? ''); setDescription(definition.description ?? ''); setSourceKey(definition.sourceKey ?? '');
+        setDimension(definition.dimensions?.[0] ?? '');
+        const firstMeasure = definition.measures?.[0]; setMeasure(firstMeasure ? `${firstMeasure.field}:${firstMeasure.aggregate}` : '');
+        setVisualization(definition.visualization?.type ?? 'table'); setMapViewId(definition.visualization?.mapViewId ?? '');
+        const firstFilter = definition.filters?.[0]; setFilter(firstFilter ? { ...firstFilter, value: Array.isArray(firstFilter.value) ? firstFilter.value.join(', ') : String(firstFilter.value) } : { field: '', operator: 'eq', value: '' });
+        setSortDirection(definition.sort?.[0]?.direction ?? ''); setLimit(definition.limit ?? 100); setVersion(report.version);
+      } else {
+        setSourceKey(items[0]?.key ?? ''); setVisualization(items[0]?.visualizations?.[0] ?? 'table');
+      }
+    }).catch(() => { if (active) setStatus('Report configuration could not be loaded.'); });
+    return () => { active = false; };
+  }, [api, reportId]);
+
+  useEffect(() => {
+    if (visualization !== 'map') return undefined;
+    let active = true;
+    api.get('/v1/geospatial/views').then(response => {
+      if (!active) return;
+      const items = Array.isArray(response?.data?.items) ? response.data.items : [];
+      setMapViews(items); setMapViewId(current => items.some(item => item.id === current) ? current : (items[0]?.id ?? ''));
+    }).catch(() => { if (active) setMapViews([]); });
+    return () => { active = false; };
+  }, [api, visualization]);
 
   const source = useMemo(() => sources.find(item => item.key === sourceKey), [sources, sourceKey]);
   const dimensions = Object.entries(source?.fields ?? {}).filter(([, value]) => value.dimension);
-  const measures = Object.entries(source?.fields ?? {}).flatMap(([field, value]) => (value.aggregates ?? []).map(aggregate => [`${field}:${aggregate}`, `${field} · ${aggregate}`]));
-  function invalidatePreview() { generation.current += 1; setSavingGeneration(null); setPreview([]); setMapPreview(null); setStatus(''); }
-  function updateDefinition(update) { invalidatePreview(); update(); }
-  function changeSource(key) { const next = sources.find(item => item.key === key); updateDefinition(() => { setSourceKey(key); setDimension(''); setMeasure(''); setVisualization(next?.visualizations?.[0] ?? 'table'); setMapViewId(''); }); }
-  function changeVisualization(next) { updateDefinition(() => { setVisualization(next); if (next === 'map') { setDimension(''); setMeasure(''); } else setMapViewId(''); }); }
+  const measures = Object.entries(source?.fields ?? {}).flatMap(([field, value]) => (value.aggregates ?? []).map(aggregate => [`${field}:${aggregate}`, `${fieldLabel(field)} · ${fieldLabel(aggregate)}`]));
+  const canAdvance = step !== 0 || Boolean(name.trim() && sourceKey);
+  const canRun = Boolean(name.trim() && sourceKey && (visualization !== 'map' || mapViewId));
 
-  async function save(event) {
-    event.preventDefault(); if (saving) return; const requestGeneration = generation.current + 1; generation.current = requestGeneration; setSavingGeneration(requestGeneration); setStatus('Saving…');
-    const [field, aggregate] = measure.split(':'); const isMap = visualization === 'map';
-    try {
-      const definition = { name, sourceKey, dimensions: !isMap && dimension ? [dimension] : [], measures: !isMap && field ? [{ field, aggregate }] : [], visualization: isMap ? { type: 'map', mapViewId } : { type: visualization }, limit: 100 };
-      const saved = await api.post('/v1/reports', definition); if (generation.current !== requestGeneration) return;
-      const result = await api.post(`/v1/reports/${saved.data.id}/execute`, {}); if (generation.current !== requestGeneration) return;
-      const data = result.data.result?.data; if (isMap) { setMapPreview(data ?? null); setPreview([]); } else { setMapPreview(null); setPreview(data?.items ?? data ?? []); } setStatus('Saved');
-    } catch (error) { if (generation.current === requestGeneration) setStatus(error.message ?? 'Report could not be saved.'); }
-    finally { setSavingGeneration(current => current === requestGeneration ? null : current); }
+  function invalidate(update) { generation.current += 1; setPreview([]); setMapPreview(null); setStatus(''); update(); }
+  function changeSource(key) { const next = sources.find(item => item.key === key); invalidate(() => { setSourceKey(key); setDimension(''); setMeasure(''); setFilter({ field: '', operator: 'eq', value: '' }); setSortDirection(''); setVisualization(next?.visualizations?.[0] ?? 'table'); setMapViewId(''); }); }
+  function changeVisualization(next) { invalidate(() => { setVisualization(next); if (next === 'map') { setDimension(''); setMeasure(''); setFilter({ field: '', operator: 'eq', value: '' }); setSortDirection(''); } else setMapViewId(''); }); }
+  function acceptMapView(view) {
+    if (!view?.id) return;
+    setMapViews(previous => previous.some(item => item.id === view.id) ? previous : [...previous, view]);
+    invalidate(() => setMapViewId(view.id));
+    setMapComposerOpen(false);
   }
 
-  return <section className="feature-page">
-    <div className="page-heading"><div><span className="eyebrow">Reports</span><h1>Build a report</h1><p>Turn authorized intelligence into reusable tables, charts and operational maps. Viewer scope is enforced every time the report runs.</p></div></div>
-    <nav className="report-builder-progress" aria-label="Report creation steps"><span className="active">Data</span><span>Visualization</span><span>Configure</span><span>Review</span></nav>
-    <div className="builder-layout report-builder-layout"><form className="panel report-form" onSubmit={save}>
-      <ReportBuilderFields name={name} onName={value => updateDefinition(() => setName(value))} sources={sources} sourceKey={sourceKey} onSource={changeSource} dimensions={dimensions} dimension={dimension} onDimension={value => updateDefinition(() => setDimension(value))} measures={measures} measure={measure} onMeasure={value => updateDefinition(() => setMeasure(value))} visualizations={source?.visualizations ?? ['table']} visualization={visualization} onVisualization={changeVisualization} mapViews={mapViews} mapViewId={mapViewId} onMapView={value => updateDefinition(() => setMapViewId(value))} />
-      <div className="report-form-actions"><span>Definitions are versioned and reusable on dashboards.</span><button className="primary-button" type="submit" disabled={saving || (visualization === 'map' && !mapViewId)}>{saving ? 'Saving…' : 'Save and preview'}</button></div><output className="form-status">{status}</output>
-    </form><ReportPreview api={api} mapPreview={mapPreview} preview={preview} EmbeddedMapComponent={EmbeddedMapComponent} /></div>
+  function definition() {
+    const [field, aggregate] = measure.split(':');
+    const filters = filter.field && filter.value !== '' ? [{ field: filter.field, operator: filter.operator, value: parseFilterValue(filter.value, source?.fields?.[filter.field]?.type, filter.operator) }] : [];
+    const sortField = field && aggregate ? `${field}_${aggregate}` : dimension;
+    return { name: name.trim(), description: description.trim(), sourceKey, dimensions: visualization !== 'map' && dimension ? [dimension] : [], measures: visualization !== 'map' && field ? [{ field, aggregate }] : [], filters: visualization === 'map' ? [] : filters, sort: visualization !== 'map' && sortDirection && sortField ? [{ field: sortField, direction: sortDirection }] : [], visualization: visualization === 'map' ? { type: 'map', mapViewId } : { type: visualization }, limit };
+  }
+
+  async function save({ run = false } = {}) {
+    if (busy || !canRun) return;
+    const requestGeneration = generation.current + 1; generation.current = requestGeneration; setBusy(true); setStatus(run ? 'Running report…' : 'Saving report…');
+    try {
+      const saved = reportId
+        ? await api.patch(`/v1/reports/${reportId}`, { expectedVersion: version, definition: definition() })
+        : await api.post('/v1/reports', definition());
+      if (generation.current !== requestGeneration) return;
+      const id = saved.data.id ?? reportId; setVersion(saved.data.version ?? version);
+      if (!reportId) navigate(`/reports/${encodeURIComponent(id)}`, { replace: true });
+      if (run) {
+        const result = await api.post(`/v1/reports/${id}/execute`, {}); if (generation.current !== requestGeneration) return;
+        const data = result.data.result?.data;
+        if (visualization === 'map') { setMapPreview(data ?? null); setPreview([]); } else { setMapPreview(null); setPreview(data?.items ?? data ?? []); }
+        setStep(4); setStatus('Report completed.');
+      } else setStatus('Report saved.');
+    } catch (error) { if (generation.current === requestGeneration) setStatus(error.message ?? 'Report could not be saved.'); }
+    finally { setBusy(false); }
+  }
+
+  return <section className="reports-app report-builder-app">
+    <header className="report-editor-header"><Link to="/reports"><ArrowLeft size={17} />Reports</Link><div><input aria-label="Report title" onChange={event => invalidate(() => setName(event.target.value))} placeholder="Untitled report" value={name} /><span>{status || 'Not yet run'}</span></div><div><button className="secondary-button" disabled={busy || !canRun} onClick={() => save()} type="button"><Save size={15} />Save</button><button className="primary-button" disabled={busy || !canRun} onClick={() => save({ run: true })} type="button"><Play size={15} />Run</button></div></header>
+    <nav className="report-builder-progress" aria-label="Report creation steps">{STEPS.map((label, index) => <button aria-current={step === index ? 'step' : undefined} className={step === index ? 'active' : ''} key={label} onClick={() => setStep(index)} type="button"><span>{index + 1}</span>{label}</button>)}</nav>
+    {mapComposerOpen ? <ReportMapAuthoring api={api} Composer={MapComposerComponent} sourceKey={sourceKey} onCancel={() => setMapComposerOpen(false)} onViewSaved={acceptMapView} /> : <form className="report-editor" onSubmit={event => event.preventDefault()}>
+      {step === 0 ? <DataStep description={description} name={name} onDescription={value => invalidate(() => setDescription(value))} onName={value => invalidate(() => setName(value))} onSource={changeSource} sourceKey={sourceKey} sources={sources} /> : null}
+      {step === 1 ? <TypeStep onVisualization={changeVisualization} visualization={visualization} visualizations={source?.visualizations ?? ['table']} /> : null}
+      {step === 2 ? <ConfigureStep dimension={dimension} dimensions={dimensions} filter={filter} limit={limit} mapViewId={mapViewId} mapViews={mapViews} measure={measure} measures={measures} onCreateMapView={() => setMapComposerOpen(true)} onDimension={value => invalidate(() => setDimension(value))} onFilter={value => invalidate(() => setFilter(value))} onLimit={value => invalidate(() => setLimit(value))} onMapView={value => invalidate(() => setMapViewId(value))} onMeasure={value => invalidate(() => setMeasure(value))} onSortDirection={value => invalidate(() => setSortDirection(value))} sortDirection={sortDirection} source={source} visualization={visualization} /> : null}
+      {step === 3 ? <StyleStep visualization={visualization} /> : null}
+      {step === 4 ? <div className="report-stage report-review"><div><h2>Review and run</h2><p>{source?.label ?? 'Authorized source'} · {fieldLabel(visualization)} · Up to {limit} rows</p></div><ReportPreview api={api} EmbeddedMapComponent={EmbeddedMapComponent} mapPreview={mapPreview} preview={preview} visualization={visualization} /></div> : null}
+    </form>}
+    {!mapComposerOpen ? <footer className="report-editor-footer"><button className="secondary-button" disabled={step === 0} onClick={() => setStep(value => Math.max(0, value - 1))} type="button"><ChevronLeft size={15} />Back</button><span>Changes are saved only when you choose Save or Run.</span>{step < STEPS.length - 1 ? <button className="primary-button" disabled={!canAdvance} onClick={() => setStep(value => Math.min(STEPS.length - 1, value + 1))} type="button">Next<ChevronRight size={15} /></button> : <button className="primary-button" disabled={busy || !canRun} onClick={() => save({ run: true })} type="button"><Play size={15} />Run report</button>}</footer> : null}
   </section>;
 }

@@ -9,7 +9,7 @@ const express = require('express');
 const app = express();
 app.disable('x-powered-by');
 
-const slateOrigin = 'https://aiksp.onslate.in';
+const slateOrigin = 'https://ace.onslate.in';
 app.use((request, response, next) => {
   const origin = request.get('Origin');
   if (origin && origin !== slateOrigin) return response.status(403).json({ error: { code: 'FORBIDDEN_ORIGIN', message: 'The request origin is not allowed.' } });

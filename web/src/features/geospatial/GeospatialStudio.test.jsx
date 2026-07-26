@@ -194,6 +194,21 @@ test('saves a normalized view definition without client supplied organization or
   expect(JSON.stringify(body)).not.toMatch(/organization|role|employee|permission/i);
 });
 
+test('returns the saved governed map view to an embedding report workflow', async () => {
+  const api = harness();
+  const onViewSaved = vi.fn();
+  render(<GeospatialStudio api={api} MapComponent={FakeMap} onViewSaved={onViewSaved} />);
+  await screen.findByRole('heading', { name: 'Datasets' });
+  fireEvent.click(screen.getByRole('button', { name: 'Add Crime hotspots' }));
+  await waitFor(() => expect(screen.getByTestId('map-layers')).toHaveTextContent('POINT'));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Map view name' }), { target: { value: 'Reusable hotspot map' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save map view' }));
+
+  await waitFor(() => expect(onViewSaved).toHaveBeenCalledWith(expect.objectContaining({
+    id: expect.any(String), name: 'Reusable hotspot map', visibility: 'PRIVATE',
+  })));
+});
+
 test('provides an accessible layer-panel toggle for constrained workspaces', async () => {
   render(<GeospatialStudio api={harness()} MapComponent={FakeMap} />);
   await screen.findByRole('heading', { name: 'Datasets' });
@@ -203,6 +218,22 @@ test('provides an accessible layer-panel toggle for constrained workspaces', asy
   fireEvent.click(toggle);
   expect(studio).not.toHaveClass('is-layer-panel-open');
   expect(toggle).toHaveAccessibleName('Show map configuration');
+});
+
+test('map authoring starts map-first with the requested dataset and keeps controls available', async () => {
+  const api = harness();
+  render(<GeospatialStudio
+    api={api} MapComponent={FakeMap} mode="authoring"
+    defaultDatasetIds={['hotspots']}
+    organizationConfig={{ defaultViewport: { center: [75.7139, 15.3173], zoom: 6.1 } }}
+  />);
+
+  await waitFor(() => expect(screen.getByTestId('map-layers')).toHaveTextContent('hotspots-1:POINT'));
+  await waitFor(() => expect(screen.getByTestId('map-viewport')).toHaveTextContent('"center":[77.59,12.97]'));
+  expect(screen.getByTestId('map-viewport')).toHaveTextContent('"zoom":9');
+  expect(screen.getByLabelText('Geospatial Intelligence Studio')).toHaveClass('geospatial-studio--authoring');
+  expect(screen.getByLabelText('Geospatial Intelligence Studio')).not.toHaveClass('is-layer-panel-open');
+  expect(screen.getByRole('button', { name: 'Show map configuration' })).toBeVisible();
 });
 
 test('uses tenant configuration, functional workspace search and time range without KSP defaults', async () => {

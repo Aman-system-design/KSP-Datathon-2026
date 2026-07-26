@@ -177,6 +177,7 @@ export function MapCanvas({
     map.on('moveend', handleMove);
     map.on('error', handleError);
     map.on('load', handleLoad);
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true, visualizePitch: true }), 'top-right');
     map.addControl(overlay);
     mapRef.current = map;
     overlayRef.current = overlay;

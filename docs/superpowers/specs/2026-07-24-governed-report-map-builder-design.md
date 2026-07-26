@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-24
 
-**Status:** Approved direction; written review required before implementation
+**Status:** Approved for implementation
 
 **Product:** KSP ACE — Analytics · Crime · Enforcement
 
@@ -103,7 +103,22 @@ The source advertises only compatible visualisations. The shortlist release supp
 - line/trend;
 - governed map view.
 
-Map is not a separate reporting subsystem. It embeds a saved Geospatial Studio view executed through the existing MapLibre/deck.gl path.
+Map is not a separate reporting subsystem. The report workflow opens the reusable Geospatial Studio composer in place, then stores the resulting governed map view as the report's visualization definition. A saved map view is a reusable platform object, not a rigid prebuilt screen.
+
+### 5.2.1 Reusable map utility
+
+Every map created in KSP ACEâ€”from Reports, Dashboards, Command Centre, or Geospatial Studioâ€”uses the same governed authoring and interaction contract:
+
+1. choose an authorized semantic data source;
+2. inspect the server-declared location mapping and data quality;
+3. choose a renderer compatible with the source geometry: point, cluster, heatmap, choropleth, or H3;
+4. apply the authorized time window and filters;
+5. preview the map against live governed execution;
+6. save the composition as a reusable map view;
+7. select a cluster or administrative region to focus the map;
+8. open the contributing authorized records and evidence from a selected feature.
+
+The UI calls these business-level objects **data sources**. It never exposes arbitrary physical Catalyst tables, ZCQL, or unrestricted field access. Platform administrators register new sources by mapping approved fields to the semantic and geospatial contracts. Once registered, the source automatically participates in the same report, renderer, drilldown, evidence, dashboard, and scope enforcement behavior.
 
 ### 5.3 Configure
 
@@ -117,8 +132,10 @@ For non-map reports:
 
 For map reports:
 
-- choose one authorized saved map view;
-- retain that view's layers, renderer, viewport, time window, and evidence behavior;
+- compose a map without leaving the report workflow, or reuse an authorized saved view;
+- add one or more authorized spatial data sources;
+- inspect the location mapping and choose compatible renderers;
+- retain the saved view's layers, renderer, viewport, time window, and evidence behavior;
 - do not duplicate map transforms inside the report definition.
 
 ### 5.4 Style
@@ -267,4 +284,3 @@ Add these only after the working report → map → dashboard → scoped-viewer 
 6. Load a larger statewide synthetic FIR input set and run the existing deterministic intelligence pipeline.
 7. Demonstrate incremental refresh changing persisted outputs and map/report results.
 8. Add one genuine QuickML draft-authoring capability only after its real Catalyst endpoint is available.
-

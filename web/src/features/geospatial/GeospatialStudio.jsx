@@ -6,8 +6,33 @@ import { LayerInspector } from './LayerInspector.jsx';
 import { LayerPanel } from './LayerPanel.jsx';
 import { VisibleFeatureTable } from './VisibleFeatureTable.jsx';
 import { useGeospatialWorkspace } from './useGeospatialWorkspace.js';
+import { boundsForArea } from './geometry.js';
 
 const PANEL_LIMITS = Object.freeze({ left: [260, 420], right: [300, 480] });
+
+function viewportForFeatures(features) {
+  const points = [];
+  const collect = coordinates => {
+    if (!Array.isArray(coordinates)) return;
+    if (coordinates.length >= 2 && Number.isFinite(coordinates[0]) && Number.isFinite(coordinates[1])) {
+      points.push([coordinates[0], coordinates[1]]);
+      return;
+    }
+    coordinates.forEach(collect);
+  };
+  features.forEach(feature => collect(feature.geometry?.coordinates));
+  if (!points.length) return null;
+  const longitudes = points.map(([longitude]) => longitude);
+  const latitudes = points.map(([, latitude]) => latitude);
+  const bounds = [
+    [Math.min(...longitudes), Math.min(...latitudes)],
+    [Math.max(...longitudes), Math.max(...latitudes)],
+  ];
+  if (bounds[0][0] === bounds[1][0] && bounds[0][1] === bounds[1][1]) {
+    return { center: points[0], zoom: 9 };
+  }
+  return { bounds };
+}
 
 function ResizeHandle({ side, value, onChange, visible = true }) {
   const drag = useRef(null);
@@ -41,6 +66,7 @@ function ResizeHandle({ side, value, onChange, visible = true }) {
 
 export function GeospatialStudio({
   api, MapComponent = MapCanvas, organizationConfig = {}, defaultDatasetIds = [], clock = () => new Date(),
+  onViewSaved, mode = 'workspace',
 }) {
   const workspace = useGeospatialWorkspace({
     api, initialViewport: organizationConfig.defaultViewport, defaultDatasetIds,
@@ -48,11 +74,13 @@ export function GeospatialStudio({
   const [viewName, setViewName] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [saving, setSaving] = useState(false);
-  const [layerPanelOpen, setLayerPanelOpen] = useState(true);
+  const authoring = mode === 'authoring';
+  const [layerPanelOpen, setLayerPanelOpen] = useState(!authoring);
   const [workspaceSearch, setWorkspaceSearch] = useState('');
   const [timeRange, setTimeRange] = useState('ALL');
   const [leftPanelWidth, setLeftPanelWidth] = useState(310);
   const [rightPanelWidth, setRightPanelWidth] = useState(350);
+  const initialFeatureFit = useRef(false);
   const selectedEvidenceLayer = workspace.selectedFeature
     ? workspace.layers.find(layer => layer.id === workspace.selectedFeature.layerId) : null;
   const canSave = workspace.layers.length > 0
@@ -68,11 +96,29 @@ export function GeospatialStudio({
     }
   }, [timeCapable, workspace.timeWindow, workspace.setTimeWindow]);
 
+  useEffect(() => {
+    if (!authoring || initialFeatureFit.current || !workspace.visibleFeatures.length) return;
+    const viewport = viewportForFeatures(workspace.visibleFeatures);
+    if (!viewport) return;
+    initialFeatureFit.current = true;
+    workspace.setViewport(viewport);
+  }, [authoring, workspace.visibleFeatures, workspace.setViewport]);
+
   function selectMapFeature(selection) {
+    if (selection?.kind === 'CLUSTER_DRILLDOWN') {
+      workspace.setViewport(previous => ({
+        ...previous, center: selection.center, zoom: selection.zoom, bounds: undefined,
+      }));
+      workspace.setSelectedLayerId(null);
+      workspace.selectFeature(null);
+      return;
+    }
     const feature = workspace.visibleFeatures.find(item => (
       item.layerId === selection.layerId && String(item.id) === String(selection.id)
     ));
     if (feature) {
+      const areaBounds = boundsForArea(feature.geometry);
+      if (areaBounds) workspace.setViewport({ bounds: areaBounds });
       workspace.setSelectedLayerId(null);
       workspace.selectFeature({
         layerId: feature.layerId, id: feature.id, properties: structuredClone(feature.properties ?? {}),
@@ -103,7 +149,8 @@ export function GeospatialStudio({
     setSaving(true);
     setSaveStatus('Saving map view…');
     try {
-      await workspace.saveView({ name: viewName, visibility: 'PRIVATE' });
+      const response = await workspace.saveView({ name: viewName, visibility: 'PRIVATE' });
+      if (response?.data && typeof onViewSaved === 'function') onViewSaved(response.data);
       setSaveStatus('Map view saved.');
     } catch (error) {
       setSaveStatus(error?.message ?? 'The map view could not be saved.');
@@ -113,7 +160,7 @@ export function GeospatialStudio({
   }
 
   return <section
-    className={`geospatial-studio${layerPanelOpen ? ' is-layer-panel-open' : ''}`}
+    className={`geospatial-studio${authoring ? ' geospatial-studio--authoring' : ''}${layerPanelOpen ? ' is-layer-panel-open' : ''}`}
     aria-label="Geospatial Intelligence Studio"
     style={{ '--geospatial-left-width': `${leftPanelWidth}px`, '--geospatial-right-width': `${rightPanelWidth}px` }}
   >
@@ -124,9 +171,9 @@ export function GeospatialStudio({
           aria-label={`${layerPanelOpen ? 'Hide' : 'Show'} map configuration`}
           aria-expanded={layerPanelOpen} onClick={() => setLayerPanelOpen(open => !open)}
         >Layers</button>
-        <div className="geospatial-title"><span>Crime intelligence</span><h1>Geospatial Studio</h1></div>
+        {!authoring ? <div className="geospatial-title"><span>Crime intelligence</span><h1>Geospatial Studio</h1></div> : null}
       </div>
-      <div className="geospatial-context-controls">
+      {!authoring ? <div className="geospatial-context-controls">
         <label>Jurisdiction<select aria-label="Jurisdiction" value="AUTHORIZED" disabled title="Jurisdiction is enforced by your authenticated access">
           <option value="AUTHORIZED">{organizationConfig.jurisdictionLabel ?? 'Authorized jurisdiction'}</option>
         </select></label>
@@ -134,7 +181,7 @@ export function GeospatialStudio({
           <option value="ALL">Source observation window</option><option value="LAST_7_DAYS">Last 7 days</option><option value="LAST_30_DAYS">Last 30 days</option>
         </select></label>
         <label>Search workspace<input type="search" aria-label="Search workspace" value={workspaceSearch} onChange={event => setWorkspaceSearch(event.target.value)} /></label>
-      </div>
+      </div> : null}
       <form className="geospatial-save-form" onSubmit={save}>
         <label><span>Map view name</span><input aria-label="Map view name" value={viewName} onChange={event => setViewName(event.target.value)} placeholder="Name this view" /></label>
         <button className="primary-button" type="submit" disabled={saving || !viewName.trim() || !canSave}>
@@ -142,15 +189,15 @@ export function GeospatialStudio({
         </button>
         <output aria-live="polite">{saveStatus}</output>
       </form>
-      <div className="geospatial-toolbar-actions" aria-label="Map workspace actions">
+      {!authoring ? <div className="geospatial-toolbar-actions" aria-label="Map workspace actions">
         <button type="button" disabled title="Sharing will be enabled after governed sharing is configured">Share</button>
         <button type="button" disabled title="Dashboard embedding is delivered in the next platform stage">Add to dashboard</button>
         <button type="button" disabled title="Full-screen mode is not configured">Full screen</button>
-      </div>
+      </div> : null}
     </header>
 
-    <div className={`geospatial-workspace${workspace.selectedLayer || workspace.selectedFeature ? ' has-inspector' : ''}`}>
-      <LayerPanel
+    <div className={`geospatial-workspace${layerPanelOpen ? ' has-layer-panel' : ''}${workspace.selectedLayer || workspace.selectedFeature ? ' has-inspector' : ''}`}>
+      {layerPanelOpen ? <LayerPanel
         datasets={workspace.datasets} savedViews={workspace.savedViews} layers={workspace.layers}
         catalogStatus={workspace.catalogStatus} catalogError={workspace.catalogError}
         viewsStatus={workspace.viewsStatus} viewsError={workspace.viewsError} onRetryViews={workspace.retryViews}
@@ -158,8 +205,8 @@ export function GeospatialStudio({
         onAddDataset={workspace.addDataset} onOpenView={workspace.loadView}
         onToggle={workspace.setLayerVisibility} onMove={workspace.moveLayer}
         onConfigure={workspace.setSelectedLayerId} onRetry={workspace.retryLayer} onRemove={workspace.removeLayer}
-      />
-      <ResizeHandle side="left" value={leftPanelWidth} onChange={setLeftPanelWidth} />
+      /> : null}
+      <ResizeHandle side="left" value={leftPanelWidth} onChange={setLeftPanelWidth} visible={layerPanelOpen} />
       <main className="geospatial-map-workspace">
         <MapComponent
           layers={workspace.renderLayers} viewport={workspace.viewport}
@@ -187,7 +234,7 @@ export function GeospatialStudio({
         visible={Boolean(workspace.selectedLayer || workspace.selectedFeature)}
       />
     </div>
-    <VisibleFeatureTable features={workspace.visibleFeatures} onSelect={selectTableFeature} />
+    <VisibleFeatureTable features={workspace.visibleFeatures} onSelect={selectTableFeature} initiallyOpen={!authoring} />
   </section>;
 }
 

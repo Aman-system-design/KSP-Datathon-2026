@@ -2,8 +2,18 @@ import { isValidCell } from 'h3-js';
 import Supercluster from 'supercluster';
 import { GeoJsonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
 
-const POINT_COLOR = [30, 136, 229, 190];
-const POLYGON_COLOR = [30, 136, 229, 150];
+const POINT_MONITORING = [59, 130, 246, 225];
+const POINT_ELEVATED = [245, 158, 11, 230];
+const POINT_CRITICAL = [239, 68, 68, 235];
+const POLYGON_MONITORING = [31, 56, 86, 205];
+const POLYGON_ELEVATED = [180, 83, 47, 200];
+const POLYGON_CRITICAL = [239, 68, 68, 205];
+const HEATMAP_COLOR_RANGE = [
+  [15, 23, 42, 0],
+  [37, 99, 235, 150],
+  [245, 158, 11, 210],
+  [239, 68, 68, 255],
+];
 const MINIMUM_BOUNDS_SPAN = 1e-9;
 // Cluster inputs are immutable by reference: replace the features array for any structural change.
 const clusterIndexes = new WeakMap();
@@ -46,6 +56,30 @@ function weightAccessor(field) {
   return feature => Number.isFinite(feature?.properties?.[field]) ? feature.properties[field] : 0;
 }
 
+function normalizedSignal(feature, field) {
+  const properties = feature?.properties ?? {};
+  const value = field ? properties[field]
+    : properties.severity ?? properties.riskScore ?? properties.confidence ?? properties.risk;
+  if (Number.isFinite(value)) {
+    if (value >= 0 && value <= 1) return value;
+    if (value > 1 && value <= 100) return value / 100;
+  }
+  const label = String(value ?? properties.riskBand ?? properties.riskLevel ?? '').toLowerCase();
+  if (/critical|severe|high/.test(label)) return 1;
+  if (/elevated|medium|moderate/.test(label)) return 0.6;
+  if (/monitor|low/.test(label)) return 0.2;
+  return null;
+}
+
+function signalColor(feature, layer, palette) {
+  if (feature?.properties?.cluster === true) return palette.elevated;
+  const signal = normalizedSignal(feature, layer.colorField);
+  if (signal === null) return palette.monitoring;
+  if (signal >= 0.75) return palette.critical;
+  if (signal >= 0.4) return palette.elevated;
+  return palette.monitoring;
+}
+
 function pointSpec(layer, data, onFeatureSelect, selectionLayerId = layer.id) {
   return {
     kind: 'ScatterplotLayer',
@@ -56,8 +90,16 @@ function pointSpec(layer, data, onFeatureSelect, selectionLayerId = layer.id) {
     getRadius: layer.sizeField
       ? feature => Number.isFinite(feature?.properties?.[layer.sizeField]) ? feature.properties[layer.sizeField] : 1
       : 6,
-    radiusMinPixels: 3,
-    getFillColor: POINT_COLOR,
+    radiusMinPixels: 7,
+    radiusMaxPixels: 28,
+    stroked: true,
+    lineWidthMinPixels: 2,
+    getLineColor: [248, 250, 252, 235],
+    getFillColor: feature => signalColor(feature, layer, {
+      monitoring: POINT_MONITORING,
+      elevated: POINT_ELEVATED,
+      critical: POINT_CRITICAL,
+    }),
     onClick: clickHandler(onFeatureSelect, selectionLayerId),
   };
 }
@@ -151,7 +193,15 @@ function clusterSpecs(layer, data, viewport, onFeatureSelect) {
   scatter.id = `${layer.id}:cluster-points`;
   const selectLeaf = scatter.onClick;
   scatter.onClick = info => {
-    if (!aggregateFeatures.has(info?.object)) selectLeaf(info);
+    if (!aggregateFeatures.has(info?.object)) { selectLeaf(info); return; }
+    if (typeof onFeatureSelect !== 'function') return;
+    const clusterId = Number(String(info.object.id).split(':').at(-1));
+    onFeatureSelect({
+      kind: 'CLUSTER_DRILLDOWN',
+      layerId: layer.id,
+      center: [...info.object.geometry.coordinates],
+      zoom: index.getClusterExpansionZoom(clusterId),
+    });
   };
   if (labels.length === 0) return [scatter];
   return [scatter, {
@@ -177,7 +227,11 @@ function h3Spec(layer, data, onFeatureSelect) {
     data,
     pickable: true,
     getHexagon,
-    getFillColor: POLYGON_COLOR,
+    getFillColor: feature => signalColor(feature, layer, {
+      monitoring: POLYGON_MONITORING,
+      elevated: POLYGON_ELEVATED,
+      critical: POLYGON_CRITICAL,
+    }),
     getElevation: weightAccessor(layer.weightField),
     onClick: clickHandler(onFeatureSelect, layer.id),
   };
@@ -221,8 +275,13 @@ function choroplethSpec(layer, data, onFeatureSelect) {
     pickable: true,
     filled: true,
     stroked: true,
-    getFillColor: POLYGON_COLOR,
-    getLineColor: [16, 78, 139, 255],
+    getFillColor: feature => signalColor(feature, layer, {
+      monitoring: POLYGON_MONITORING,
+      elevated: POLYGON_ELEVATED,
+      critical: POLYGON_CRITICAL,
+    }),
+    getLineColor: [148, 163, 184, 190],
+    lineWidthMinPixels: 1,
     onClick: clickHandler(onFeatureSelect, layer.id),
   };
 }
@@ -243,6 +302,7 @@ export function buildDeckLayerSpecs({ layer, featureCollection, viewport, onFeat
       data: features,
       getPosition: pointPosition,
       getWeight: weightAccessor(layer.weightField),
+      colorRange: HEATMAP_COLOR_RANGE,
       pickable: true,
       onClick: clickHandler(onFeatureSelect, layer.id),
     }];

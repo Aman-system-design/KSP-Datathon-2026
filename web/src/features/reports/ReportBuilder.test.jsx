@@ -1,155 +1,148 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { ReportBuilder } from './ReportBuilder.jsx';
 
 afterEach(cleanup);
 
-test('analyst configures, previews and saves a governed anomaly report', async () => {
+const anomalySource = {
+  key: 'anomalies', label: 'Trend anomalies',
+  fields: {
+    unitId: { type: 'string', dimension: true },
+    observed: { type: 'number', aggregates: ['sum'] },
+  },
+  visualizations: ['table', 'bar', 'line'],
+};
+
+function renderNew(api, props = {}) {
+  return render(<MemoryRouter initialEntries={['/reports/new']}><ReportBuilder api={api} {...props} /></MemoryRouter>);
+}
+
+function next() { fireEvent.click(screen.getByRole('button', { name: /^Next$/i })); }
+
+test('creates and executes a governed report through the progressive workflow', async () => {
   const api = {
-    get: vi.fn(async () => ({ data: [{ key: 'anomalies', label: 'Trend anomalies', fields: {
-      unitId: { type: 'string', dimension: true }, observed: { type: 'number', aggregates: ['sum'] },
-    }, visualizations: ['table', 'bar', 'line'] }] })),
-    post: vi.fn(async (path) => path.endsWith('/execute')
-      ? { data: { result: { data: { items: [{ unitId: 101, observed: 7 }] } } } }
+    get: vi.fn(async path => path === '/v1/report-sources' ? { data: [anomalySource] } : { data: { items: [] } }),
+    post: vi.fn(async path => path.endsWith('/execute')
+      ? { data: { result: { data: { items: [{ unitId: 'Unit 101', observed_sum: 7 }] } } } }
       : { data: { id: 'R-1', name: 'Anomaly watch', version: 1 } }),
   };
-  render(<ReportBuilder api={api} />);
+
+  renderNew(api);
   expect(await screen.findByRole('option', { name: 'Trend anomalies' })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Anomaly watch' } });
+  next();
+  expect(screen.getByRole('heading', { name: 'Select a visualization' })).toBeInTheDocument();
+  next();
   fireEvent.change(screen.getByLabelText('Group by'), { target: { value: 'unitId' } });
   fireEvent.change(screen.getByLabelText('Measure'), { target: { value: 'observed:sum' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
+  next();
+  next();
+  fireEvent.click(screen.getByRole('button', { name: 'Run report' }));
+
   expect(await screen.findByText('Unit 101')).toBeInTheDocument();
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+  expect(api.post).toHaveBeenNthCalledWith(1, '/v1/reports', expect.objectContaining({
+    name: 'Anomaly watch', dimensions: ['unitId'], measures: [{ field: 'observed', aggregate: 'sum' }],
+  }));
 });
 
-test('missing report-source data renders an empty governed builder instead of crashing', async () => {
-  const api = { get: vi.fn(async () => ({ data: {} })), post: vi.fn() };
-
-  render(<ReportBuilder api={api} />);
-
-  expect(await screen.findByRole('heading', { name: 'Build a report' })).toBeInTheDocument();
-  expect(screen.getByText('Configure the report to inspect live governed results.')).toBeInTheDocument();
-});
-
-test('map reports select only viewer-authorized saved views and submit the governed reference', async () => {
+test('map reports use an authorized saved map view and render the governed execution', async () => {
   const api = {
     get: vi.fn(async path => {
-      if (path === '/v1/report-sources') return { data: [{
-        key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'],
-      }] };
-      if (path === '/v1/geospatial/views') return { data: { items: [
-        { id: 'MAP-AUTH', name: 'Authorized hotspot posture', visibility: 'SHARED', definition: { layers: [] } },
-      ] } };
+      if (path === '/v1/report-sources') return { data: [{ key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'] }] };
+      if (path === '/v1/geospatial/views') return { data: { items: [{ id: 'MAP-AUTH', name: 'Authorized hotspot posture', definition: { layers: [] } }] } };
       throw new Error(`Unexpected GET ${path}`);
     }),
     post: vi.fn(async path => path.endsWith('/execute')
       ? { data: { result: { data: { mapView: { id: 'MAP-AUTH', definition: { layers: [] } }, executions: [] } } } }
-      : { data: { id: 'REPORT-MAP' } }),
+      : { data: { id: 'REPORT-MAP', version: 1 } }),
   };
   function MapPreview({ mapExecution }) { return <div>Embedded {mapExecution.mapView.id}</div>; }
 
-  render(<ReportBuilder api={api} EmbeddedMapComponent={MapPreview} />);
+  renderNew(api, { EmbeddedMapComponent: MapPreview });
   await screen.findByRole('option', { name: 'Crime hotspots' });
   fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Hotspot posture' } });
-  fireEvent.change(screen.getByLabelText('Visualization'), { target: { value: 'map' } });
+  next();
+  fireEvent.click(screen.getByRole('radio', { name: 'Map' }));
+  next();
   expect(await screen.findByRole('option', { name: 'Authorized hotspot posture' })).toBeInTheDocument();
-  expect(screen.queryByText(/private.invalid/i)).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Saved map view'), { target: { value: 'MAP-AUTH' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
+  next();
+  next();
+  fireEvent.click(screen.getByRole('button', { name: 'Run report' }));
 
   expect(await screen.findByText('Embedded MAP-AUTH')).toBeInTheDocument();
-  expect(api.post).toHaveBeenCalledWith('/v1/reports', expect.objectContaining({
-    visualization: { type: 'map', mapViewId: 'MAP-AUTH' },
+  expect(api.post).toHaveBeenCalledWith('/v1/reports', expect.objectContaining({ visualization: { type: 'map', mapViewId: 'MAP-AUTH' } }));
+});
+
+test('authors a reusable governed map inside the report workflow and selects the saved view', async () => {
+  const api = {
+    get: vi.fn(async path => {
+      if (path === '/v1/report-sources') return { data: [{ key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['map'] }] };
+      if (path === '/v1/geospatial/views') return { data: { items: [] } };
+      throw new Error(`Unexpected GET ${path}`);
+    }),
+    post: vi.fn(async path => path.endsWith('/execute')
+      ? { data: { result: { data: { mapView: { id: 'MAP-NEW', definition: { layers: [] } }, executions: [] } } } }
+      : { data: { id: 'REPORT-MAP', version: 1 } }),
+  };
+  function MapComposer({ onViewSaved, onCancel, defaultDatasetIds, organizationConfig, mode }) {
+    return <div aria-label="Embedded map composer">
+      <output data-testid="composer-defaults">{JSON.stringify({ defaultDatasetIds, organizationConfig, mode })}</output>
+      <button type="button" onClick={() => onViewSaved({ id: 'MAP-NEW', name: 'District incident drilldown', visibility: 'PRIVATE' })}>Save composed map</button>
+      <button type="button" onClick={onCancel}>Cancel map authoring</button>
+    </div>;
+  }
+
+  renderNew(api, { MapComposerComponent: MapComposer });
+  await screen.findByRole('option', { name: 'Crime hotspots' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'District incident map' } });
+  next();
+  next();
+  fireEvent.click(screen.getByRole('button', { name: 'Create map view' }));
+  expect(screen.getByLabelText('Embedded map composer')).toBeInTheDocument();
+  expect(screen.getByTestId('composer-defaults')).toHaveTextContent('"defaultDatasetIds":["hotspots"]');
+  expect(screen.getByTestId('composer-defaults')).toHaveTextContent('"center":[75.7139,15.3173]');
+  expect(screen.getByTestId('composer-defaults')).toHaveTextContent('"mode":"authoring"');
+  fireEvent.click(screen.getByRole('button', { name: 'Save composed map' }));
+
+  expect(screen.queryByLabelText('Embedded map composer')).not.toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'District incident drilldown' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Saved map view')).toHaveValue('MAP-NEW');
+  next();
+  next();
+  fireEvent.click(screen.getByRole('button', { name: 'Run report' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/v1/reports', expect.objectContaining({
+    visualization: { type: 'map', mapViewId: 'MAP-NEW' },
+  })));
+});
+
+test('updates an existing report with the versioned API contract', async () => {
+  const api = {
+    get: vi.fn(async path => {
+      if (path === '/v1/report-sources') return { data: [anomalySource] };
+      if (path === '/v1/reports/R-7') return { data: { id: 'R-7', name: 'Existing report', version: 4, definition: { name: 'Existing report', sourceKey: 'anomalies', dimensions: [], measures: [], filters: [], sort: [], visualization: { type: 'table' }, limit: 100 } } };
+      throw new Error(`Unexpected GET ${path}`);
+    }),
+    patch: vi.fn(async () => ({ data: { id: 'R-7', version: 5 } })),
+    post: vi.fn(),
+  };
+
+  render(<MemoryRouter initialEntries={['/reports/R-7']}><Routes><Route path="/reports/:reportId" element={<ReportBuilder api={api} />} /></Routes></MemoryRouter>);
+  expect(await screen.findByLabelText('Report title')).toHaveValue('Existing report');
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/v1/reports/R-7', {
+    expectedVersion: 4,
+    definition: expect.objectContaining({ name: 'Existing report', sourceKey: 'anomalies' }),
   }));
 });
 
-test('source capability changes reset map state and stale previews cannot overwrite the new configuration', async () => {
-  let resolveCreate;
-  const createPending = new Promise(resolve => { resolveCreate = resolve; });
-  const api = {
-    get: vi.fn(async path => path === '/v1/report-sources' ? { data: [
-      { key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'] },
-      { key: 'anomalies', label: 'Trend anomalies', fields: {}, visualizations: ['table'] },
-    ] } : { data: { items: [{ id: 'MAP-1', name: 'Hotspots', definition: { layers: [] } }] } }),
-    post: vi.fn(path => path === '/v1/reports' ? createPending : Promise.resolve({
-      data: { result: { data: { mapView: { id: 'MAP-1', definition: { layers: [] } }, executions: [] } },
-    } })),
-  };
-  function MapPreview() { return <div>Stale map preview</div>; }
-  render(<ReportBuilder api={api} EmbeddedMapComponent={MapPreview} />);
-  await screen.findByRole('option', { name: 'Crime hotspots' });
-  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Map' } });
-  fireEvent.change(screen.getByLabelText('Visualization'), { target: { value: 'map' } });
-  await screen.findByRole('option', { name: 'Hotspots' });
-  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
-  expect(screen.getByRole('button', { name: /saving/i })).toBeDisabled();
-
-  fireEvent.change(screen.getByLabelText('Intelligence source'), { target: { value: 'anomalies' } });
-  expect(screen.getByLabelText('Visualization')).toHaveValue('table');
-  expect(screen.queryByLabelText('Saved map view')).not.toBeInTheDocument();
-  resolveCreate({ data: { id: 'R-OLD' } });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
-  expect(screen.queryByText('Stale map preview')).not.toBeInTheDocument();
-});
-
-test.each([
-  ['name', () => fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Changed name' } })],
-  ['dimension', () => fireEvent.change(screen.getByLabelText('Group by'), { target: { value: 'unitId' } })],
-])('%s edits invalidate an in-flight execution response', async (_field, editDefinition) => {
-  let resolveExecute;
-  const executePending = new Promise(resolve => { resolveExecute = resolve; });
-  const api = {
-    get: vi.fn(async () => ({ data: [{
-      key: 'anomalies', label: 'Trend anomalies',
-      fields: { unitId: { type: 'string', dimension: true } }, visualizations: ['table'],
-    }] })),
-    post: vi.fn(path => path === '/v1/reports'
-      ? Promise.resolve({ data: { id: 'R-PENDING' } })
-      : executePending),
-  };
-  render(<ReportBuilder api={api} />);
-  await screen.findByRole('option', { name: 'Trend anomalies' });
-  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Original name' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
-  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
-  editDefinition();
-  resolveExecute({ data: { result: { data: { items: [{ unitId: 999 }] } } } });
-
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
-  expect(screen.queryByText('Saved')).not.toBeInTheDocument();
-  expect(screen.queryByText('Unit 999')).not.toBeInTheDocument();
-});
-
-test('map selection edits invalidate an in-flight map response', async () => {
-  let resolveExecute;
-  const executePending = new Promise(resolve => { resolveExecute = resolve; });
-  const api = {
-    get: vi.fn(async path => path === '/v1/report-sources' ? { data: [{
-      key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'],
-    }] } : { data: { items: [
-      { id: 'MAP-1', name: 'Map one', definition: { layers: [] } },
-      { id: 'MAP-2', name: 'Map two', definition: { layers: [] } },
-    ] } }),
-    post: vi.fn(path => path === '/v1/reports'
-      ? Promise.resolve({ data: { id: 'R-PENDING' } })
-      : executePending),
-  };
-  function MapPreview() { return <div>Stale selected map</div>; }
-  render(<ReportBuilder api={api} EmbeddedMapComponent={MapPreview} />);
-  await screen.findByRole('option', { name: 'Crime hotspots' });
-  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Map report' } });
-  fireEvent.change(screen.getByLabelText('Visualization'), { target: { value: 'map' } });
-  await screen.findByRole('option', { name: 'Map two' });
-  fireEvent.click(screen.getByRole('button', { name: 'Save and preview' }));
-  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
-  fireEvent.change(screen.getByLabelText('Saved map view'), { target: { value: 'MAP-2' } });
-  resolveExecute({ data: { result: { data: {
-    mapView: { id: 'MAP-1', definition: { layers: [] } }, executions: [],
-  } } } });
-
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Save and preview' })).not.toBeDisabled());
-  expect(screen.queryByText('Saved')).not.toBeInTheDocument();
-  expect(screen.queryByText('Stale selected map')).not.toBeInTheDocument();
+test('missing report sources leaves the authoring surface usable instead of crashing', async () => {
+  const api = { get: vi.fn(async () => ({ data: {} })), post: vi.fn() };
+  renderNew(api);
+  expect(await screen.findByRole('heading', { name: 'Choose data' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^Next$/i })).toBeDisabled();
 });

@@ -5,6 +5,7 @@ import { verifyAuditStream } from '../workflow/audit.mjs';
 import { canonicalStringify } from '../workflow/canonical-json.mjs';
 import { projectPipelineFindings } from './finding-projection.mjs';
 import { isCompletePublishedGroup, REQUIRED_ANALYSIS_TYPES } from './run-groups.mjs';
+import { evaluatePublishedUtilityRules } from '../utilities/utility-run-evaluation.mjs';
 
 const hash = value => createHash('sha256').update(canonicalStringify(value)).digest('hex');
 
@@ -22,7 +23,7 @@ function isCommittedBatch(batch, refreshStatus) {
   return generation !== null && Number(refreshStatus?.publicationGeneration) >= generation;
 }
 
-function publicResult(batch) {
+function publicResult(batch, utilityEvaluation) {
   const findings = batch.Findings ?? {};
   return {
     batchKey: batch.BatchKey,
@@ -39,6 +40,7 @@ function publicResult(batch) {
       areaRisks: findings.areaRisk ? 1 : 0,
     },
     syntheticData: true,
+    ...(utilityEvaluation ? { utilityEvaluation: structuredClone(utilityEvaluation) } : {}),
   };
 }
 
@@ -81,9 +83,60 @@ async function governanceReport(repository, auditKeys, generatedAt) {
 export function createRefreshService({
   repository, sourceGenerator, sourceValidator, adapter, pipeline,
   clock = () => new Date().toISOString(), idFactory, auditKeys = {}, onProgress = () => {},
+  onUtilityEvaluation = () => {},
 }) {
+  const reportEvaluation = (batch, utilityEvaluation) => {
+    try { onUtilityEvaluation(structuredClone(utilityEvaluation)); } catch { /* Observability cannot change publication state. */ }
+    return publicResult(batch, utilityEvaluation);
+  };
+  const historicalResult = (batch) => reportEvaluation(batch, {
+    status: 'SKIPPED_HISTORICAL_PUBLICATION', reason: 'NOT_CURRENT_PUBLICATION',
+    runGroupId: batch.RunGroup?.RunGroupID ?? null,
+    rulesDiscovered: 0, rulesEligible: 0, rulesExcluded: 0, rulesSucceeded: 0,
+    rulesFailed: 0, findingsEvaluated: 0, matched: 0, suppressed: 0,
+    created: 0, existing: 0, alertIds: [], failures: [], syntheticData: true,
+  });
+  const publishedResult = async (batch, knownStatus) => {
+    let refreshStatus = knownStatus;
+    try { refreshStatus ??= await repository.getRefreshStatus(); }
+    catch {
+      return reportEvaluation(batch, {
+        status: 'SKIPPED_PUBLICATION_POINTER_UNAVAILABLE', reason: 'CURRENT_PUBLICATION_UNVERIFIED',
+        runGroupId: batch.RunGroup?.RunGroupID ?? null,
+        rulesDiscovered: 0, rulesEligible: 0, rulesExcluded: 0, rulesSucceeded: 0,
+        rulesFailed: 0, findingsEvaluated: 0, matched: 0, suppressed: 0,
+        created: 0, existing: 0, alertIds: [], failures: [], syntheticData: true,
+      });
+    }
+    if (refreshStatus?.currentRunGroup?.RunGroupID !== batch.RunGroup?.RunGroupID) {
+      return historicalResult(batch);
+    }
+    let utilityEvaluation;
+    try {
+      const evaluationRunGroup = {
+        ...batch.RunGroup,
+        runs: batch.RunGroup.runs.map(run => ({
+          ...run,
+          ...((run.AnalysisRunRef ?? run.ROWID) !== undefined
+            ? { AnalysisRunRef: String(run.AnalysisRunRef ?? run.ROWID) } : {}),
+        })),
+      };
+      utilityEvaluation = await evaluatePublishedUtilityRules({
+        repository, runGroup: evaluationRunGroup, findings: batch.PublishedFindings, now: clock(),
+      });
+    } catch (error) {
+      utilityEvaluation = {
+        status: 'COMPLETED_WITH_ERRORS', runGroupId: batch.RunGroup?.RunGroupID ?? null,
+        rulesDiscovered: 0, rulesEligible: 0, rulesExcluded: 0, rulesSucceeded: 0,
+        rulesFailed: 1, findingsEvaluated: 0, matched: 0, suppressed: 0,
+        created: 0, existing: 0, alertIds: [],
+        failures: [{ ruleId: null, code: 'INTERNAL_ERROR' }], syntheticData: true,
+      };
+    }
+    return reportEvaluation(batch, utilityEvaluation);
+  };
   return Object.freeze({
-    async execute({ operation, batchKey, seed } = {}) {
+    async execute({ operation, batchKey, seed, profile = 'smoke', caseCount = 50 } = {}) {
       if (operation === 'RECONCILE_GOVERNANCE') return governanceReport(repository, auditKeys, clock());
       if (!['BOOTSTRAP_SYNTHETIC', 'REFRESH_INTELLIGENCE'].includes(operation)) fail('INVALID_REQUEST', 'Unsupported refresh operation.');
       if (typeof batchKey !== 'string' || !batchKey.trim() || batchKey.length > 128) fail('INVALID_REQUEST', 'batchKey is required.');
@@ -98,7 +151,9 @@ export function createRefreshService({
       let validation;
       let bootstrapSource;
       if (operation === 'BOOTSTRAP_SYNTHETIC') {
-        bootstrapSource = sourceGenerator(seed);
+        bootstrapSource = profile === 'statewide'
+          ? sourceGenerator({ seed, profile, caseCount })
+          : sourceGenerator(seed);
         if (bootstrapSource?.syntheticData !== true) fail('INVALID_REQUEST', 'Only synthetic bootstrap data is permitted.');
       } else {
         onProgress('VALIDATED_SOURCE_LOOKUP');
@@ -106,14 +161,14 @@ export function createRefreshService({
         if (!validation) fail('DATA_NOT_READY');
       }
       const requestHash = hash(operation === 'BOOTSTRAP_SYNTHETIC'
-        ? { operation, seed: seed ?? null, source: bootstrapSource }
+        ? { operation, seed: seed ?? null, profile, caseCount, source: bootstrapSource }
         : { operation, batchKey, accepted: validation.accepted, reconciliation: validation.reconciliation });
 
       if (batch && (batch.Operation !== operation || batch.RequestHash !== requestHash)) fail('IDEMPOTENCY_CONFLICT');
       if (batch?.Status === 'COMPLETED') {
         const refreshStatus = await repository.getRefreshStatus();
-        if (isCommittedBatch(batch, refreshStatus)) return publicResult(batch);
-        return publicResult(await repository.publishRefreshBatch(batchKey, clock()));
+        if (isCommittedBatch(batch, refreshStatus)) return publishedResult(batch, refreshStatus);
+        return publishedResult(await repository.publishRefreshBatch(batchKey, clock()));
       }
       if (!batch) {
         if (operation === 'BOOTSTRAP_SYNTHETIC') {
@@ -173,14 +228,14 @@ export function createRefreshService({
       onProgress('REFRESH_BATCH_PUBLISH');
       try {
         const completed = await repository.publishRefreshBatch(batchKey, clock());
-        return publicResult(completed);
+        return publishedResult(completed);
       } catch (error) {
         let reconciled = false;
         try {
           const persisted = await repository.getRefreshBatch(batchKey);
           const refreshStatus = await repository.getRefreshStatus();
           reconciled = true;
-          if (isCommittedBatch(persisted, refreshStatus)) return publicResult(persisted);
+          if (isCommittedBatch(persisted, refreshStatus)) return publishedResult(persisted, refreshStatus);
         } catch { /* An unavailable reconciliation read must not cause a speculative state downgrade. */ }
         if (reconciled) {
           try {

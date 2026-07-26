@@ -1,0 +1,187 @@
+.utilities-policy,
+.utilities-policy-form {
+  color: #263d59;
+}
+
+.utilities-policy__heading,
+.utilities-policy-form__heading,
+.utilities-policy-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.utilities-policy__heading h3,
+.utilities-policy-form__heading h3 {
+  margin: 0 0 3px;
+  color: #173452;
+  font-size: 13px;
+}
+
+.utilities-policy__heading p,
+.utilities-policy-empty,
+.utilities-policy-loading {
+  margin: 0;
+  color: #657990;
+  font-size: 11px;
+}
+
+.utilities-policy button,
+.utilities-policy-form button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: white;
+  background: #2468b4;
+  border: 1px solid #2468b4;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.utilities-policy button:hover,
+.utilities-policy-form button:hover { background: #1d5798; }
+.utilities-policy button:focus-visible,
+.utilities-policy-form button:focus-visible,
+.utilities-policy-form input:focus-visible,
+.utilities-policy-form select:focus-visible {
+  outline: 3px solid rgb(36 104 180 / 28%);
+  outline-offset: 2px;
+}
+.utilities-policy-form button:disabled { cursor: not-allowed; opacity: .55; }
+
+.utilities-policy-list {
+  padding: 0;
+  margin: 14px 0 0 !important;
+  list-style: none;
+  border-top: 1px solid #dfe7ef;
+}
+
+.utilities-policy-list li {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5ebf1;
+}
+
+.utilities-policy-list div { display: grid; gap: 3px; }
+.utilities-policy-list strong { color: #173452; font-size: 11px; }
+.utilities-policy-list small { color: #71839a; font-size: 10px; }
+.utilities-policy-state {
+  color: #126747;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.utilities-policy-state::before { content: "✓ "; }
+.utilities-policy-state--off { color: #7a5a16; }
+.utilities-policy-state--off::before { content: "Ⅱ "; }
+.utilities-policy-list button { color: #2468b4; background: white; border-color: #b9cbe0; }
+.utilities-policy-list button:hover { color: white; }
+.utilities-policy-row-actions { display: flex !important; align-items: flex-start; justify-content: flex-end; gap: 7px; }
+.utilities-policy-evaluation { display: grid; justify-items: end; gap: 6px; }
+.utilities-policy-evaluation button:disabled { color: #71839a; background: #eef2f6; border-color: #d4dde7; }
+.utilities-policy-result { display: grid; justify-items: end; gap: 3px; color: #536981; font-size: 9px; text-align: right; }
+.utilities-policy-result small { color: #536981; font-size: 9px; }
+.utilities-policy-result a { color: #2468b4; font-size: 10px; font-weight: 700; text-decoration: none; }
+.utilities-policy-evaluation .utilities-policy-message { max-width: 250px; margin-top: 0 !important; text-align: left; }
+
+.utilities-policy-form {
+  padding-top: 2px;
+}
+
+.utilities-policy-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.utilities-policy-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.utilities-policy-fields label {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  color: #4d627b;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.utilities-policy-scope {
+  min-height: 36px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 0 9px;
+  background: #eef4f9;
+  border: 1px solid #d4dfe9;
+  border-radius: 5px;
+}
+.utilities-policy-scope span,
+.utilities-policy-form__heading small { color: #71839a; font-size: 9px; }
+.utilities-policy-scope strong { color: #173452; font-size: 11px; }
+
+.utilities-policy-fields input,
+.utilities-policy-fields select {
+  width: 100%;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  color: #173452;
+  background: white;
+  border: 1px solid #cbd7e3;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 11px;
+}
+
+.utilities-policy-fields small { color: #74869c; font-size: 9px; font-weight: 400; }
+.utilities-policy-recipients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 12px 0 0;
+  margin: 15px 0 0;
+  border: 0;
+  border-top: 1px solid #e2e8ef;
+}
+.utilities-policy-recipients legend { padding: 0 10px 0 0; color: #4d627b; font-size: 10px; font-weight: 650; }
+.utilities-policy-recipients label { color: #536981; font-size: 10px; }
+.utilities-policy-actions { justify-content: flex-end; margin-top: 14px; }
+.utilities-policy-form .utilities-policy-secondary { color: #536981; background: white; border-color: #c9d5e1; }
+.utilities-policy-form .utilities-policy-secondary:hover { color: #173452; background: #f2f6fa; }
+.utilities-policy-message { padding: 8px 10px; margin: 12px 0 0 !important; border-radius: 5px; font-size: 10px !important; }
+.utilities-policy-message--error { color: #8f302c !important; background: #fff0ef; border: 1px solid #efc4c1; }
+.utilities-policy-message--success { color: #126747 !important; background: #eaf7f1; border: 1px solid #b9dfcf; }
+.utilities-alert-unavailable { display: grid; gap: 3px; max-width: 520px; }
+.utilities-alert-unavailable span { color: #745c24; font-size: 10px; font-weight: 500; }
+
+@media (max-width: 760px) {
+  .utilities-policy-fields { grid-template-columns: 1fr 1fr; }
+  .utilities-policy-list li { grid-template-columns: 58px minmax(0, 1fr); }
+  .utilities-policy-row-actions { grid-column: 2; justify-self: start; flex-wrap: wrap; justify-content: flex-start; }
+  .utilities-policy-evaluation { justify-items: start; }
+  .utilities-policy-result { justify-items: start; text-align: left; }
+}
+
+@media (max-width: 430px) {
+  .utilities-policy__heading,
+  .utilities-policy-form__heading { align-items: flex-start; flex-direction: column; }
+  .utilities-policy-fields { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .utilities-policy *, .utilities-policy-form * { scroll-behavior: auto; transition: none !important; }
+}

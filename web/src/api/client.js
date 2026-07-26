@@ -77,5 +77,6 @@ export function createApiClient({ baseUrl, keyFactory = () => crypto.randomUUID(
     put: (path, body) => request('PUT', path, body),
     delete: path => request('DELETE', path),
     workflow: (path, body) => request('POST', path, body, { 'Idempotency-Key': keyFactory() }),
+    idempotent: (path, body, key) => request('POST', path, body, { 'Idempotency-Key': key }),
   });
 }

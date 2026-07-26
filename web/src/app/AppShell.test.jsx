@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
@@ -40,6 +40,8 @@ test('renders a focused branded shell without report-level status clutter', () =
   expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toHaveTextContent('Analyst Workbench');
   expect(screen.getByRole('searchbox', { name: 'Global search' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Support' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /^alerts$/i }).length).toBeGreaterThan(0);
   expect(screen.getByText('Unit 101')).toBeInTheDocument();
   expect(screen.queryByText('Intelligence freshness')).not.toBeInTheDocument();
@@ -70,7 +72,7 @@ test('production workspaces expose account sign-out but no persona selector', ()
   expect(signOut).toHaveBeenCalledOnce();
 });
 
-test('Development demo presenter switches persona from the extreme-right profile menu', () => {
+test('Development demo presenter returns to workspace selection from the profile menu', () => {
   render(<MemoryRouter initialEntries={['/?persona=STATE_LEADERSHIP']}>
     <AppShell workspace={demoWorkspace} auth={{ signOut: vi.fn() }}><p>Content</p></AppShell>
     <LocationProbe />
@@ -80,13 +82,9 @@ test('Development demo presenter switches persona from the extreme-right profile
 
   expect(screen.getByText('Employee 9900')).toBeInTheDocument();
   expect(screen.getByText('KSP Intelligence')).toBeInTheDocument();
-  expect(screen.getByText('Viewing as State Leadership')).toBeInTheDocument();
-  const personaGroup = screen.getByRole('group', { name: 'Switch demonstration persona' });
-  expect(personaGroup).toBeInTheDocument();
-  expect(within(personaGroup).getAllByRole('button', { name: /leadership|analyst|station operations/i })).toHaveLength(5);
-
-  fireEvent.click(screen.getByRole('button', { name: 'Crime Analyst' }));
-  expect(screen.getByTestId('location')).toHaveTextContent('/?persona=CRIME_ANALYST');
+  expect(screen.queryByRole('group', { name: 'Switch demonstration persona' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/');
 });
 
 test('platform navigation preserves the governed persona but drops unrelated query data', () => {
@@ -95,7 +93,7 @@ test('platform navigation preserves the governed persona but drops unrelated que
     <LocationProbe />
   </MemoryRouter>);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Geospatial' }));
-  expect(screen.getByTestId('location')).toHaveTextContent('/geospatial?persona=CRIME_ANALYST');
+  fireEvent.click(screen.getByRole('link', { name: 'Intelligence' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/intelligence?persona=CRIME_ANALYST');
   expect(screen.getByTestId('location')).not.toHaveTextContent('token');
 });

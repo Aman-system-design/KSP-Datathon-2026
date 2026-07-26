@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-export function VisibleFeatureTable({ features, onSelect }) {
-  const [open, setOpen] = useState(true);
+export function VisibleFeatureTable({ features, onSelect, initiallyOpen = true }) {
+  const [open, setOpen] = useState(initiallyOpen);
   return <section className={`geospatial-feature-results${open ? ' is-open' : ''}`}>
     <header>
       <div><h2>Visible features</h2><span>{features.length} authorized results</span></div>

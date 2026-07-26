@@ -3,12 +3,7 @@ import { lazy } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { AlertsPage, Application, commandCenterDashboardLocation, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
-
-test('preserves release and persona across command center dashboard routes', () => {
-  expect(commandCenterDashboardLocation('?release=abc&persona=COMMAND_CENTER', { mode: 'create' })).toEqual({ pathname: '/dashboards', search: '?release=abc&persona=COMMAND_CENTER&create=1' });
-  expect(commandCenterDashboardLocation('?release=abc&persona=COMMAND_CENTER&create=1', { dashboardId: 'D-9' })).toEqual({ pathname: '/', search: '?release=abc&persona=COMMAND_CENTER&dashboard=D-9' });
-});
+import { AlertsPage, Application, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
 
 test('failure state exposes a safe boundary code without requiring a server request id', () => {
   render(<Failure error={{ code: 'AUTH_SESSION_FAILED' }} />);
@@ -42,7 +37,7 @@ test('maps workspace chooser destinations without weakening persona validation',
     pathname: '/', search: '?release=1&persona=CRIME_ANALYST',
   });
   expect(workspaceDestinationLocation({ type: 'route', pathname: '/command-centre' }, '?release=1')).toEqual({
-    pathname: '/command-centre', search: '',
+    pathname: '/', search: '?release=1&persona=COMMAND_CENTER',
   });
   expect(() => workspaceDestinationLocation({ type: 'route', pathname: '//unsafe.example' }, '')).toThrow(TypeError);
 });
@@ -155,62 +150,36 @@ test('demo presenter chooses only from backend-authorized workspaces before ente
   expect(api.get).toHaveBeenCalledTimes(1);
 }, 10000);
 
-test('command center persona verifies the ordinary workspace without intelligence requests', async () => {
+test('legacy command-centre URL redirects to the canonical command center workspace', async () => {
   const api = { get: vi.fn(async path => {
-    if (path === '/v1/workspace') return { data: { role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 }, personaSwitch: { allowed: true, personas: [] } } };
+    if (path === '/v1/workspace') return { data: {
+      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
+    } };
     throw new Error(`Unexpected request: ${path}`);
   }) };
+
+  render(<MemoryRouter initialEntries={['/command-centre']}><Application api={api} /><LocationProbe /></MemoryRouter>);
+
+  expect(await screen.findByTestId('location')).toHaveTextContent('/?persona=COMMAND_CENTER');
+  expect(api.get).not.toHaveBeenCalled();
+});
+
+test('command center persona verifies the ordinary workspace and renders without intelligence requests', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true,
+      availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: [] },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }) };
+
   render(<MemoryRouter initialEntries={['/?persona=COMMAND_CENTER']}><Application api={api} /></MemoryRouter>);
+
   expect(await screen.findByRole('application', { name: 'KSP Command Center' })).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledTimes(1);
-});
-
-test('command center loads its governed landing dashboard without invented content', async () => {
-  const api = { get: vi.fn(async path => {
-    if (path === '/v1/workspace') return { data: { role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [{ id: 'D-1', name: 'State overview', relationship: 'SYSTEM' }], landingDashboard: { id: 'D-1' }, alertSummary: { total: 0 }, personaSwitch: { allowed: true, personas: [] } } };
-    if (path === '/v1/dashboards/D-1') return { data: { id: 'D-1', name: 'State overview', items: [] } };
-    throw new Error(`Unexpected request: ${path}`);
-  }), post: vi.fn(), put: vi.fn() };
-  render(<MemoryRouter initialEntries={['/?persona=COMMAND_CENTER']}><Application api={api} /></MemoryRouter>);
-  expect(await screen.findByText('This dashboard has no reports yet.')).toBeInTheDocument();
-  expect(api.get).toHaveBeenCalledWith('/v1/dashboards/D-1');
-  expect(screen.queryByText(/incident count|hotspot|priority alert/i)).not.toBeInTheDocument();
-});
-
-test('command center account menu navigates only to backend-authorized personas', async () => {
-  const api = { get: vi.fn(async path => {
-    if (path === '/v1/workspace') return { data: {
-      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
-      personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
-    } };
-    throw new Error(`Unexpected request: ${path}`);
-  }) };
-  render(<MemoryRouter initialEntries={['/?release=1&persona=COMMAND_CENTER']}>
-    <Application api={api} /><LocationProbe />
-  </MemoryRouter>);
-
-  fireEvent.click(await screen.findByRole('button', { name: 'Open persona menu' }));
-  expect(screen.queryByRole('menuitem', { name: 'Station Operations' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Crime Analyst' }));
-  expect(screen.getByTestId('location')).toHaveTextContent('/?release=1&persona=CRIME_ANALYST');
-});
-
-test('command center account menu returns to all workspaces without dropping the release', async () => {
-  const api = { get: vi.fn(async path => {
-    if (path === '/v1/workspace') return { data: {
-      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
-      personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
-    } };
-    throw new Error(`Unexpected request: ${path}`);
-  }) };
-  render(<MemoryRouter initialEntries={['/?release=1&persona=COMMAND_CENTER']}>
-    <Application api={api} /><LocationProbe />
-  </MemoryRouter>);
-
-  fireEvent.click(await screen.findByRole('button', { name: 'Open persona menu' }));
-  fireEvent.click(screen.getByRole('menuitem', { name: 'All workspaces' }));
-  expect(screen.getByTestId('location')).toHaveTextContent('/?release=1');
-  expect(await screen.findByRole('heading', { name: 'Select workspace' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledWith('/v1/workspace');
 });
 
 test('authorized workspace lazy-loads Geospatial Studio from the governed catalog', async () => {
@@ -225,6 +194,20 @@ test('authorized workspace lazy-loads Geospatial Studio from the governed catalo
   expect(await screen.findByText('Crime hotspots')).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledWith('/v1/geospatial/datasets');
   expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
+});
+
+test('authorized utilities routes stay inside the application shell', async () => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: analystWorkspace };
+    if (path === '/v1/utilities') return { data: [] };
+    throw new Error(`Unexpected request: ${path}`);
+  }) };
+
+  render(<MemoryRouter initialEntries={['/utilities']}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Intelligence Utilities' })).toBeInTheDocument();
+  expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledWith('/v1/utilities');
 });
 
 test('profile without a spatial dataset action receives an empty Studio without catalog leakage', async () => {
@@ -312,7 +295,7 @@ test('geospatial route opens the KSP tenant with Karnataka intelligence defaults
   render(<GeospatialPage api={{}} Studio={Studio} />);
 
   const defaults = await screen.findByTestId('geospatial-defaults');
-  expect(defaults).toHaveTextContent('"center":[75.5,15.2]');
+  expect(defaults).toHaveTextContent('"center":[75.7139,15.3173]');
   expect(defaults).toHaveTextContent('"hotspots","anomalies","areaRisk"');
 });
 

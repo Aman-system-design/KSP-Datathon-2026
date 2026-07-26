@@ -32,6 +32,23 @@ test('POINT emits layer-scoped selection with the full authorized server project
   expect(onFeatureSelect.mock.calls[0][0]).not.toHaveProperty('geometry');
 });
 
+test('POINT uses operational risk colours and a visible evidence marker', () => {
+  const critical = point('HOT-CRITICAL', 77.5949, 12.9718, { severity: 0.91 });
+  const elevated = point('HOT-ELEVATED', 77.6, 12.98, { severity: 0.62 });
+  const monitoring = point('HOT-MONITORING', 77.61, 12.99, { severity: 0.22 });
+  const [spec] = buildDeckLayerSpecs({
+    layer: { id: 'hotspots', renderer: 'POINT', colorField: 'severity' },
+    featureCollection: collection(critical, elevated, monitoring),
+  });
+
+  expect(spec.stroked).toBe(true);
+  expect(spec.radiusMinPixels).toBeGreaterThanOrEqual(7);
+  expect(spec.lineWidthMinPixels).toBeGreaterThanOrEqual(2);
+  expect(spec.getFillColor(critical)).toEqual([239, 68, 68, 235]);
+  expect(spec.getFillColor(elevated)).toEqual([245, 158, 11, 230]);
+  expect(spec.getFillColor(monitoring)).toEqual([59, 130, 246, 225]);
+});
+
 test('HEATMAP reads finite weights from the configured field', () => {
   const feature = point('HOT-1', 77.5949, 12.9718, { caseCount: 6 });
   const [spec] = buildDeckLayerSpecs({
@@ -42,6 +59,7 @@ test('HEATMAP reads finite weights from the configured field', () => {
   expect(spec.kind).toBe('HeatmapLayer');
   expect(spec.getWeight(feature)).toBe(6);
   expect(spec.getPosition(feature)).toEqual([77.5949, 12.9718]);
+  expect(spec.colorRange.at(-1)).toEqual([239, 68, 68, 255]);
 });
 
 test('optional heatmap constructor loads on demand and produces a real deck layer', async () => {
@@ -122,7 +140,7 @@ test('CLUSTER rejects in-place features array mutation as an immutable-input con
   expect(() => buildDeckLayerSpecs(options)).toThrow(/features array is immutable/);
 });
 
-test('CLUSTER aggregate marks are not evidence selections while leaf points remain selectable', () => {
+test('CLUSTER aggregate marks request geographic drilldown while leaf points remain evidence selections', () => {
   const onFeatureSelect = vi.fn();
   const clustered = buildDeckLayerSpecs({
     layer: { id: 'clustered', renderer: 'CLUSTER', tooltipFields: ['label'] },
@@ -136,7 +154,12 @@ test('CLUSTER aggregate marks are not evidence selections while leaf points rema
   const scatter = clustered.find(spec => spec.kind === 'ScatterplotLayer');
   const aggregate = scatter.data.find(feature => feature.properties.cluster);
   scatter.onClick({ object: aggregate });
-  expect(onFeatureSelect).not.toHaveBeenCalled();
+  expect(onFeatureSelect).toHaveBeenCalledWith(expect.objectContaining({
+    kind: 'CLUSTER_DRILLDOWN', layerId: 'clustered',
+    center: aggregate.geometry.coordinates, zoom: expect.any(Number),
+  }));
+
+  onFeatureSelect.mockClear();
 
   const leaf = buildDeckLayerSpecs({
     layer: { id: 'clustered', renderer: 'CLUSTER', tooltipFields: ['label'] },
@@ -213,6 +236,10 @@ test('CHOROPLETH requires polygon geometry', () => {
     featureCollection: collection(polygon),
   });
   expect(spec.kind).toBe('GeoJsonLayer');
+  expect(spec.getFillColor({ ...polygon, properties: { severity: 0.9 } })).toEqual([239, 68, 68, 205]);
+  expect(spec.getFillColor({ ...polygon, properties: { severity: 0.55 } })).toEqual([180, 83, 47, 200]);
+  expect(spec.getFillColor(polygon)).toEqual([31, 56, 86, 205]);
+  expect(spec.lineWidthMinPixels).toBe(1);
 
   expect(() => buildDeckLayerSpecs({
     layer: { id: 'districts', renderer: 'CHOROPLETH' },

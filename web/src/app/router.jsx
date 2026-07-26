@@ -8,13 +8,12 @@ import { SignInRequired } from '../auth/SignInRequired.jsx';
 import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
 import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor.jsx';
 import { AlertPage, AlertsPage } from '../features/alerts/AlertPages.jsx';
-import { CommandCentrePage } from '../features/command-centre/CommandCentrePage.jsx';
-import { CommandCenterShell } from '../features/command-center/CommandCenterShell.jsx';
 import { DashboardLibrary, DashboardPage, RoutedDashboardPage } from '../features/dashboards/DashboardPages.jsx';
 import { GeospatialPage } from '../features/geospatial/GeospatialPage.jsx';
 import { IntelligenceWorkspacePage } from '../features/intelligence/IntelligenceWorkspacePage.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
-import { ReportBuilder } from '../features/reports/ReportBuilder.jsx';
+import { UtilitiesPage } from '../features/utilities/UtilitiesPage.jsx';
+import { UtilityPage } from '../features/utilities/UtilityPage.jsx';
 import { HomePage } from '../features/workspaces/HomePage.jsx';
 import { PersonaWorkspace } from '../features/workspaces/PersonaWorkspace.jsx';
 import { AppShell } from './AppShell.jsx';
@@ -24,6 +23,12 @@ import { useLoad } from './useLoad.js';
 
 const WorkspaceSelector = lazy(() => import('../auth/WorkspaceSelector.jsx')
   .then(module => ({ default: module.WorkspaceSelector })));
+const CommandCenterShell = lazy(() => import('../features/command-center/CommandCenterShell.jsx')
+  .then(module => ({ default: module.CommandCenterShell })));
+const ReportBuilder = lazy(() => import('../features/reports/ReportBuilder.jsx')
+  .then(module => ({ default: module.ReportBuilder })));
+const ReportLibrary = lazy(() => import('../features/reports/ReportLibrary.jsx')
+  .then(module => ({ default: module.ReportLibrary })));
 
 function validWorkspace(value) {
   return value && typeof value.role === 'string' && value.role !== 'LOADING';
@@ -52,7 +57,7 @@ export function workspaceDestinationLocation(destination, currentSearch = '') {
     return Object.freeze({ pathname: '/', search: personaSearch(currentSearch, role) });
   }
   if (destination?.type === 'route' && destination.pathname === '/command-centre') {
-    return Object.freeze({ pathname: '/command-centre', search: '' });
+    return Object.freeze({ pathname: '/', search: personaSearch(currentSearch, 'COMMAND_CENTER') });
   }
   throw new TypeError('An authorized workspace destination is required');
 }
@@ -64,6 +69,14 @@ export function commandCenterDashboardLocation(currentSearch = '', { mode = 'can
   if (mode === 'create') params.set('create', '1');
   if (dashboardId) params.set('dashboard', dashboardId);
   return Object.freeze({ pathname: mode === 'canvas' ? '/' : '/dashboards', search: `?${params.toString()}` });
+}
+
+export function commandCenterModuleLocation(currentSearch = '', moduleId = 'home') {
+  const routes = Object.freeze({ analytics: '/intelligence', alerts: '/alerts', map: '/geospatial', network: '/networks', reports: '/reports', utilities: '/utilities' });
+  if (moduleId === 'home') return Object.freeze({ pathname: '/', search: personaSearch(currentSearch, 'COMMAND_CENTER') });
+  const pathname = routes[moduleId];
+  if (!pathname) throw new TypeError('A Command Center module is required');
+  return Object.freeze({ pathname, search: personaSearch(currentSearch, readDemoPersona(currentSearch) ?? 'COMMAND_CENTER') });
 }
 
 function AuthorizedApplication({ api, auth, requestedPersona }) {
@@ -79,9 +92,10 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     return <main className="application-gate"><Failure error={{ code: 'WORKSPACE_CONTRACT_INVALID', requestId: 'CLIENT-WORKSPACE' }} /></main>;
   }
   const workspace = state.data;
-  if (requestedPersona === 'COMMAND_CENTER') {
+  const commandCenterShellRoute = location.pathname === '/' || location.pathname === '/dashboards';
+  if (requestedPersona === 'COMMAND_CENTER' && commandCenterShellRoute) {
     if (workspace.role !== 'DEMO_PRESENTER') return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
-    return <CommandCenterShell
+    return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading Command Centre…" /></main>}><CommandCenterShell
       api={api}
       workspace={workspace}
       view={location.pathname === '/dashboards' ? 'library' : 'canvas'}
@@ -90,12 +104,14 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
       personas={workspace.personaSwitch?.personas ?? []}
       onPersonaSelect={role => navigate(workspaceDestinationLocation({ type: 'persona', role }, location.search))}
       onAllWorkspaces={() => navigate({ pathname: '/', search: personaSearch(location.search, null) })}
+      onSignOut={() => auth.signOut()}
+      onModuleNavigate={moduleId => navigate(commandCenterModuleLocation(location.search, moduleId))}
       onOpenAllDashboards={() => navigate(commandCenterDashboardLocation(location.search, { mode: 'browse' }))}
       onCreateDashboard={() => navigate(commandCenterDashboardLocation(location.search, { mode: 'create' }))}
       onOpenDashboard={dashboardId => navigate(commandCenterDashboardLocation(location.search, { dashboardId }))}
       onDashboardCreated={dashboardId => navigate(commandCenterDashboardLocation(location.search, { dashboardId }))}
       onCancelCreate={() => navigate(commandCenterDashboardLocation(location.search, { mode: 'browse' }))}
-    />;
+    /></Suspense>;
   }
   if (workspace.role === 'DEMO_PRESENTER' && !readDemoPersona(location.search)) {
     return <Suspense fallback={<main className="application-gate"><Busy branded label="Loading authorized workspaces…" /></main>}>
@@ -106,16 +122,15 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
       />
     </Suspense>;
   }
-  if (location.pathname === '/command-centre') {
-    if (!['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'DEMO_PRESENTER'].includes(workspace.role)) return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
-    return <CommandCentrePage api={api} workspace={workspace} />;
-  }
   return <AppShell workspace={workspace} auth={auth}><Routes>
     <Route path="/" element={<HomePage api={api} workspace={workspace} />} />
     <Route path="/intelligence" element={<IntelligenceWorkspacePage api={api} role={workspace.role} />} />
+    <Route path="/utilities" element={<UtilitiesPage api={api} />} />
+    <Route path="/utilities/:utilityKey" element={<UtilityPage api={api} workspace={workspace} />} />
     <Route path="/geospatial" element={<GeospatialPage api={api} />} />
     <Route path="/maps" element={<LegacyMapsRedirect />} />
-    <Route path="/reports" element={<ReportBuilder api={api} />} />
+    <Route path="/reports" element={<ReportLibrary api={api} />} />
+    <Route path="/reports/new" element={<ReportBuilder api={api} />} />
     <Route path="/reports/:reportId" element={<ReportBuilder api={api} />} />
     <Route path="/dashboards" element={<DashboardLibrary workspace={workspace} />} />
     <Route path="/dashboards/:dashboardId" element={<RoutedDashboardPage api={api} />} />
@@ -145,6 +160,10 @@ export function Application({ api: providedApi }) {
     () => providedApi ? Promise.resolve({ trustedTestApi: true }) : auth.currentUser(),
     [providedApi, auth],
   );
+
+  if (location.pathname === '/command-centre') {
+    return <Navigate to={{ pathname: '/', search: personaSearch(location.search, 'COMMAND_CENTER') }} replace />;
+  }
 
   if (session.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity…" /></main>;
   if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) return <SignInRequired auth={auth} />;

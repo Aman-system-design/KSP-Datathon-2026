@@ -100,6 +100,16 @@ test('workflow requests carry a client idempotency key', async () => {
   }));
 });
 
+test('idempotent requests reuse a caller-owned key', async () => {
+  const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: {} }) }));
+  vi.stubGlobal('fetch', fetch);
+  const api = createApiClient({ baseUrl: '/api' });
+  await api.idempotent('/v1/utility-alert-rules', { utilityKey: 'patterns' }, 'RULE-SAVE-1');
+  expect(fetch).toHaveBeenCalledWith('/api/v1/utility-alert-rules', expect.objectContaining({
+    method: 'POST', headers: expect.objectContaining({ 'Idempotency-Key': 'RULE-SAVE-1' }),
+  }));
+});
+
 test('API client exposes only stable server errors', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => ({
     ok: false, status: 409,

@@ -1,6 +1,6 @@
 const intelligenceModules = Object.freeze([
   { to: '/', label: 'Home', icon: 'home' },
-  { to: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
+  { to: '/utilities', label: 'Utilities', icon: 'utilities' },
   { to: '/alerts', label: 'Alerts', icon: 'alerts' },
   { to: '/geospatial', label: 'Geospatial', icon: 'map' },
   { to: '/networks', label: 'Networks', icon: 'network' },
@@ -8,8 +8,17 @@ const intelligenceModules = Object.freeze([
   { to: '/dashboards', label: 'Dashboards', icon: 'dashboard' },
 ]);
 
+const stateLeadershipModules = Object.freeze([
+  { to: '/', label: 'Home', icon: 'home' },
+  { to: '/utilities', label: 'Utilities', icon: 'utilities' },
+  { to: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
+  { to: '/alerts', label: 'Alerts', icon: 'alerts' },
+  { to: '/reports', label: 'Reports', icon: 'report' },
+  { to: '/dashboards', label: 'Dashboards', icon: 'dashboard' },
+]);
+
 const roleDefinitions = Object.freeze({
-  STATE_LEADERSHIP: { workspaceLabel: 'State Intelligence Brief', modules: intelligenceModules },
+  STATE_LEADERSHIP: { workspaceLabel: 'State Intelligence Brief', modules: stateLeadershipModules },
   REGIONAL_LEADERSHIP: { workspaceLabel: 'Jurisdiction Intelligence Pulse', modules: intelligenceModules },
   DISTRICT_LEADERSHIP: { workspaceLabel: 'Jurisdiction Intelligence Pulse', modules: intelligenceModules },
   CRIME_ANALYST: { workspaceLabel: 'Analyst Workbench', modules: intelligenceModules },
@@ -25,6 +34,7 @@ const roleDefinitions = Object.freeze({
     workspaceLabel: 'Governance Console',
     modules: [
       { to: '/', label: 'Home', icon: 'home' },
+      { to: '/utilities', label: 'Utilities', icon: 'utilities' },
       { to: '/admin', label: 'Governance', icon: 'admin' },
       { to: '/admin/intelligence-runs', label: 'Intelligence runs', icon: 'intelligence' },
       { to: '/admin/personas', label: 'Persona workspaces', icon: 'people' },
@@ -38,7 +48,7 @@ const roleDefinitions = Object.freeze({
     workspaceLabel: 'Persona Workspaces', home: '/admin/personas',
     modules: [
       { to: '/admin/personas', label: 'Persona workspaces', icon: 'people' },
-      { to: '/command-centre', label: 'Command Centre', icon: 'command' },
+      { to: '/?persona=COMMAND_CENTER', label: 'Command Center', icon: 'command' },
     ],
   },
 });
@@ -65,8 +75,8 @@ export const personaWorkspaceDefinitions = Object.freeze([
 ]);
 
 export const commandCentreWorkspace = Object.freeze({
-  role: 'COMMAND_CENTRE',
-  label: 'Command Centre',
+  role: 'COMMAND_CENTER',
+  label: 'Command Center',
   workspace: 'Live Operational Overview',
   scope: 'Presentation display',
   icon: 'command',

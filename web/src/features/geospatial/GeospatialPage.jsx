@@ -1,12 +1,8 @@
 import { Component, lazy, Suspense } from 'react';
 import { Busy } from '../../app/AsyncStates.jsx';
+import { KSP_DEFAULT_MAP_DATASETS, KSP_GEOSPATIAL_CONFIG } from './geospatial-config.js';
 
 const GeospatialStudio = lazy(() => import('./GeospatialStudio.jsx'));
-const KSP_GEOSPATIAL_CONFIG = Object.freeze({
-  defaultViewport: Object.freeze({ center: Object.freeze([75.5, 15.2]), zoom: 5.6 }),
-  jurisdictionLabel: 'Karnataka',
-});
-const KSP_DEFAULT_MAP_DATASETS = Object.freeze(['hotspots', 'anomalies', 'areaRisk']);
 
 export class GeospatialRouteErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { failed: false }; }

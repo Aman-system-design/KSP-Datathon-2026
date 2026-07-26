@@ -12,8 +12,10 @@ import { createWorkspaceServices } from '../reporting/workspace-services.mjs';
 import { createCommandService } from '../workflow/command-service.mjs';
 import { createGeospatialLayerService } from '../geospatial/layer-service.mjs';
 import { createMapViewService } from '../geospatial/map-view-service.mjs';
+import { createUtilityServices } from '../utilities/utility-services.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
+const utilityCatalogueServices = createUtilityServices();
 
 function safeFailure(code, requestId) {
   const known = {
@@ -109,8 +111,14 @@ export function createApiApplication({
       const runService = createIntelligenceRunService({
         repository, scheduler: lazyScheduler, clock: now, idFactory,
       });
+      const utilityRuleServices = createUtilityServices({ repository, idFactory, now });
       const resourceServices = Object.freeze({
         ...workspaceServices, ...createIntelligenceRunResources({ runService }),
+        ...utilityCatalogueServices,
+        listUtilityAlertRules: utilityRuleServices.listUtilityAlertRules,
+        createUtilityAlertRule: utilityRuleServices.createUtilityAlertRule,
+        updateUtilityAlertRule: utilityRuleServices.updateUtilityAlertRule,
+        evaluateUtilityAlertRule: utilityRuleServices.evaluateUtilityAlertRule,
         listGeospatialDatasets: geospatialServices.listDatasets,
         executeGeospatialLayer: geospatialServices.executeLayer,
         getGeospatialFreshness: geospatialServices.getFreshness,
