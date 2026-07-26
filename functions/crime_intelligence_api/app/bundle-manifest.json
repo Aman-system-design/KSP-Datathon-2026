@@ -155,8 +155,8 @@
     },
     {
       "path": "src/backend/services/alert-services.mjs",
-      "sha256": "2e815d62610df73b5b21d9caaed9436b1b8ca3b7effb25c24f3523d58502c320",
-      "bytes": 4035
+      "sha256": "fda03b5798595d9de5e02dd1f24c15db17ba7f7fa3c4ead7432aa0ead07e4134",
+      "bytes": 4580
     },
     {
       "path": "src/backend/services/envelope.mjs",

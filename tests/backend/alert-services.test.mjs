@@ -96,6 +96,30 @@ test('utility alerts with malformed recipient metadata fail closed without disco
   }
 });
 
+test('rule-only and utility-only alert markers fail closed for list and detail', async () => {
+  const { repository, alert } = await utilityAlertFixture(['CRIME_ANALYST']);
+  const partialIds = [];
+  for (const marker of ['rule', 'utility']) {
+    const finding = JSON.parse(alert.OriginalFindingJSON);
+    delete finding[marker === 'rule' ? 'utility' : 'rule'];
+    const AlertID = `${alert.AlertID}-${marker}-only`;
+    partialIds.push(AlertID);
+    await repository.createAlertIfAbsent({
+      ...alert, AlertID, OriginalFindingJSON: JSON.stringify(finding),
+    });
+  }
+
+  const alerts = createAlertServices({ repository });
+  const unintended = access([101], 'DISTRICT_LEADERSHIP');
+  const listed = await alerts.listAlerts({ access: unintended, query: {} });
+  assert.equal(listed.data.items.some(item => partialIds.includes(item.id)), false);
+  for (const alertId of partialIds) {
+    await assert.rejects(alerts.getAlertDetail({
+      access: unintended, params: { alertId },
+    }), { code: 'NOT_FOUND' });
+  }
+});
+
 test('alert discovery rejects missing permission, invalid filters and hidden geography', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const alerts = createAlertServices({ repository });

@@ -11,17 +11,28 @@ const parseFinding = (alert) => {
   try { return JSON.parse(alert.OriginalFindingJSON); } catch { fail('DATA_NOT_READY'); }
 };
 
+const classifyFinding = (finding) => {
+  const hasRule = finding !== null && typeof finding === 'object' && Object.hasOwn(finding, 'rule');
+  const hasUtility = finding !== null && typeof finding === 'object' && Object.hasOwn(finding, 'utility');
+  if (!hasRule && !hasUtility) return 'LEGACY';
+  return hasRule && hasUtility ? 'UTILITY' : 'MALFORMED_UTILITY';
+};
+
 const isIntendedRecipient = (access, finding) => {
-  if (!finding?.rule || !finding?.utility) return true;
+  const classification = classifyFinding(finding);
+  if (classification === 'LEGACY') return true;
+  if (classification !== 'UTILITY') return false;
   return isValidUtilityRecipientRoles(finding.rule.recipientRoles)
     && finding.rule.recipientRoles.includes(access?.role);
 };
 
 const isCurrentUtilityAlert = async (repository, alert, finding) => {
-  if (!finding?.rule || !finding?.utility) return true;
-  const rule = await repository.getUtilityRule(finding.rule.id);
+  const classification = classifyFinding(finding);
+  if (classification === 'LEGACY') return true;
+  if (classification !== 'UTILITY') return false;
+  const rule = await repository.getUtilityRule(finding.rule?.id);
   return Boolean(rule && rule.Enabled === true && rule.Version === finding.rule.version
-    && rule.UtilityVersion === finding.utility.version
+    && rule.UtilityVersion === finding.utility?.version
     && Number(rule.ScopeUnitID) === Number(alert.ScopeUnitID));
 };
 
