@@ -82,7 +82,7 @@ test('API composition serves the role workspace and governed report sources', as
   assert.equal(workspace.body.data.syntheticData, true);
   const sources = await application({ method: 'GET', url: '/v1/report-sources', headers: {}, body: null });
   assert.equal(sources.status, 200);
-  assert.equal(sources.body.data.length, 7);
+  assert.equal(sources.body.data.length, 8);
 });
 
 test('API composition serves station-scoped case lists and hides unauthorized case detail', async () => {

@@ -32,3 +32,22 @@ test('flattens command metrics and district indicators into report rows', () => 
     data: { items: [{ unitId: 101, period: '2026-Q2', indicators: { urbanizationIndex: 0.82 } }] }, meta,
   }), [{ unitId: 101, indicator: 'urbanizationIndex', value: 0.82, period: '2026-Q2' }]);
 });
+
+test('projects station cases through a mutation-safe analytical allowlist', () => {
+  const source = {
+    caseId: 'CASE-1', caseNumber: '01/2026', unitId: 1001, unitName: 'Central Station',
+    status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
+    incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Theft', minorHead: 'Vehicle Theft',
+    ageDays: 6, ageingBucket: '0–7 days', isOpen: true, recordCount: 999,
+    syntheticData: true, BriefFacts: 'restricted narrative', ComplainantName: 'restricted person',
+  };
+  const snapshot = structuredClone(source);
+
+  assert.deepEqual(projectReportRows('stationCases', { data: { items: [source] } }), [{
+    caseId: 'CASE-1', caseNumber: '01/2026', unitId: 1001, unitName: 'Central Station',
+    status: 'Under Investigation', registeredAt: '2026-07-20T00:00:00Z',
+    incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Theft', minorHead: 'Vehicle Theft',
+    ageDays: 6, ageingBucket: '0–7 days', isOpen: true, recordCount: 1,
+  }]);
+  assert.deepEqual(source, snapshot);
+});

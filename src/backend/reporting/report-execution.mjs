@@ -149,5 +149,20 @@ export function projectReportRows(sourceKey, envelope) {
     alertId: row.id, alertType: row.type, state: row.status, unitId: row.scopeUnitId,
     severity: row.severity, createdAt: row.createdAt,
   }));
+  if (sourceKey === 'stationCases') return rows.map(row => ({
+    caseId: row.caseId,
+    caseNumber: row.caseNumber,
+    unitId: row.unitId,
+    unitName: row.unitName,
+    status: row.status,
+    registeredAt: row.registeredAt,
+    incidentAt: row.incidentAt,
+    majorHead: row.majorHead,
+    minorHead: row.minorHead,
+    ageDays: row.ageDays,
+    ageingBucket: row.ageingBucket,
+    isOpen: row.isOpen,
+    recordCount: 1,
+  }));
   throw new TypeError(`Unsupported report source: ${sourceKey}`);
 }

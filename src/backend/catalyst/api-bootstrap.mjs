@@ -100,7 +100,7 @@ export function createApiApplication({
       const caseService = createStationCaseService({ repository, now: () => new Date(now()) });
       const readServices = Object.freeze({
         ...baseReadServices,
-        listStationCases: input => caseService.listForReport(input),
+        listStationCasesForAnalytics: input => caseService.listForReport(input),
       });
       const mapViewServices = createMapViewService({ repository, clock: now });
       const workspaceServices = createWorkspaceServices({

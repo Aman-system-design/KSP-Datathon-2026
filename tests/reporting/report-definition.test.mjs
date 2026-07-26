@@ -7,9 +7,9 @@ import {
 } from '../../src/backend/reporting/semantic-sources.mjs';
 import { normalizeReportDefinition } from '../../src/backend/reporting/report-definition.mjs';
 
-test('semantic registry exposes exactly seven governed intelligence sources', () => {
+test('semantic registry exposes exactly eight governed intelligence sources', () => {
   assert.deepEqual(Object.keys(REPORT_SOURCES), [
-    'brief', 'patterns', 'hotspots', 'anomalies', 'areaRisk', 'districtContext', 'alerts',
+    'brief', 'patterns', 'hotspots', 'anomalies', 'areaRisk', 'districtContext', 'alerts', 'stationCases',
   ]);
   for (const source of Object.values(REPORT_SOURCES)) {
     assert.match(source.service, /^[a-z][A-Za-z]+$/);
@@ -19,6 +19,28 @@ test('semantic registry exposes exactly seven governed intelligence sources', ()
     assert.equal('query' in source, false);
   }
   assert.throws(() => getReportSource('SRC_CaseMaster'), /invalid report source/i);
+});
+
+test('station case reports expose only the governed analytical allowlist', () => {
+  const source = getReportSource('stationCases');
+  assert.equal(source.service, 'listStationCasesForAnalytics');
+  assert.deepEqual(Object.keys(source.fields), [
+    'caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt', 'incidentAt',
+    'majorHead', 'minorHead', 'ageDays', 'ageingBucket', 'isOpen', 'recordCount',
+  ]);
+  assert.deepEqual(source.visualizations, ['number', 'table', 'bar', 'line', 'pie', 'funnel']);
+  assert.deepEqual(source.fields.ageDays.aggregates, ['avg', 'min', 'max']);
+  assert.deepEqual(source.fields.recordCount.aggregates, ['sum', 'count']);
+  for (const field of ['caseId', 'caseNumber', 'unitId', 'unitName', 'status', 'registeredAt',
+    'incidentAt', 'majorHead', 'minorHead', 'ageingBucket', 'isOpen']) {
+    assert.equal(source.fields[field].dimension, true, field);
+  }
+
+  for (const rawField of ['BriefFacts', 'ComplainantName', 'accused', 'syntheticData']) {
+    assert.throws(() => normalizeReportDefinition({
+      name: 'Unsafe station cases', sourceKey: 'stationCases', dimensions: [rawField],
+    }, source), /unknown field/i);
+  }
 });
 
 test('normalizes a bounded anomaly trend from governed fields', () => {

@@ -83,6 +83,25 @@ export const REPORT_SOURCES = Object.freeze({
     },
     visualizations: ['number', 'table', 'bar', 'line'],
   }),
+  stationCases: source({
+    key: 'stationCases', label: 'Station cases', service: 'listStationCasesForAnalytics',
+    fields: {
+      caseId: field('string', { dimension: true }),
+      caseNumber: field('string', { dimension: true }),
+      unitId: field('number', { dimension: true }),
+      unitName: field('string', { dimension: true }),
+      status: field('string', { dimension: true }),
+      registeredAt: field('date', { dimension: true }),
+      incidentAt: field('date', { dimension: true }),
+      majorHead: field('string', { dimension: true }),
+      minorHead: field('string', { dimension: true }),
+      ageDays: field('number', { aggregates: ['avg', 'min', 'max'] }),
+      ageingBucket: field('string', { dimension: true }),
+      isOpen: field('boolean', { dimension: true }),
+      recordCount: field('number', { aggregates: ['sum', 'count'] }),
+    },
+    visualizations: ['number', 'table', 'bar', 'line', 'pie', 'funnel'],
+  }),
 });
 
 export function getReportSource(sourceKey) {

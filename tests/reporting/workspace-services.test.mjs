@@ -27,7 +27,7 @@ test('workspace services expose a complete report-to-dashboard-to-alert vertical
   });
 
   const sources = await services.listReportSources({ access: analyst });
-  assert.equal(sources.data.length, 7);
+  assert.equal(sources.data.length, 8);
   const report = await services.createReport({ access: analyst, body: {
     name: 'Anomaly total', sourceKey: 'anomalies', dimensions: ['unitId'],
     measures: [{ field: 'observed', aggregate: 'sum' }], visualization: { type: 'bar' },
