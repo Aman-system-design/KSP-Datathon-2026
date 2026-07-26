@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-import { personaSearch } from '../../app/runtime.js';
+import { governedAppLocation } from '../../app/runtime.js';
 import { CommandCenterAddReportDrawer } from '../command-center/CommandCenterAddReportDrawer.jsx';
 import { CommandCenterDashboardCanvas } from '../command-center/CommandCenterDashboardCanvas.jsx';
 import { useCommandCenterDashboard } from '../command-center/useCommandCenterDashboard.js';
@@ -61,7 +61,6 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
   const [cloneError, setCloneError] = useState('');
   const [filterAnnouncement, setFilterAnnouncement] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
   const stationDashboard = useMemo(() => {
     const dashboards = (workspace?.availableDashboards ?? []).filter(isStationDashboard);
     if (requestedDashboardId) return dashboards.find(item => item.id === requestedDashboardId) ?? null;
@@ -125,7 +124,9 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
   const select = (_item, selection) => {
     if (!selection?.field || selection.value === undefined || selection.value === null) return;
     if (selection.field === 'caseId') {
-      const target = { pathname: `/cases/${encodeURIComponent(String(selection.value))}`, search: personaSearch(location.search, 'STATION_OPERATIONS') };
+      const target = governedAppLocation(`/cases/${encodeURIComponent(String(selection.value))}`, {
+        search: '?persona=STATION_OPERATIONS',
+      });
       if (typeof onOpenCase === 'function') onOpenCase(target, selection);
       else navigate(target);
       return;

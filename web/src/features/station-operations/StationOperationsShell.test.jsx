@@ -145,8 +145,8 @@ test('chart selection filters compatible register rows and the removable status 
   expect(screen.getByText('12/2026')).toBeInTheDocument();
 });
 
-test('case selection navigates to the prepared detail target and preserves persona', async () => {
-  render(<MemoryRouter initialEntries={['/?persona=STATION_OPERATIONS']}>
+test('case selection navigates to the prepared detail target and preserves only its governed persona', async () => {
+  render(<MemoryRouter initialEntries={['/?persona=STATION_OPERATIONS&token=unsafe']}>
     <StationOperationsShell api={apiHarness()} workspace={workspace} /><LocationProbe />
   </MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'Open case 11/2026' }));

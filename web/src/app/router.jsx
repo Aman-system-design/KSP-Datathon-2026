@@ -27,6 +27,8 @@ const CommandCenterShell = lazy(() => import('../features/command-center/Command
   .then(module => ({ default: module.CommandCenterShell })));
 const StationOperationsShell = lazy(() => import('../features/station-operations/StationOperationsShell.jsx')
   .then(module => ({ default: module.StationOperationsShell })));
+const StationCaseDetail = lazy(() => import('../features/station-operations/StationCaseDetail.jsx')
+  .then(module => ({ default: module.StationCaseDetail })));
 const ReportBuilder = lazy(() => import('../features/reports/ReportBuilder.jsx')
   .then(module => ({ default: module.ReportBuilder })));
 const ReportLibrary = lazy(() => import('../features/reports/ReportLibrary.jsx')
@@ -149,6 +151,9 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     <Route path="/dashboards/:dashboardId" element={workspace.role === 'STATION_OPERATIONS'
       ? <StationDashboardRoute api={api} workspace={workspace} />
       : <RoutedDashboardPage api={api} />} />
+    <Route path="/cases/:caseId" element={workspace.role === 'STATION_OPERATIONS'
+      ? <Suspense fallback={<Busy label="Loading governed case record…" />}><StationCaseDetail api={api} /></Suspense>
+      : <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />} />
     <Route path="/alerts" element={<AlertsPage api={api} />} />
     <Route path="/alerts/:alertId" element={<AlertPage api={api} />} />
     <Route path="/networks" element={<NetworkView api={api} />} />
