@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "eb344a61648798d2d261e4b0afa0468cf79f546ee9a9e10a225798ec4f4821ff",
-      "bytes": 2367
+      "sha256": "069b074e80f870a0f2b3da029239c53b7e2c5249f3235abed04b07f06c0e392d",
+      "bytes": 2374
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -95,8 +95,8 @@
     },
     {
       "path": "src/backend/reporting/workspace-services.mjs",
-      "sha256": "fd1f41d4c37b041df5a4ffff68a17c9e2da4f3b7d341841fd7ed21a78c21a104",
-      "bytes": 4523
+      "sha256": "95b11bab20c2883921e8165834386ce430b4d832a9c4a1af941a9d78c8ae2c5b",
+      "bytes": 4932
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
@@ -155,8 +155,8 @@
     },
     {
       "path": "src/backend/services/alert-services.mjs",
-      "sha256": "fda03b5798595d9de5e02dd1f24c15db17ba7f7fa3c4ead7432aa0ead07e4134",
-      "bytes": 4580
+      "sha256": "b4385de400aee1090e97639a14efab4d676b8cd34d9f247c50ea9053d9a1667a",
+      "bytes": 4620
     },
     {
       "path": "src/backend/services/envelope.mjs",
@@ -175,8 +175,8 @@
     },
     {
       "path": "src/backend/utilities/rule-contract.mjs",
-      "sha256": "219d5c12b848561e0138ec37e6ed37e0b568a817b04f7cd40466a2f6bfeb5c13",
-      "bytes": 4757
+      "sha256": "e83dbabf75891a1f47ae6e723b858382e8eb55cee4c486a00fee51defb32671e",
+      "bytes": 4768
     },
     {
       "path": "src/backend/utilities/utility-evaluator.mjs",
@@ -185,8 +185,8 @@
     },
     {
       "path": "src/backend/utilities/utility-registry.mjs",
-      "sha256": "8a88c907cca26e07dbbcfa5630b8f672b9e5d08d5412def76edfb13d81243d1d",
-      "bytes": 6540
+      "sha256": "d062a01279ccee4674cc970f933b357ecb8728372cea571f14e7c4d6507b45b9",
+      "bytes": 6564
     },
     {
       "path": "src/backend/utilities/utility-services.mjs",

@@ -97,3 +97,22 @@ test('presenter can load the persona chooser before assuming an operational role
     allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'],
   });
 });
+
+test('workspace bootstrap remains available when optional dashboard, report, or alert reads fail', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  repository.listDashboards = async () => { throw new Error('dashboard store unavailable'); };
+  repository.listReports = async () => { throw new Error('report store unavailable'); };
+  repository.listAlerts = async () => { throw new Error('alert store unavailable'); };
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-1`,
+  });
+
+  const workspace = await services.getWorkspace({ access: analyst });
+
+  assert.equal(workspace.data.role, 'CRIME_ANALYST');
+  assert.equal(workspace.data.landingDashboard, undefined);
+  assert.deepEqual(workspace.data.availableDashboards, []);
+  assert.deepEqual(workspace.data.availableReports, []);
+  assert.deepEqual(workspace.data.alertSummary, { total: 0 });
+});

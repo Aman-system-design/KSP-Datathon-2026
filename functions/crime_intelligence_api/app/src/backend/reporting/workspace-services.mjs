@@ -56,10 +56,14 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       const alertPromise = access.actions?.includes('READ_ALERT')
         ? alerts.listAlerts({ access, query: {} })
         : Promise.resolve({ data: { items: [] } });
-      const [landingDashboard, availableDashboards, availableReports, alertResult] = await Promise.all([
+      const [landingResult, dashboardsResult, reportsResult, alertsResult] = await Promise.allSettled([
         dashboards.resolveLanding({ access }), dashboards.list({ access }), reports.list({ access }),
         alertPromise,
       ]);
+      const landingDashboard = landingResult.status === 'fulfilled' ? landingResult.value : undefined;
+      const availableDashboards = dashboardsResult.status === 'fulfilled' ? dashboardsResult.value : [];
+      const availableReports = reportsResult.status === 'fulfilled' ? reportsResult.value : [];
+      const alertResult = alertsResult.status === 'fulfilled' ? alertsResult.value : { data: { items: [] } };
       return envelope({
         role: access.role, scopeUnitId: access.scopeUnitId,
         identity: {
