@@ -207,3 +207,42 @@ test('station role-default validation is preflighted and replacement failure res
   assert.equal((await repository.getDashboard(current.id)).defaultRole, 'STATION_OPERATIONS');
   assert.equal((await repository.getDashboard(replacement.id)).defaultRole, undefined);
 });
+
+test('role-default replacement reconciles write-then-throw outcomes at both mutation stages', async () => {
+  for (const failureStage of ['unset-current', 'publish-candidate']) {
+    const { service, repository } = harness();
+    const admin = access('ADMIN', 'SYSTEM_ADMINISTRATOR', ['MANAGE_GLOBAL_CONTENT']);
+    await repository.createReport({ id: `R-OK-${failureStage}`, ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { sourceKey: 'stationCases' } });
+    const current = await service.create({ access: admin, input: { name: `Current ${failureStage}` } });
+    const candidate = await service.create({ access: admin, input: { name: `Candidate ${failureStage}` } });
+    await repository.createDashboardItem({ id: `I-CURRENT-${failureStage}`, dashboardId: current.id, reportId: `R-OK-${failureStage}`, column: 1, row: 1, width: 4, height: 2, version: 1 });
+    await repository.createDashboardItem({ id: `I-CANDIDATE-${failureStage}`, dashboardId: candidate.id, reportId: `R-OK-${failureStage}`, column: 1, row: 1, width: 4, height: 2, version: 1 });
+    await service.setRoleDefault({ access: admin, dashboardId: current.id, role: 'STATION_OPERATIONS' });
+    const originalUpdate = repository.updateDashboard.bind(repository);
+    let injected = false;
+    repository.updateDashboard = async (id, version, changes) => {
+      const result = await originalUpdate(id, version, changes);
+      const isTargetStage = failureStage === 'unset-current'
+        ? id === current.id && Object.hasOwn(changes, 'defaultRole') && changes.defaultRole === undefined
+        : id === candidate.id && changes.defaultRole === 'STATION_OPERATIONS';
+      if (isTargetStage && !injected) {
+        injected = true;
+        throw new Error(`uncertain ${failureStage}`);
+      }
+      return result;
+    };
+
+    await assert.rejects(
+      service.setRoleDefault({ access: admin, dashboardId: candidate.id, role: 'STATION_OPERATIONS' }),
+      new RegExp(`uncertain ${failureStage}`, 'u'),
+    );
+
+    const restoredCurrent = await repository.getDashboard(current.id);
+    const restoredCandidate = await repository.getDashboard(candidate.id);
+    assert.equal(restoredCurrent.defaultRole, 'STATION_OPERATIONS');
+    assert.equal(restoredCurrent.visibility, 'GLOBAL');
+    assert.equal(restoredCandidate.defaultRole, undefined);
+    assert.equal(restoredCandidate.visibility, 'PRIVATE');
+    assert.deepEqual((await repository.listDashboards()).filter(row => row.defaultRole === 'STATION_OPERATIONS').map(row => row.id), [current.id]);
+  }
+});

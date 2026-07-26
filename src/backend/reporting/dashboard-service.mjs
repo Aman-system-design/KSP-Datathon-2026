@@ -38,6 +38,24 @@ export function createDashboardService({ repository, now, idFactory }) {
     }
     return true;
   }
+  async function restoreRoleDefaultState(originals) {
+    for (const original of originals.filter(Boolean)) {
+      const current = await repository.getDashboard(original.id);
+      if (!current) fail('DATA_NOT_READY');
+      if (current.defaultRole !== original.defaultRole || current.visibility !== original.visibility) {
+        const restored = await repository.updateDashboard(current.id, current.version, {
+          defaultRole: original.defaultRole, visibility: original.visibility, updatedAt: now(),
+        });
+        if (!restored || restored.conflict) fail('DATA_NOT_READY');
+      }
+    }
+    for (const original of originals.filter(Boolean)) {
+      const restored = await repository.getDashboard(original.id);
+      if (!restored || restored.defaultRole !== original.defaultRole || restored.visibility !== original.visibility) {
+        fail('DATA_NOT_READY');
+      }
+    }
+  }
   async function requireVisible(id, access) {
     const dashboard = await repository.getDashboard(id);
     if (!dashboard) fail('NOT_FOUND');
@@ -150,25 +168,18 @@ export function createDashboardService({ repository, now, idFactory }) {
       if (!dashboard) fail('NOT_FOUND');
       if (role === 'STATION_OPERATIONS' && !await isStationDefaultCandidate(dashboard)) fail('INVALID_REQUEST');
       const current = (await repository.listDashboards()).find(row => row.defaultRole === role && row.id !== dashboardId);
-      let unsetCurrent;
-      if (current) {
-        unsetCurrent = await repository.updateDashboard(current.id, current.version, { defaultRole: undefined });
-        if (!unsetCurrent || unsetCurrent.conflict) fail('VERSION_CONFLICT');
-      }
       try {
+        if (current) {
+          const unsetCurrent = await repository.updateDashboard(current.id, current.version, { defaultRole: undefined });
+          if (!unsetCurrent || unsetCurrent.conflict) fail('VERSION_CONFLICT');
+        }
         const updated = await repository.updateDashboard(dashboardId, dashboard.version, {
           defaultRole: role, visibility: 'GLOBAL', updatedAt: now(),
         });
         if (!updated || updated.conflict) fail('VERSION_CONFLICT');
         return updated;
       } catch (error) {
-        if (current && unsetCurrent && !unsetCurrent.conflict) {
-          try {
-            await repository.updateDashboard(current.id, unsetCurrent.version, {
-              defaultRole: role, visibility: current.visibility, updatedAt: now(),
-            });
-          } catch { /* preserve the replacement failure */ }
-        }
+        await restoreRoleDefaultState([current, dashboard]);
         throw error;
       }
     },

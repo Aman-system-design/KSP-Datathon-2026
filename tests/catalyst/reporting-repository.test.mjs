@@ -97,3 +97,39 @@ test('Catalyst clone compensation restores a prior landing after a preference wr
   assert.deepEqual((await repository.listDashboards()).map(row => row.id).sort(), ['D-PRIOR', 'D-SYSTEM']);
   assert.deepEqual((await repository.listDashboardItems('D-SYSTEM')).map(row => row.id), ['I-CASE']);
 });
+
+test('Catalyst role-default writes reconcile when either datastore update commits then throws', async () => {
+  for (const failureStage of ['unset-current', 'publish-candidate']) {
+    let inject = false;
+    let injected = false;
+    const fake = fakeApplication({ afterUpdate(name, row) {
+      if (!inject || injected || name !== 'CFG_Dashboard') return;
+      const target = failureStage === 'unset-current'
+        ? row.DashboardID === 'D-CURRENT' && row.DefaultRole === null
+        : row.DashboardID === 'D-CANDIDATE' && row.DefaultRole === 'STATION_OPERATIONS';
+      if (target) { injected = true; throw new Error(`catalyst uncertain ${failureStage}`); }
+    } });
+    const repository = new CatalystIntelligenceRepository({ application: fake.application });
+    const timestamp = '2026-07-21T00:00:00Z';
+    await repository.createReport({ id: 'R-CASE', name: 'Cases', ownerUserId: 'ADMIN', visibility: 'GLOBAL', version: 1, definition: { name: 'Cases', sourceKey: 'stationCases' }, createdAt: timestamp, updatedAt: timestamp });
+    for (const id of ['D-CURRENT', 'D-CANDIDATE']) {
+      await repository.createDashboard({ id, name: id, ownerUserId: 'ADMIN', visibility: 'PRIVATE', version: 1, createdAt: timestamp, updatedAt: timestamp });
+      await repository.createDashboardItem({ id: `I-${id}`, dashboardId: id, reportId: 'R-CASE', column: 1, row: 1, width: 4, height: 2, version: 1 });
+    }
+    let sequence = 0;
+    const service = createDashboardService({ repository, now: () => timestamp, idFactory: () => `ID-${++sequence}` });
+    const admin = { actualUserId: 'ADMIN', role: 'SYSTEM_ADMINISTRATOR', authorizedUnitIds: new Set(), actions: ['MANAGE_GLOBAL_CONTENT'] };
+    await service.setRoleDefault({ access: admin, dashboardId: 'D-CURRENT', role: 'STATION_OPERATIONS' });
+    inject = true;
+
+    await assert.rejects(
+      service.setRoleDefault({ access: admin, dashboardId: 'D-CANDIDATE', role: 'STATION_OPERATIONS' }),
+      /Catalyst service is temporarily unavailable/u,
+    );
+    assert.equal((await repository.getDashboard('D-CURRENT')).defaultRole, 'STATION_OPERATIONS');
+    assert.equal((await repository.getDashboard('D-CURRENT')).visibility, 'GLOBAL');
+    assert.equal((await repository.getDashboard('D-CANDIDATE')).defaultRole, null);
+    assert.equal((await repository.getDashboard('D-CANDIDATE')).visibility, 'PRIVATE');
+    assert.deepEqual((await repository.listDashboards()).filter(row => row.defaultRole === 'STATION_OPERATIONS').map(row => row.id), ['D-CURRENT']);
+  }
+});
