@@ -130,6 +130,58 @@ test('refresh freshness is reconstructed from exactly one captured publication p
   assert.equal(app.zcqlCalls.filter(query => query.includes('INT_PublicationState WHERE PublicationStateID')).length, 1);
 });
 
+test('station case reads join the governed source masters into an allowlisted projection', async () => {
+  const fixture = catalystRows();
+  Object.assign(fixture.tables, {
+    SRC_CaseMaster: [{
+      ROWID: 'CASE-ROW-1', CaseMasterID: 200000001, CaseNo: '202600015', CrimeNo: 'restricted-raw-number',
+      PoliceStationID: 1001, CaseStatusID: 1, CrimeRegisteredDate: '2026-06-02',
+      IncidentFromDate: '2026-06-02T21:01:00+05:30', CrimeMajorHeadID: 10, CrimeMinorHeadID: 11,
+      BriefFacts: 'restricted narrative', latitude: 12.9716, longitude: 77.5946,
+      SourceFileName: 'restricted-source.csv', IsSynthetic: true,
+    }],
+    SRC_Unit: [{ ROWID: 'UNIT-ROW-1', UnitID: 1001, UnitName: 'Central PS', IsSynthetic: true }],
+    SRC_CaseStatusMaster: [{ ROWID: 'STATUS-ROW-1', CaseStatusID: 1, CaseStatusName: 'Under Investigation' }],
+    SRC_CrimeHead: [{ ROWID: 'MAJOR-ROW-1', CrimeHeadID: 10, CrimeGroupName: 'Property' }],
+    SRC_CrimeSubHead: [{ ROWID: 'MINOR-ROW-1', CrimeSubHeadID: 11, CrimeHeadName: 'Burglary' }],
+  });
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  const expected = {
+    caseId: '200000001', caseNumber: '202600015', unitId: 1001, unitName: 'Central PS',
+    status: 'Under Investigation', registeredAt: '2026-06-02', incidentAt: '2026-06-02T21:01:00+05:30',
+    majorHead: 'Property', minorHead: 'Burglary', syntheticData: true,
+  };
+  assert.deepEqual(await repository.listStationCaseRows(), [expected]);
+  assert.deepEqual(await repository.getStationCaseRow(200000001), expected);
+  assert.deepEqual(new Set(app.calls.map(call => call.name)), new Set([
+    'SRC_CaseMaster', 'SRC_Unit', 'SRC_CaseStatusMaster', 'SRC_CrimeHead', 'SRC_CrimeSubHead',
+  ]));
+  assert.doesNotMatch(JSON.stringify(expected), /BriefFacts|restricted|latitude|longitude|ROWID|SourceFileName/u);
+});
+
+test('station case reads use Unknown labels for missing master joins and preserve provenance', async () => {
+  const fixture = catalystRows();
+  Object.assign(fixture.tables, {
+    SRC_CaseMaster: [{
+      ROWID: 'CASE-ROW-2', CaseMasterID: 200000002, CrimeNo: '101011001202600016',
+      PoliceStationID: 9999, CaseStatusID: 9999, InfoReceivedPSDate: '2026-06-03',
+      IncidentFromDate: '2026-06-03T21:02:00+05:30', CrimeMajorHeadID: 9999,
+      CrimeMinorHeadID: 9999, IsSynthetic: false,
+    }],
+    SRC_Unit: [], SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+  });
+  const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });
+
+  assert.deepEqual(await repository.listStationCaseRows(), [{
+    caseId: '200000002', caseNumber: '101011001202600016', unitId: 9999, unitName: 'Unknown',
+    status: 'Unknown', registeredAt: '2026-06-03', incidentAt: '2026-06-03T21:02:00+05:30',
+    majorHead: 'Unknown', minorHead: 'Unknown', syntheticData: false,
+  }]);
+  assert.equal(await repository.getStationCaseRow('missing'), undefined);
+});
+
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {
   const fixture = catalystRows();
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });

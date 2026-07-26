@@ -116,3 +116,34 @@ test('workspace bootstrap remains available when optional dashboard, report, or 
   assert.deepEqual(workspace.data.availableReports, []);
   assert.deepEqual(workspace.data.alertSummary, { total: 0 });
 });
+
+test('workspace case resources delegate access, query, and detail parameters unchanged', async () => {
+  const calls = [];
+  const caseService = {
+    async list(input) { calls.push(['list', input]); return { data: { items: [] }, syntheticData: true }; },
+    async get(input) { calls.push(['get', input]); return { data: { caseId: input.caseId }, syntheticData: true }; },
+  };
+  const services = createWorkspaceServices({
+    repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {}, caseService,
+    now: () => '2026-07-21T00:00:00Z', idFactory: prefix => `${prefix}-1`,
+  });
+  const query = { openOnly: 'false', limit: '10' };
+
+  assert.deepEqual(await services.listStationCases({ access: analyst, query }), { data: { items: [] }, syntheticData: true });
+  assert.deepEqual(await services.getStationCase({ access: analyst, params: { caseId: 'CASE-1' } }), {
+    data: { caseId: 'CASE-1' }, syntheticData: true,
+  });
+  assert.strictEqual(calls[0][1].access, analyst);
+  assert.strictEqual(calls[0][1].query, query);
+  assert.deepEqual(calls[1], ['get', { access: analyst, caseId: 'CASE-1' }]);
+});
+
+test('workspace case resources fail safely when the case service is not composed', async () => {
+  const services = createWorkspaceServices({
+    repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {},
+    now: () => '2026-07-21T00:00:00Z', idFactory: prefix => `${prefix}-1`,
+  });
+
+  await assert.rejects(services.listStationCases({ access: analyst, query: {} }), { code: 'DATA_NOT_READY' });
+  await assert.rejects(services.getStationCase({ access: analyst, params: { caseId: 'CASE-1' } }), { code: 'DATA_NOT_READY' });
+});

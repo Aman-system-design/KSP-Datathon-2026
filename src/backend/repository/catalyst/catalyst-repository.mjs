@@ -41,6 +41,7 @@ const SOURCE_TABLES = Object.freeze({
   CaseMaster: 'SRC_CaseMaster', ComplainantDetails: 'SRC_ComplainantDetails', ActSectionAssociation: 'SRC_ActSectionAssociation',
   Victim: 'SRC_Victim', Accused: 'SRC_Accused', ArrestSurrender: 'SRC_ArrestSurrender', Act: 'SRC_Act', Section: 'SRC_Section',
   CrimeHeadActSection: 'SRC_CrimeHeadActSection', CrimeHead: 'SRC_CrimeHead', CrimeSubHead: 'SRC_CrimeSubHead',
+  CrimeMajorHeadMaster: 'SRC_CrimeHead', CrimeMinorHeadMaster: 'SRC_CrimeSubHead',
   CasteMaster: 'SRC_CasteMaster', ReligionMaster: 'SRC_ReligionMaster', OccupationMaster: 'SRC_OccupationMaster',
   CaseStatusMaster: 'SRC_CaseStatusMaster', Court: 'SRC_Court', District: 'SRC_District', State: 'SRC_State', Unit: 'SRC_Unit',
   UnitType: 'SRC_UnitType', Rank: 'SRC_Rank', Designation: 'SRC_Designation', Employee: 'SRC_Employee',
@@ -1120,6 +1121,36 @@ export class CatalystIntelligenceRepository {
       IsSynthetic, SourceRecordHash, ValidationStatus, UnitTypeRef, ParentUnitRef,
       StateRef, DistrictRef, ...unit
     }) => unit);
+  }
+
+  async listStationCaseRows() {
+    const [cases, unitRows, statusRows, majorRows, minorRows] = await Promise.all([
+      this.#read(SOURCE_TABLES.CaseMaster),
+      this.#read(SOURCE_TABLES.Unit),
+      this.#read(SOURCE_TABLES.CaseStatusMaster),
+      this.#read(SOURCE_TABLES.CrimeMajorHeadMaster),
+      this.#read(SOURCE_TABLES.CrimeMinorHeadMaster),
+    ]);
+    const units = new Map(unitRows.map(row => [Number(row.UnitID), row.UnitName]));
+    const statuses = new Map(statusRows.map(row => [Number(row.CaseStatusID), row.CaseStatusName]));
+    const majors = new Map(majorRows.map(row => [Number(row.CrimeHeadID), row.CrimeGroupName]));
+    const minors = new Map(minorRows.map(row => [Number(row.CrimeSubHeadID), row.CrimeHeadName]));
+    return cases.map(row => ({
+      caseId: String(row.CaseMasterID),
+      caseNumber: row.CaseNo ?? row.CrimeNo,
+      unitId: Number(row.PoliceStationID),
+      unitName: units.get(Number(row.PoliceStationID)) ?? 'Unknown',
+      status: statuses.get(Number(row.CaseStatusID)) ?? 'Unknown',
+      registeredAt: row.FIRDate ?? row.CrimeRegisteredDate ?? row.InfoReceivedPSDate,
+      incidentAt: row.IncidentFromDate,
+      majorHead: majors.get(Number(row.CrimeMajorHeadID)) ?? 'Unknown',
+      minorHead: minors.get(Number(row.CrimeMinorHeadID)) ?? 'Unknown',
+      syntheticData: row.IsSynthetic === true || row.SyntheticData === true,
+    }));
+  }
+
+  async getStationCaseRow(caseId) {
+    return (await this.listStationCaseRows()).find(row => row.caseId === String(caseId));
   }
 
   async getAlert(alertId) {

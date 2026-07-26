@@ -85,6 +85,24 @@ test('API composition serves the role workspace and governed report sources', as
   assert.equal(sources.body.data.length, 7);
 });
 
+test('API composition serves station-scoped case lists and hides unauthorized case detail', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' } });
+
+  const listed = await application({ method: 'GET', url: '/v1/cases?openOnly=false', headers: {}, body: null });
+  assert.equal(listed.status, 200);
+  assert.ok(listed.body.data.items.length > 0);
+  assert.ok(listed.body.data.items.every(row => [101, 1001, 1021].includes(row.unitId)));
+  assert.doesNotMatch(JSON.stringify(listed.body), /BriefFacts|Complainant|Accused|latitude|longitude/iu);
+
+  const authorized = await application({ method: 'GET', url: '/v1/cases/200000001', headers: {}, body: null });
+  assert.equal(authorized.status, 200);
+  assert.equal(authorized.body.data.caseId, '200000001');
+
+  const unauthorized = await application({ method: 'GET', url: '/v1/cases/200000036', headers: {}, body: null });
+  assert.equal(unauthorized.status, 404);
+  assert.equal(unauthorized.body.error.code, 'NOT_FOUND');
+});
+
 test('API composition serves utility categories and one utility definition', async () => {
   const { application } = harness();
 

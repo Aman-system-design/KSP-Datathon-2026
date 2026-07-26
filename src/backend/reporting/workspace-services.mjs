@@ -1,16 +1,25 @@
 import { createAlertServices } from '../services/alert-services.mjs';
+import { fail } from '../services/errors.mjs';
 import { REPORT_SOURCES } from './semantic-sources.mjs';
 import { createDashboardService } from './dashboard-service.mjs';
 import { createReportService } from './report-service.mjs';
 
 const envelope = data => ({ data, syntheticData: true });
 
-export function createWorkspaceServices({ repository, readServices, mapViewService, now, idFactory }) {
+export function createWorkspaceServices({ repository, readServices, mapViewService, caseService, now, idFactory }) {
   const reports = createReportService({ repository, readServices, mapViewService, now, idFactory: () => idFactory('REPORT') });
   const dashboards = createDashboardService({ repository, now, idFactory: () => idFactory('DASH') });
   const alerts = createAlertServices({ repository });
 
   const services = {
+    async listStationCases({ access, query }) {
+      if (typeof caseService?.list !== 'function') fail('DATA_NOT_READY');
+      return caseService.list({ access, query });
+    },
+    async getStationCase({ access, params }) {
+      if (typeof caseService?.get !== 'function') fail('DATA_NOT_READY');
+      return caseService.get({ access, caseId: params.caseId });
+    },
     async listReportSources() {
       return envelope(Object.values(REPORT_SOURCES).map(source => structuredClone(source)));
     },

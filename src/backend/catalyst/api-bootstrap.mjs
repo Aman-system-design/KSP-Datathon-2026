@@ -13,6 +13,7 @@ import { createCommandService } from '../workflow/command-service.mjs';
 import { createGeospatialLayerService } from '../geospatial/layer-service.mjs';
 import { createMapViewService } from '../geospatial/map-view-service.mjs';
 import { createUtilityServices } from '../utilities/utility-services.mjs';
+import { createStationCaseService } from '../cases/station-case-service.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
 const utilityCatalogueServices = createUtilityServices();
@@ -93,10 +94,15 @@ export function createApiApplication({
       await context.authorize(profile);
 
       phase = 'SERVICE_COMPOSITION';
-      const readServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
+      const baseReadServices = createReadServices({ repository, clock: () => new Date(now()), idFactory: () => requestId });
+      const caseService = createStationCaseService({ repository, now: () => new Date(now()) });
+      const readServices = Object.freeze({
+        ...baseReadServices,
+        listStationCases: input => caseService.list(input),
+      });
       const mapViewServices = createMapViewService({ repository, clock: now });
       const workspaceServices = createWorkspaceServices({
-        repository, readServices, mapViewService: mapViewServices, now, idFactory,
+        repository, readServices, mapViewService: mapViewServices, caseService, now, idFactory,
       });
       const geospatialServices = createGeospatialLayerService({
         repository, readServices: { ...readServices, ...workspaceServices }, clock: () => new Date(now()),

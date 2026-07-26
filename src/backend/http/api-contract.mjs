@@ -9,6 +9,8 @@ export const API_OPERATIONS = Object.freeze([
   Object.freeze({ method: 'GET', path: '/v1/district-context', service: 'getDistrictContext' }),
   Object.freeze({ method: 'GET', path: '/v1/workspace', kind: 'resource', service: 'getWorkspace' }),
   Object.freeze({ method: 'GET', path: '/v1/report-sources', kind: 'resource', service: 'listReportSources' }),
+  Object.freeze({ method: 'GET', path: '/v1/cases', kind: 'resource', service: 'listStationCases' }),
+  Object.freeze({ method: 'GET', path: '/v1/cases/{caseId}', kind: 'resource', service: 'getStationCase' }),
   Object.freeze({ method: 'GET', path: '/v1/utilities', kind: 'resource', service: 'listUtilities' }),
   Object.freeze({ method: 'GET', path: '/v1/utilities/categories', kind: 'resource', service: 'listUtilityCategories' }),
   Object.freeze({ method: 'GET', path: '/v1/utilities/{utilityKey}', kind: 'resource', service: 'getUtility' }),
