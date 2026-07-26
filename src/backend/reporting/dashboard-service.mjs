@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
+
 import { fail } from '../services/errors.mjs';
+import { canonicalStringify } from '../workflow/canonical-json.mjs';
 import { isReportSourceAllowed } from './report-source-policy.mjs';
 
 const hasAction = (access, action) => access?.actions?.includes(action);
@@ -8,8 +11,13 @@ const defaultRoles = new Set([
   'CRIME_ANALYST', 'STATION_OPERATIONS', 'DEMO_PRESENTER', 'PLATFORM_ADMIN', 'AUDITOR',
 ]);
 const STATION_DASHBOARD_NAME = 'Station Operations';
+const STATION_BOOTSTRAP_PENDING = '[ACE:station-operations:v1:pending]';
+const STATION_BOOTSTRAP_COMPLETE = '[ACE:station-operations:v1:complete]';
+const bootstrapMarkers = new Set([STATION_BOOTSTRAP_PENDING, STATION_BOOTSTRAP_COMPLETE]);
 const validLayout = ({ column, row, width, height } = {}) => [column, row, width, height].every(Number.isInteger)
   && column >= 1 && row >= 1 && width >= 1 && height >= 1 && column + width - 1 <= 12;
+const idempotentId = (actor, key) => `DASH-IDEMP-${createHash('sha256')
+  .update(canonicalStringify({ actor, key, resource: 'DASHBOARD' })).digest('hex').slice(0, 49)}`;
 
 export function createDashboardService({ repository, now, idFactory }) {
   async function canViewReport(report, access) {
@@ -76,15 +84,37 @@ export function createDashboardService({ repository, now, idFactory }) {
   }
 
   return Object.freeze({
-    async create({ access, input }) {
+    async create({ access, input, idempotencyKey }) {
       const name = String(input?.name ?? '').trim();
       if (!access?.actualUserId || !name || name.length > 128) fail('INVALID_REQUEST');
+      const description = String(input.description ?? '').trim();
+      if (bootstrapMarkers.has(description)
+        && (access.role !== 'STATION_OPERATIONS' || description !== STATION_BOOTSTRAP_PENDING)) fail('INVALID_REQUEST');
       const timestamp = now();
-      return repository.createDashboard({
-        id: idFactory(), ownerUserId: access.actualUserId, name,
-        description: String(input.description ?? '').trim(), visibility: 'PRIVATE', version: 1,
+      const key = typeof idempotencyKey === 'string' && idempotencyKey.trim() ? idempotencyKey.trim() : null;
+      const id = key ? idempotentId(access.actualUserId, key) : idFactory();
+      const intended = {
+        id, ownerUserId: access.actualUserId, name,
+        description, visibility: 'PRIVATE', version: 1,
         createdAt: timestamp, updatedAt: timestamp, syntheticData: true,
-      });
+      };
+      const replay = async () => {
+        const existing = await repository.getDashboard(id);
+        if (!existing || existing.ownerUserId !== intended.ownerUserId || existing.visibility !== 'PRIVATE'
+          || existing.name !== intended.name || existing.description !== intended.description) return null;
+        return existing;
+      };
+      if (key) {
+        const existing = await replay();
+        if (existing) return existing;
+      }
+      try { return await repository.createDashboard(intended); }
+      catch (error) {
+        if (!key) throw error;
+        const existing = await replay();
+        if (existing) return existing;
+        fail('IDEMPOTENCY_CONFLICT');
+      }
     },
     async get({ access, dashboardId }) {
       const dashboard = await requireVisible(dashboardId, access);
@@ -113,11 +143,17 @@ export function createDashboardService({ repository, now, idFactory }) {
       return visible;
     },
     async update({ access, dashboardId, expectedVersion, input }) {
-      await requireOwner(dashboardId, access);
+      const current = await requireOwner(dashboardId, access);
       const name = String(input?.name ?? '').trim();
       if (!name || name.length > 128) fail('INVALID_REQUEST');
+      const description = String(input.description ?? '').trim();
+      if (current.description === STATION_BOOTSTRAP_PENDING) {
+        if (access.role !== 'STATION_OPERATIONS' || description !== STATION_BOOTSTRAP_COMPLETE) fail('INVALID_REQUEST');
+      } else if (current.description === STATION_BOOTSTRAP_COMPLETE) {
+        if (description !== STATION_BOOTSTRAP_COMPLETE) fail('INVALID_REQUEST');
+      } else if (bootstrapMarkers.has(description)) fail('INVALID_REQUEST');
       const updated = await repository.updateDashboard(dashboardId, expectedVersion, {
-        name, description: String(input.description ?? '').trim(), updatedAt: now(),
+        name, description, updatedAt: now(),
       });
       if (updated?.conflict) fail('VERSION_CONFLICT');
       if (!updated) fail('NOT_FOUND');

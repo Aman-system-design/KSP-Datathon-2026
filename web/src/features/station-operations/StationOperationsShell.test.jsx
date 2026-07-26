@@ -112,6 +112,17 @@ test('shows a bounded retry state and resumes an incomplete bootstrap without du
   expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(1);
 });
 
+test('an inaccessible requested dashboard stays unavailable without bootstrap mutations', async () => {
+  const api = bootstrapApi();
+  const emptyWorkspace = { ...workspace, landingDashboard: undefined, availableDashboards: [], availableReports: [] };
+  render(<MemoryRouter><StationOperationsShell api={api} workspace={emptyWorkspace} requestedDashboardId="D-BLOCKED" /></MemoryRouter>);
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Requested station dashboard is unavailable.');
+  expect(api.get).not.toHaveBeenCalledWith('/v1/reports');
+  expect(api.post).not.toHaveBeenCalled();
+  expect(api.put).not.toHaveBeenCalled();
+});
+
 test('does not execute or render non-station report items from a loaded dashboard', async () => {
   const api = apiHarness();
   api.get.mockImplementation(async path => {
@@ -270,7 +281,7 @@ function bootstrapApi({ failItemsOnce = false } = {}) {
         return { data: structuredClone(report) };
       }
       if (path === '/v1/dashboards') {
-        state.dashboard = { id: 'D-BOOTSTRAP', ...body, relationship: 'OWNED', visibility: 'PRIVATE', items: [] };
+        state.dashboard = { id: 'D-BOOTSTRAP', ...body, relationship: 'OWNED', visibility: 'PRIVATE', version: 1, items: [] };
         return { data: structuredClone(state.dashboard) };
       }
       const reportId = path.match(/^\/v1\/reports\/([^/]+)\/execute$/)?.[1];
@@ -294,6 +305,10 @@ function bootstrapApi({ failItemsOnce = false } = {}) {
         return { data: { landingDashboardId: body.dashboardId } };
       }
       throw new Error(`Unexpected PUT ${path}`);
+    }),
+    patch: vi.fn(async (_path, body) => {
+      state.dashboard = { ...state.dashboard, name: body.name, description: body.description, version: state.dashboard.version + 1 };
+      return { data: structuredClone(state.dashboard) };
     }),
   };
 }

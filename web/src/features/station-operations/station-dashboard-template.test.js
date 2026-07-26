@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
-  bootstrapStationOperationsDashboard, createStationReports, STATION_LAYOUT, STATION_REPORTS,
+  bootstrapStationOperationsDashboard, createStationReports, STATION_BOOTSTRAP_MARKER,
+  STATION_LAYOUT, STATION_REPORTS,
 } from './station-dashboard-template.js';
 
 const approvedFields = {
@@ -135,17 +136,19 @@ describe('station dashboard template', () => {
     const first = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
     const second = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
 
-    expect(first.dashboard).toMatchObject({ id: 'D-STATION', name: 'Station Operations', relationship: 'OWNED' });
+    expect(first.dashboard).toMatchObject({ id: 'D-STATION-BOOTSTRAP', name: 'Station Operations', relationship: 'OWNED' });
     expect(second.dashboard.id).toBe(first.dashboard.id);
     expect(state.reports).toHaveLength(9);
     expect(state.dashboards).toHaveLength(1);
     expect(state.dashboards[0].items).toEqual(STATION_LAYOUT.map((layout, index) => ({
       reportId: `R-${index + 1}`, ...layout,
     })));
-    expect(state.landingDashboard).toBe('D-STATION');
+    expect(state.landingDashboard).toBe('D-STATION-BOOTSTRAP');
     expect(api.post.mock.calls.filter(([path]) => path === '/v1/reports')).toHaveLength(9);
     expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(1);
     expect(api.put.mock.calls.filter(([path]) => path.endsWith('/items'))).toHaveLength(1);
+    expect(api.idempotent).toHaveBeenCalledWith('/v1/reports', STATION_REPORTS[0], 'station-operations/v1/report/0');
+    expect(api.idempotent).toHaveBeenCalledWith('/v1/dashboards', expect.objectContaining({ description: '[ACE:station-operations:v1:pending]' }), 'station-operations/v1/dashboard');
   });
 
   test('recovers write-then-throw report, dashboard, placement, and landing mutations by reconciliation', async () => {
@@ -155,10 +158,10 @@ describe('station dashboard template', () => {
     const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
 
     expect(result.reports).toHaveLength(9);
-    expect(result.dashboard.id).toBe('D-STATION');
+    expect(result.dashboard.id).toBe('D-STATION-BOOTSTRAP');
     expect(state.reports).toHaveLength(9);
     expect(state.dashboards[0].items).toHaveLength(9);
-    expect(state.landingDashboard).toBe('D-STATION');
+    expect(state.landingDashboard).toBe('D-STATION-BOOTSTRAP');
   });
 
   test('coalesces concurrent setup attempts so remounts cannot duplicate content', async () => {
@@ -203,13 +206,43 @@ describe('station dashboard template', () => {
     expect(api.post.mock.calls.filter(([path]) => path === '/v1/dashboards')).toHaveLength(0);
     expect(api.put).not.toHaveBeenCalled();
   });
+
+  test('does not adopt same-name wrong-definition reports or overwrite an unmarked user dashboard', async () => {
+    const wrong = { id: 'R-WRONG', name: 'Open Cases', definition: { ...structuredClone(STATION_REPORTS[0]), filters: [] }, relationship: 'OWNED' };
+    const custom = { id: 'D-CUSTOM', name: 'Station Operations', description: 'My edited workspace', relationship: 'OWNED', items: [{ id: 'CUSTOM-I', reportId: wrong.id, column: 1, row: 1, width: 12, height: 8 }] };
+    const state = { reports: [wrong], dashboards: [custom], landingDashboard: custom.id, nextReport: 1 };
+    const api = stationBootstrapApi(state);
+
+    const result = await bootstrapStationOperationsDashboard({ api, workspace: emptyStationWorkspace });
+
+    expect(result.reports[0].id).not.toBe(wrong.id);
+    expect(result.dashboard.id).not.toBe(custom.id);
+    expect(state.dashboards.find(item => item.id === custom.id).items).toEqual(custom.items);
+    expect(api.put).not.toHaveBeenCalledWith(`/v1/dashboards/${custom.id}/items`, expect.anything());
+    expect(result.dashboard.description).toBe(STATION_BOOTSTRAP_MARKER);
+  });
+
+  test('a fresh client reconciles a marked partial bootstrap without duplicate resources', async () => {
+    const state = { reports: [], dashboards: [], landingDashboard: null, nextReport: 1 };
+    const firstApi = stationBootstrapApi(state, { failItemsOnce: true });
+    await expect(bootstrapStationOperationsDashboard({ api: firstApi, workspace: emptyStationWorkspace })).rejects.toThrow();
+
+    const freshApi = stationBootstrapApi(state);
+    const result = await bootstrapStationOperationsDashboard({ api: freshApi, workspace: emptyStationWorkspace });
+
+    expect(result.reports).toHaveLength(9);
+    expect(state.reports).toHaveLength(9);
+    expect(state.dashboards).toHaveLength(1);
+    expect(state.dashboards[0].items).toHaveLength(9);
+    expect(state.landingDashboard).toBe(result.dashboard.id);
+  });
 });
 
 const emptyStationWorkspace = {
   role: 'STATION_OPERATIONS', availableReports: [], availableDashboards: [],
 };
 
-function stationBootstrapApi(state, { throwAfterWrite = new Set() } = {}) {
+function stationBootstrapApi(state, { throwAfterWrite = new Set(), failItemsOnce = false } = {}) {
   const thrown = new Set();
   const maybeThrow = kind => {
     if (throwAfterWrite.has(kind) && !thrown.has(kind)) {
@@ -222,7 +255,7 @@ function stationBootstrapApi(state, { throwAfterWrite = new Set() } = {}) {
       if (path === '/v1/reports') return { data: structuredClone(state.reports) };
       if (path === '/v1/dashboards') return { data: structuredClone(state.dashboards.map(({ items: _items, ...dashboard }) => dashboard)) };
       if (path === '/v1/workspace') return { data: { landingDashboard: state.dashboards.find(item => item.id === state.landingDashboard) } };
-      if (path === '/v1/dashboards/D-STATION') return { data: structuredClone(state.dashboards[0]) };
+      if (path.startsWith('/v1/dashboards/')) return { data: structuredClone(state.dashboards.find(item => item.id === decodeURIComponent(path.split('/').at(-1)))) };
       throw new Error(`Unexpected GET ${path}`);
     }),
     post: vi.fn(async (path, body) => {
@@ -233,7 +266,7 @@ function stationBootstrapApi(state, { throwAfterWrite = new Set() } = {}) {
         return { data: structuredClone(report) };
       }
       if (path === '/v1/dashboards') {
-        const dashboard = { id: 'D-STATION', ...body, relationship: 'OWNED', visibility: 'PRIVATE', items: [] };
+        const dashboard = { id: 'D-STATION-BOOTSTRAP', ...body, relationship: 'OWNED', visibility: 'PRIVATE', version: 1, items: [] };
         state.dashboards.push(dashboard);
         maybeThrow('dashboard');
         const { relationship: _relationship, ...created } = dashboard;
@@ -242,8 +275,14 @@ function stationBootstrapApi(state, { throwAfterWrite = new Set() } = {}) {
       throw new Error(`Unexpected POST ${path}`);
     }),
     put: vi.fn(async (path, body) => {
-      if (path === '/v1/dashboards/D-STATION/items') {
-        state.dashboards[0].items = structuredClone(body.items);
+      if (path.startsWith('/v1/dashboards/') && path.endsWith('/items')) {
+        const id = decodeURIComponent(path.split('/')[3]);
+        const dashboard = state.dashboards.find(item => item.id === id);
+        if (failItemsOnce && !thrown.has('items-before')) {
+          thrown.add('items-before');
+          throw new Error('items unavailable');
+        }
+        dashboard.items = structuredClone(body.items);
         maybeThrow('items');
         return { data: structuredClone(body.items) };
       }
@@ -254,6 +293,14 @@ function stationBootstrapApi(state, { throwAfterWrite = new Set() } = {}) {
       }
       throw new Error(`Unexpected PUT ${path}`);
     }),
+    patch: vi.fn(async (path, body) => {
+      const dashboard = state.dashboards.find(item => item.id === decodeURIComponent(path.split('/').at(-1)));
+      dashboard.name = body.name;
+      dashboard.description = body.description;
+      dashboard.version += 1;
+      return { data: structuredClone(dashboard) };
+    }),
   };
+  api.idempotent = vi.fn((path, body) => api.post(path, body));
   return api;
 }

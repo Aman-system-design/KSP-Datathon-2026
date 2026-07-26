@@ -6,6 +6,8 @@ import { createReportService } from './report-service.mjs';
 import { visibleReportSources } from './report-source-policy.mjs';
 
 const envelope = data => ({ data, syntheticData: true });
+const header = (headers, name) => Object.entries(headers ?? {})
+  .find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1];
 
 export function createWorkspaceServices({ repository, readServices, mapViewService, caseService, now, idFactory }) {
   const reports = createReportService({ repository, readServices, mapViewService, now, idFactory: () => idFactory('REPORT') });
@@ -25,7 +27,11 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
       return envelope(visibleReportSources(access, Object.values(REPORT_SOURCES)).map(source => structuredClone(source)));
     },
     async listReports({ access }) { return envelope(await reports.list({ access })); },
-    async createReport({ access, body, requestId }) { return envelope(await reports.create({ access, input: body, requestId })); },
+    async createReport({ access, body, headers, requestId }) {
+      return envelope(await reports.create({
+        access, input: body, requestId, idempotencyKey: header(headers, 'Idempotency-Key'),
+      }));
+    },
     async getReport({ access, params }) { return envelope(await reports.get({ access, reportId: params.reportId })); },
     async updateReport({ access, params, body, requestId }) {
       return envelope(await reports.update({
@@ -40,7 +46,11 @@ export function createWorkspaceServices({ repository, readServices, mapViewServi
     },
 
     async listDashboards({ access }) { return envelope(await dashboards.list({ access })); },
-    async createDashboard({ access, body }) { return envelope(await dashboards.create({ access, input: body })); },
+    async createDashboard({ access, body, headers }) {
+      return envelope(await dashboards.create({
+        access, input: body, idempotencyKey: header(headers, 'Idempotency-Key'),
+      }));
+    },
     async getDashboard({ access, params }) { return envelope(await dashboards.get({ access, dashboardId: params.dashboardId })); },
     async updateDashboard({ access, params, body }) {
       return envelope(await dashboards.update({

@@ -70,6 +70,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
     if (requestedDashboardId) return dashboards.find(item => item.id === requestedDashboardId) ?? null;
     return dashboards.find(item => item.id === workspace?.landingDashboard?.id) ?? dashboards[0] ?? null;
   }, [requestedDashboardId, workspace?.availableDashboards, workspace?.landingDashboard?.id]);
+  const requestedUnavailable = Boolean(requestedDashboardId && !stationDashboard);
   const activeDashboard = ownedDashboard ?? bootstrapResult?.dashboard ?? stationDashboard;
   const availableReports = useMemo(() => {
     const byId = new Map((workspace?.availableReports ?? []).map(reportValue => [reportValue.id, reportValue]));
@@ -102,7 +103,8 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
   const stationName = workspace?.scopeUnit?.name?.trim() || 'Local station';
 
   useEffect(() => {
-    if (stationDashboard || bootstrapResult || workspace?.role !== 'STATION_OPERATIONS') return undefined;
+    if (requestedDashboardId || bootstrapResult || workspace?.role !== 'STATION_OPERATIONS'
+      || stationDashboard?.defaultRole === 'STATION_OPERATIONS') return undefined;
     let current = true;
     setBootstrapState('loading');
     bootstrapStationOperationsDashboard({ api, workspace }).then(result => {
@@ -111,7 +113,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
       setBootstrapState('ready');
     }).catch(() => { if (current) setBootstrapState('error'); });
     return () => { current = false; };
-  }, [api, bootstrapAttempt, bootstrapResult, stationDashboard, workspace]);
+  }, [api, bootstrapAttempt, bootstrapResult, requestedDashboardId, stationDashboard?.defaultRole, workspace]);
 
   useEffect(() => {
     if (editAfterCloneId && controller.dashboard?.id === editAfterCloneId && !controller.loading) {
@@ -187,7 +189,8 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
       {controller.loading ? <span className="station-refresh" role="status">Updating {periodDays}-day view…</span> : null}
     </div>
 
-    {bootstrapState === 'loading' && !activeDashboard ? <div className="station-operations__setup" role="status"><strong>Preparing station dashboard...</strong><span>Creating the governed reports and private operational layout.</span></div>
+    {requestedUnavailable ? <div className="station-operations__setup" role="alert"><strong>Requested station dashboard is unavailable.</strong><span>Return to Station Operations to open an authorized dashboard.</span></div>
+      : bootstrapState === 'loading' && !bootstrapResult && stationDashboard?.defaultRole !== 'STATION_OPERATIONS' ? <div className="station-operations__setup" role="status"><strong>Preparing station dashboard...</strong><span>Creating the governed reports and private operational layout.</span></div>
       : bootstrapState === 'error' && !activeDashboard ? <div className="station-operations__setup" role="alert"><strong>Station dashboard setup could not be completed.</strong><span>No operational data was changed outside this station workspace.</span><button type="button" onClick={() => setBootstrapAttempt(value => value + 1)}>Retry setup</button></div>
       : controller.loading && !controller.dashboard ? <div className="station-operations__loading" role="status">Loading station operations…</div>
       : controller.error && !controller.dashboard ? <div className="station-operations__loading" role="alert">Station dashboard is unavailable.</div>

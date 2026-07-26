@@ -220,8 +220,9 @@ test('station dashboard detail route remains inside the station operations shell
   render(<MemoryRouter initialEntries={['/dashboards/D-BLOCKED?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
-  expect(await screen.findByRole('alert')).toHaveTextContent('Station dashboard setup could not be completed.');
-  expect(screen.getByRole('button', { name: 'Retry setup' })).toBeInTheDocument();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Requested station dashboard is unavailable.');
+  expect(api.post).not.toHaveBeenCalled();
+  expect(api.put).not.toHaveBeenCalled();
   expect(screen.queryByRole('heading', { name: /Dashboard library/i })).not.toBeInTheDocument();
 });
 

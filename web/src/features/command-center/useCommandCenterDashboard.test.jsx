@@ -105,3 +105,25 @@ test('keeps the newest execution context when period responses arrive out of ord
   await act(() => pending.get(7)({ data: { definition: { name: 'Stale', definition: { visualization: { type: 'table' } } }, result: { data: { items: [{ period: 7 }] } } } }));
   expect(result.current.dashboard.items[0].data).toEqual([{ period: 90 }]);
 });
+
+test('requested dashboard initializes selection without pinning later picker choices', async () => {
+  const pickerWorkspace = {
+    ...workspace,
+    availableDashboards: [
+      { id: 'D-1', name: 'First', relationship: 'SYSTEM' },
+      { id: 'D-2', name: 'Second', relationship: 'SYSTEM' },
+    ],
+  };
+  const api = {
+    get: vi.fn(async path => ({ data: { id: path.split('/').at(-1), name: path.endsWith('D-2') ? 'Second' : 'First', items: [] } })),
+    post: vi.fn(), put: vi.fn(),
+  };
+  const { result } = renderHook(() => useCommandCenterDashboard({
+    api, workspace: pickerWorkspace, requestedDashboardId: 'D-1',
+  }));
+  await waitFor(() => expect(result.current.dashboard?.id).toBe('D-1'));
+
+  act(() => result.current.selectDashboard('D-2'));
+  await waitFor(() => expect(result.current.dashboard?.id).toBe('D-2'));
+  expect(api.get.mock.calls.filter(([path]) => path === '/v1/dashboards/D-1')).toHaveLength(1);
+});

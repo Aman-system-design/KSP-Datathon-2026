@@ -243,6 +243,45 @@ test('station-owned bootstrap resources stay private and do not replace the stat
   assert.equal((await services.listReports({ access: stateViewer })).data.some(row => row.id === report.data.id), false);
 });
 
+test('independent clients coalesce station bootstrap report and dashboard creates by idempotency key', async () => {
+  let id = 0;
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const makeServices = () => createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-${++id}`,
+  });
+  const first = makeServices();
+  const second = makeServices();
+  const station = {
+    ...analyst, actualUserId: 'CAT-STATION-IDEMPOTENT', role: 'STATION_OPERATIONS', actualRole: 'STATION_OPERATIONS',
+    scopeUnitId: 1001, authorizedUnitIds: new Set([1001]),
+  };
+  const definition = {
+    name: 'Open Cases', description: 'Canonical', sourceKey: 'stationCases', dimensions: [],
+    measures: [{ field: 'recordCount', aggregate: 'sum' }], filters: [], sort: [],
+    visualization: { type: 'number' }, limit: 1,
+  };
+  const headers = { 'Idempotency-Key': 'station-operations/v1/report/0' };
+
+  const [reportA, reportB] = await Promise.all([
+    first.createReport({ access: station, body: definition, headers }),
+    second.createReport({ access: station, body: definition, headers }),
+  ]);
+  const dashboardHeaders = { 'Idempotency-Key': 'station-operations/v1/dashboard' };
+  const [dashboardA, dashboardB] = await Promise.all([
+    first.createDashboard({ access: station, body: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' }, headers: dashboardHeaders }),
+    second.createDashboard({ access: station, body: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' }, headers: dashboardHeaders }),
+  ]);
+
+  assert.equal(reportA.data.id, reportB.data.id);
+  assert.equal(dashboardA.data.id, dashboardB.data.id);
+  assert.equal((await repository.listReports()).filter(row => row.ownerUserId === station.actualUserId).length, 1);
+  assert.equal((await repository.listDashboards()).filter(row => row.ownerUserId === station.actualUserId).length, 1);
+  await assert.rejects(first.createReport({
+    access: station, body: { ...definition, description: 'Different request' }, headers,
+  }), { code: 'IDEMPOTENCY_CONFLICT' });
+});
+
 test('workspace case resources fail safely when the case service is not composed', async () => {
   const services = createWorkspaceServices({
     repository: new MemoryIntelligenceRepository(buildDemoState()), readServices: {},

@@ -110,6 +110,25 @@ test('visible dashboards expose a safe owned shared or system relationship', asy
   assert.equal(visible.some(item => 'shareTargets' in item), false);
 });
 
+test('station bootstrap marker permits only the pending-to-complete transition', async () => {
+  const { service } = harness();
+  const owner = access('STATION', 'STATION_OPERATIONS');
+  const pending = await service.create({
+    access: owner,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:pending]' },
+  });
+  const complete = await service.update({
+    access: owner, dashboardId: pending.id, expectedVersion: pending.version,
+    input: { name: 'Station Operations', description: '[ACE:station-operations:v1:complete]' },
+  });
+
+  assert.equal(complete.description, '[ACE:station-operations:v1:complete]');
+  await assert.rejects(service.update({
+    access: owner, dashboardId: complete.id, expectedVersion: complete.version,
+    input: { name: 'Station Operations', description: 'User rewrite' },
+  }), { code: 'INVALID_REQUEST' });
+});
+
 test('station dashboards reject and filter reports outside station cases and alerts', async () => {
   const { service, repository } = harness();
   const station = access('STATION-OWNER', 'STATION_OPERATIONS');

@@ -43,6 +43,7 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
   const [error, setError] = useState(null);
   const [stale, setStale] = useState(false);
   const loadGeneration = useRef(0);
+  const previousRequestedId = useRef(requestedDashboardId);
 
   const load = useCallback(async id => {
     const generation = ++loadGeneration.current;
@@ -69,8 +70,10 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
 
   useEffect(() => { load(selectedId); }, [selectedId, reloadKey]); // load is intentionally keyed by dashboard and explicit execution context
   useEffect(() => {
-    if (requestedDashboardId && requestedDashboardId !== selectedId) setSelectedId(requestedDashboardId);
-  }, [requestedDashboardId, selectedId]);
+    if (requestedDashboardId === previousRequestedId.current) return;
+    previousRequestedId.current = requestedDashboardId;
+    if (requestedDashboardId) setSelectedId(requestedDashboardId);
+  }, [requestedDashboardId]);
 
   const selectDashboard = id => { if (id && id !== selectedId) setSelectedId(id); };
   const beginEdit = () => { setItems(persistedItems); setEditing(true); };

@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
+
 import { fail } from '../services/errors.mjs';
+import { canonicalStringify } from '../workflow/canonical-json.mjs';
 import { getReportSource } from './semantic-sources.mjs';
 import { normalizeReportDefinition } from './report-definition.mjs';
 import { executeReportDefinition, projectMapReportExecution, projectReportRows } from './report-execution.mjs';
@@ -13,6 +16,8 @@ const clientReport = report => Object.freeze({
   id: report.id, name: report.name, visibility: report.visibility,
   version: report.version, definition: structuredClone(report.definition),
 });
+const idempotentId = (actor, key) => `REPORT-IDEMP-${createHash('sha256')
+  .update(canonicalStringify({ actor, key, resource: 'REPORT' })).digest('hex').slice(0, 48)}`;
 
 function normalizedReport(input) {
   try { return normalizeReportDefinition(input, getReportSource(input?.sourceKey)); }
@@ -71,17 +76,36 @@ export function createReportService({ repository, readServices, mapViewService, 
   }
 
   return Object.freeze({
-    async create({ access, input, requestId }) {
+    async create({ access, input, requestId, idempotencyKey }) {
       if (!access?.actualUserId) fail('FORBIDDEN_ACTION');
       const definition = normalizedReport(input);
       if (!isReportSourceAllowed(access, definition.sourceKey)) fail('INVALID_REQUEST');
       await authorizeMapReference(definition, access, requestId);
       const timestamp = now();
-      return repository.createReport({
-        id: idFactory(), ownerUserId: access.actualUserId, visibility: 'PRIVATE', version: 1,
+      const key = typeof idempotencyKey === 'string' && idempotencyKey.trim() ? idempotencyKey.trim() : null;
+      const id = key ? idempotentId(access.actualUserId, key) : idFactory();
+      const intended = {
+        id, ownerUserId: access.actualUserId, visibility: 'PRIVATE', version: 1,
         definition: structuredClone(definition), name: definition.name, createdAt: timestamp,
         updatedAt: timestamp, syntheticData: true,
-      });
+      };
+      const replay = async () => {
+        const existing = await repository.getReport(id);
+        if (!existing || existing.ownerUserId !== intended.ownerUserId || existing.visibility !== 'PRIVATE'
+          || canonicalStringify(existing.definition) !== canonicalStringify(intended.definition)) return null;
+        return existing;
+      };
+      if (key) {
+        const existing = await replay();
+        if (existing) return existing;
+      }
+      try { return await repository.createReport(intended); }
+      catch (error) {
+        if (!key) throw error;
+        const existing = await replay();
+        if (existing) return existing;
+        fail('IDEMPOTENCY_CONFLICT');
+      }
     },
     async get({ access, reportId }) { return requireVisible(reportId, access); },
     async list({ access }) {
