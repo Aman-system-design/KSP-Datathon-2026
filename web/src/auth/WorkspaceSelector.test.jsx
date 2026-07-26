@@ -8,12 +8,13 @@ afterEach(cleanup);
 test('renders only personas returned by the backend', () => {
   render(<WorkspaceSelector workspace={{
     role: 'DEMO_PRESENTER',
-    personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
+    personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'CRIME_ANALYST'] },
   }} onSelect={() => {}} onSignOut={() => {}} />);
 
   expect(screen.getByRole('radio', { name: /State Leadership/i })).toBeVisible();
   expect(screen.getByRole('radio', { name: /Crime Analyst/i })).toBeVisible();
   expect(screen.getByRole('radio', { name: /Command Centre/i })).toBeVisible();
+  expect(screen.queryByRole('radio', { name: /Regional Leadership/i })).not.toBeInTheDocument();
   expect(screen.queryByRole('radio', { name: /Station Operations/i })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Select workspace' })).toBeVisible();
   expect(screen.queryByText(/authorized (access|workspace)/i)).not.toBeInTheDocument();

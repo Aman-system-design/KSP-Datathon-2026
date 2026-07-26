@@ -48,3 +48,7 @@ test('unknown roles use neutral UI copy while backend access remains fail-closed
     label: 'Workspace', workspace: 'Operational view', scope: 'Assigned scope',
   }));
 });
+
+test('regional leadership is not offered as an MVP persona', () => {
+  expect(getPersonaPresentation('REGIONAL_LEADERSHIP')).toBeNull();
+});

@@ -13,10 +13,13 @@ function authorizedPersonas(workspace) {
 }
 
 function authorizedWorkspaces(workspace) {
-  const personas = authorizedPersonas(workspace).map(role => ({
-    ...getPersonaPresentation(role),
-    destination: Object.freeze({ type: 'persona', role }),
-  }));
+  const personas = authorizedPersonas(workspace)
+    .map(role => getPersonaPresentation(role))
+    .filter(Boolean)
+    .map(presentation => ({
+      ...presentation,
+      destination: Object.freeze({ type: 'persona', role: presentation.role }),
+    }));
   return workspace?.role === 'DEMO_PRESENTER'
     ? [commandCentreWorkspace, ...personas.filter(persona => persona.role !== commandCentreWorkspace.role)]
     : personas;

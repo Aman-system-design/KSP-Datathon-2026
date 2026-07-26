@@ -68,7 +68,6 @@ export function getWorkspaceNavigation({ role } = {}) {
 
 export const personaWorkspaceDefinitions = Object.freeze([
   { role: 'STATE_LEADERSHIP', label: 'State Leadership', workspace: 'State Intelligence Brief', route: '/?persona=STATE_LEADERSHIP', scope: 'Statewide', icon: 'intelligence' },
-  { role: 'REGIONAL_LEADERSHIP', label: 'Regional Leadership', workspace: 'Jurisdiction Intelligence Pulse', route: '/?persona=REGIONAL_LEADERSHIP', scope: 'Authorized region', icon: 'map' },
   { role: 'DISTRICT_LEADERSHIP', label: 'District Leadership', workspace: 'Jurisdiction Intelligence Pulse', route: '/?persona=DISTRICT_LEADERSHIP', scope: 'Authorized district', icon: 'dashboard' },
   { role: 'CRIME_ANALYST', label: 'Crime Analyst', workspace: 'Analyst Workbench', route: '/?persona=CRIME_ANALYST', scope: 'Assigned units and cases', icon: 'network' },
   { role: 'STATION_OPERATIONS', label: 'Station Operations', workspace: 'Operational Intelligence', route: '/?persona=STATION_OPERATIONS', scope: 'Authorized station', icon: 'alerts' },
@@ -88,6 +87,7 @@ const personaPresentationByRole = new Map(
 );
 
 export function getPersonaPresentation(role) {
+  if (role === 'REGIONAL_LEADERSHIP') return null;
   return personaPresentationByRole.get(role) ?? {
     role,
     label: 'Workspace',
