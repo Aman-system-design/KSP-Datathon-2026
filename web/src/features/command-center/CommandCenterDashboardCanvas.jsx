@@ -4,7 +4,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BarChart3, Expand, Plus, Shr
 import { placementStyle } from './command-center-dashboard-model.js';
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 
-export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {}, onSelect = () => {} }) {
+export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {}, onSelect }) {
   const tab = dashboard?.tabs?.find(item => item.id === activeTab) ?? dashboard?.tabs?.[0];
   const items = tab?.items ?? [];
   if (!dashboard) return <main className="command-center-dashboard-canvas" data-testid="command-center-canvas"><div className="command-center-dashboard-empty"><strong>Intelligence Workspace</strong><span>Create or open a dashboard to compose your operational intelligence view.</span></div></main>;

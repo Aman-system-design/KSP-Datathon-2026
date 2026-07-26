@@ -24,6 +24,15 @@ test('renders charts as visualizations and forwards the selected governed row', 
   expect(onSelect).toHaveBeenCalledWith(item, { ageingBucket: '60+ days', recordCount_sum: 4 });
 });
 
+test('forwards a meaningful Open Case Register row selection', () => {
+  const onSelect = vi.fn();
+  const row = { caseId: 'CASE-17', caseNumber: '17/2026', status: 'Under Investigation' };
+  const item = { id: 'I-9', reportId: 'R-9', title: 'Open Case Register', status: 'ready', definition: { name: 'Open Case Register', dimensions: ['caseId', 'caseNumber', 'status'], measures: [], visualization: { type: 'table' }, style: {} }, data: [row] };
+  render(<MemoryRouter><CommandCenterReportSurface item={item} onSelect={onSelect} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole('button', { name: 'Select case 17/2026' }));
+  expect(onSelect).toHaveBeenCalledWith(item, { field: 'caseId', value: 'CASE-17', row });
+});
+
 test('contains a failed report with a safe reference', () => {
   render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-2', reportId: 'R-2', title: 'Report unavailable', status: 'error', errorCode: 'REPORT_FAILED' }} /></MemoryRouter>);
   expect(screen.getByRole('alert')).toHaveTextContent('Reference REPORT_FAILED');

@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { ReportPreview } from './ReportPreview.jsx';
 
@@ -28,4 +28,20 @@ test('distinguishes an executed zero-row result from an unrun report', () => {
   rerender(<ReportPreview preview={[]} definition={{ name: 'Empty', visualization: { type: 'table' }, style: {} }} hasRun />);
   expect(screen.getByText('No matching records')).toBeInTheDocument();
   expect(screen.getByText(/change the source, filters, or grouping/i)).toBeInTheDocument();
+});
+
+test('keeps table rows static when no selection callback is supplied', () => {
+  render(<ReportPreview preview={[{ caseId: 'CASE-1', caseNumber: '42/2026' }]} definition={{ name: 'Case register', dimensions: ['caseId', 'caseNumber'], visualization: { type: 'table' }, style: {} }} />);
+  expect(screen.getByRole('table')).toHaveTextContent('42/2026');
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+});
+
+test('emits an accessible case identity selection from an interactive table row', () => {
+  const onSelect = vi.fn();
+  const row = { caseId: 'CASE-1', caseNumber: '42/2026', status: 'Under Investigation' };
+  render(<ReportPreview preview={[row]} definition={{ name: 'Case register', dimensions: ['caseId', 'caseNumber', 'status'], visualization: { type: 'table' }, style: {} }} onSelect={onSelect} />);
+  const control = screen.getByRole('button', { name: 'Select case 42/2026' });
+  expect(control).toHaveAttribute('type', 'button');
+  fireEvent.click(control);
+  expect(onSelect).toHaveBeenCalledWith({ field: 'caseId', value: 'CASE-1', row });
 });

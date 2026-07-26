@@ -33,11 +33,11 @@ function unavailableReason(definition, rows) {
   return '';
 }
 
-function Visual({ definition, points, rows, mapMetadata, onSelect, MapComponent, density }) {
+function Visual({ definition, points, rows, selectionRows, mapMetadata, onSelect, MapComponent, density }) {
   const { type = 'table', variant } = definition.visualization ?? {}; const showValues = Boolean(definition.style?.valueLabels);
   if (type === 'number' && variant === 'risk') return <RiskReport points={points} variant="risk" onSelect={onSelect} showValues={showValues} />;
   if (type === 'number') return <NumberReport definition={definition} points={points} />;
-  if (type === 'table') return <TableReport rows={rows} density={definition.style?.tableDensity} />;
+  if (type === 'table') return <TableReport rows={rows} selectionRows={selectionRows} density={definition.style?.tableDensity} onSelect={onSelect} />;
   if (type === 'bar' && variant === 'workload') return <div data-testid="report-bar"><RiskReport points={points} variant="workload" onSelect={onSelect} showValues={showValues} /></div>;
   if (type === 'bar') return <div data-testid="report-bar"><BarReport points={points} variant={variant} onSelect={onSelect} showValues={showValues} /></div>;
   if (type === 'pie') return <div data-testid="report-pie"><PieReport points={points} variant={variant} palette={definition.style?.palette} legend={definition.style?.legend} showValues={showValues} onSelect={onSelect} /></div>;
@@ -67,6 +67,6 @@ export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], defi
     ? <div className="empty-state report-empty-state"><strong>No matching records</strong><span>Change the source, filters, or grouping and run again.</span><small>The query completed within the current viewer&apos;s authorised scope.</small></div>
     : <div className="empty-state report-empty-state"><strong>Preview your governed report</strong><span>Configure the definition, then Run without saving.</span><small>Results always use the current viewer&apos;s authorised scope.</small></div>;
   else if (unavailable) content = <div className="error-state" role="alert"><strong>Visualization unavailable</strong><span>{unavailable}</span></div>;
-  else content = <Visual definition={resolved} points={points} rows={displayRows} mapMetadata={mapMetadata ?? preview.mapMetadata} onSelect={onSelect} MapComponent={MapComponent} density={density} />;
+  else content = <Visual definition={resolved} points={points} rows={displayRows} selectionRows={preview} mapMetadata={mapMetadata ?? preview.mapMetadata} onSelect={onSelect} MapComponent={MapComponent} density={density} />;
   return <section className="report-preview-canvas" aria-label="Report preview" data-appearance={appearance} data-density={density} style={theme}><Heading definition={resolved} demonstration={demonstration} />{content}</section>;
 }
