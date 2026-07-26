@@ -30,7 +30,7 @@ const service = createStationCaseService({
   repository,
   now: () => new Date('2026-07-26T00:00:00Z'),
 });
-const access = { scopeUnitId: 1001, authorizedUnitIds: new Set([1001]) };
+const access = { scopeUnitId: 1001, authorizedUnitIds: new Set([1001]), actions: ['READ_CASE'] };
 
 test('station case list returns only authorized units with deterministic ageing', async () => {
   const result = await service.list({ access, query: {} });
@@ -43,6 +43,12 @@ test('station case list returns only authorized units with deterministic ageing'
 test('case detail fails closed outside the station scope', async () => {
   await assert.rejects(service.get({ access, caseId: 'CASE-2' }), { code: 'NOT_FOUND' });
   await assert.rejects(service.get({ access, caseId: 'MISSING' }), { code: 'NOT_FOUND' });
+});
+
+test('case list and detail require the dedicated case-read action', async () => {
+  const denied = { ...access, actions: [] };
+  await assert.rejects(service.list({ access: denied, query: {} }), { code: 'FORBIDDEN_ACTION' });
+  await assert.rejects(service.get({ access: denied, caseId: 'CASE-1' }), { code: 'FORBIDDEN_ACTION' });
 });
 
 test('ageing boundaries use whole elapsed UTC days', () => {
@@ -154,6 +160,24 @@ test('list limit is bounded to the inclusive range 1 through 200', async () => {
   assert.equal((await manyService.list({ access, query: { limit: 999 } })).data.items.length, 200);
 });
 
+test('analytical case reads include more than one HTTP page without silently truncating', async () => {
+  const manyRows = Array.from({ length: 205 }, (_, index) => ({
+    ...rows[0], caseId: `CASE-${index + 1}`, caseNumber: `${index + 1}/2026`,
+  }));
+  let requestedUnitIds;
+  const manyService = createStationCaseService({
+    repository: {
+      async listStationCaseRows({ unitIds }) { requestedUnitIds = unitIds; return manyRows; },
+      async getStationCaseRow() { return undefined; },
+    },
+    now: () => new Date('2026-07-26T00:00:00Z'),
+  });
+
+  const result = await manyService.listForReport({ access });
+  assert.equal(result.data.items.length, 205);
+  assert.strictEqual(requestedUnitIds, access.authorizedUnitIds);
+});
+
 test('list sorts newest registrations first with stable case tie-breaks before limiting', async () => {
   const unordered = [
     { ...rows[0], caseId: 'CASE-Z', registeredAt: 'invalid' },
@@ -214,6 +238,11 @@ test('memory repository joins canonical source masters into a cloned safe projec
             FIRDate: '2026-07-21T00:00:00Z', IncidentFromDate: '2026-07-20T22:00:00Z',
             CrimeMajorHeadID: 10, CrimeMinorHeadID: 11,
           },
+          {
+            CaseMasterID: 44, CaseNo: '00044/2026', PoliceStationID: 9999, CaseStatusID: 999,
+            FIRDate: '2026-07-22T00:00:00Z', IncidentFromDate: '2026-07-21T22:00:00Z',
+            CrimeMajorHeadID: 999, CrimeMinorHeadID: 999,
+          },
         ],
         Unit: [{ UnitID: 1001, UnitName: 'Central Station' }],
         CaseStatusMaster: [{ CaseStatusID: 1, CaseStatusName: 'Under Investigation' }],
@@ -237,6 +266,12 @@ test('memory repository joins canonical source masters into a cloned safe projec
       caseId: '43', caseNumber: '00043/2026', unitId: 1001, unitName: 'Central Station',
       status: 'Unknown', registeredAt: '2026-07-21T00:00:00Z',
       incidentAt: '2026-07-20T22:00:00Z', majorHead: 'Property', minorHead: 'Burglary',
+      syntheticData: true,
+    },
+    {
+      caseId: '44', caseNumber: '00044/2026', unitId: 9999, unitName: 'Unknown',
+      status: 'Unknown', registeredAt: '2026-07-22T00:00:00Z',
+      incidentAt: '2026-07-21T22:00:00Z', majorHead: 'Unknown', minorHead: 'Unknown',
       syntheticData: true,
     },
   ]);

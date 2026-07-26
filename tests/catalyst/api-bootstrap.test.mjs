@@ -86,12 +86,17 @@ test('API composition serves the role workspace and governed report sources', as
 });
 
 test('API composition serves station-scoped case lists and hides unauthorized case detail', async () => {
-  const { application } = harness({ currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' } });
+  const state = buildDemoState();
+  state.profiles.push({
+    CatalystUserID: 'CAT-STATION', EmployeeID: 9001, DefaultRole: 'STATION_OPERATIONS', ScopeUnitID: 1001,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  const { application } = harness({ currentUser: { user_id: 'CAT-STATION', status: 'ACTIVE' }, state });
 
   const listed = await application({ method: 'GET', url: '/v1/cases?openOnly=false', headers: {}, body: null });
   assert.equal(listed.status, 200);
   assert.ok(listed.body.data.items.length > 0);
-  assert.ok(listed.body.data.items.every(row => [101, 1001, 1021].includes(row.unitId)));
+  assert.ok(listed.body.data.items.every(row => row.unitId === 1001));
   assert.doesNotMatch(JSON.stringify(listed.body), /BriefFacts|Complainant|Accused|latitude|longitude/iu);
 
   const authorized = await application({ method: 'GET', url: '/v1/cases/200000001', headers: {}, body: null });
@@ -101,6 +106,28 @@ test('API composition serves station-scoped case lists and hides unauthorized ca
   const unauthorized = await application({ method: 'GET', url: '/v1/cases/200000036', headers: {}, body: null });
   assert.equal(unauthorized.status, 404);
   assert.equal(unauthorized.body.error.code, 'NOT_FOUND');
+});
+
+test('API case resources deny base presenter and auditor roles but honor an assumed station persona', async () => {
+  const auditorState = buildDemoState();
+  auditorState.profiles.push({
+    CatalystUserID: 'CAT-AUDITOR', EmployeeID: 9001, DefaultRole: 'AUDITOR', ScopeUnitID: 1,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  const auditor = harness({ currentUser: { user_id: 'CAT-AUDITOR', status: 'ACTIVE' }, state: auditorState }).application;
+  const deniedAuditor = await auditor({ method: 'GET', url: '/v1/cases', headers: {}, body: null });
+  assert.equal(deniedAuditor.status, 403);
+  assert.equal(deniedAuditor.body.error.code, 'FORBIDDEN_ACTION');
+
+  const presenter = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } }).application;
+  const deniedBase = await presenter({ method: 'GET', url: '/v1/cases', headers: {}, body: null });
+  assert.equal(deniedBase.status, 403);
+  assert.equal(deniedBase.body.error.code, 'FORBIDDEN_ACTION');
+  const assumed = await presenter({
+    method: 'GET', url: '/v1/cases?limit=1', headers: { 'X-Demo-Persona': 'STATION_OPERATIONS' }, body: null,
+  });
+  assert.equal(assumed.status, 200);
+  assert.equal(assumed.body.data.items.length, 1);
 });
 
 test('API composition serves utility categories and one utility definition', async () => {

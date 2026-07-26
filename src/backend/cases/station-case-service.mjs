@@ -1,6 +1,7 @@
 import { fail } from '../services/errors.mjs';
 
 const DAY_MS = 86_400_000;
+const ANALYTICS_LIMIT = 5000;
 const OPEN_LIFECYCLE_STATUSES = new Set([
   'under investigation',
   'chargesheet filed',
@@ -80,11 +81,15 @@ const compareCases = (left, right) => {
 
 export function createStationCaseService({ repository, now = () => new Date() }) {
   const allowed = (row, access) => access?.authorizedUnitIds?.has(Number(row.unitId)) === true;
+  const requireAccess = (access) => {
+    if (!access?.actions?.includes('READ_CASE')) fail('FORBIDDEN_ACTION');
+  };
   return Object.freeze({
     async list({ access, query = {} }) {
+      requireAccess(access);
       const openOnly = normalizeOpenOnly(query);
       const currentTime = now();
-      const projected = (await repository.listStationCaseRows())
+      const projected = (await repository.listStationCaseRows({ unitIds: access.authorizedUnitIds }))
         .filter(row => allowed(row, access))
         .map(row => project(row, currentTime));
       const filtered = (openOnly ? projected.filter(row => row.isOpen) : projected)
@@ -94,7 +99,18 @@ export function createStationCaseService({ repository, now = () => new Date() })
         syntheticData: true,
       };
     },
+    async listForReport({ access }) {
+      requireAccess(access);
+      const currentTime = now();
+      const projected = (await repository.listStationCaseRows({ unitIds: access.authorizedUnitIds }))
+        .filter(row => allowed(row, access))
+        .map(row => project(row, currentTime))
+        .sort(compareCases);
+      if (projected.length > ANALYTICS_LIMIT) fail('DATA_NOT_READY');
+      return { data: { items: projected }, syntheticData: true };
+    },
     async get({ access, caseId }) {
+      requireAccess(access);
       const row = await repository.getStationCaseRow(caseId);
       if (!row || !allowed(row, access)) fail('NOT_FOUND');
       return { data: project(row, now()), syntheticData: true };

@@ -138,12 +138,14 @@ test('station case reads join the governed source masters into an allowlisted pr
       PoliceStationID: 1001, CaseStatusID: 1, CrimeRegisteredDate: '2026-06-02',
       IncidentFromDate: '2026-06-02T21:01:00+05:30', CrimeMajorHeadID: 10, CrimeMinorHeadID: 11,
       BriefFacts: 'restricted narrative', latitude: 12.9716, longitude: 77.5946,
-      SourceFileName: 'restricted-source.csv', IsSynthetic: true,
+      SourceFileName: 'restricted-source.csv', SourceBatchRef: 'BATCH-ROW-1',
+      ValidationStatus: 'ACCEPTED', IsSynthetic: true,
     }],
-    SRC_Unit: [{ ROWID: 'UNIT-ROW-1', UnitID: 1001, UnitName: 'Central PS', IsSynthetic: true }],
-    SRC_CaseStatusMaster: [{ ROWID: 'STATUS-ROW-1', CaseStatusID: 1, CaseStatusName: 'Under Investigation' }],
-    SRC_CrimeHead: [{ ROWID: 'MAJOR-ROW-1', CrimeHeadID: 10, CrimeGroupName: 'Property' }],
-    SRC_CrimeSubHead: [{ ROWID: 'MINOR-ROW-1', CrimeSubHeadID: 11, CrimeHeadName: 'Burglary' }],
+    SRC_Unit: [{ ROWID: 'UNIT-ROW-1', UnitID: 1001, UnitName: 'Central PS', SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true }],
+    SRC_CaseStatusMaster: [{ ROWID: 'STATUS-ROW-1', CaseStatusID: 1, CaseStatusName: 'Under Investigation', SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true }],
+    SRC_CrimeHead: [{ ROWID: 'MAJOR-ROW-1', CrimeHeadID: 10, CrimeGroupName: 'Property', SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true }],
+    SRC_CrimeSubHead: [{ ROWID: 'MINOR-ROW-1', CrimeSubHeadID: 11, CrimeHeadName: 'Burglary', SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true }],
+    TRN_IngestionBatch: [{ ROWID: 'BATCH-ROW-1', BatchID: 'BATCH-1', Status: 'COMPLETED', CompletedAt: '2026-07-01', SourceRowCount: 5, AcceptedRowCount: 5, RejectedRowCount: 0, IsSynthetic: true }],
   });
   const app = fakeApplication(fixture.tables);
   const repository = new CatalystIntelligenceRepository({ application: app });
@@ -153,33 +155,88 @@ test('station case reads join the governed source masters into an allowlisted pr
     status: 'Under Investigation', registeredAt: '2026-06-02', incidentAt: '2026-06-02T21:01:00+05:30',
     majorHead: 'Property', minorHead: 'Burglary', syntheticData: true,
   };
-  assert.deepEqual(await repository.listStationCaseRows(), [expected]);
+  assert.deepEqual(await repository.listStationCaseRows({ unitIds: [1001] }), [expected]);
   assert.deepEqual(await repository.getStationCaseRow(200000001), expected);
-  assert.deepEqual(new Set(app.calls.map(call => call.name)), new Set([
-    'SRC_CaseMaster', 'SRC_Unit', 'SRC_CaseStatusMaster', 'SRC_CrimeHead', 'SRC_CrimeSubHead',
-  ]));
+  assert.equal(app.calls.some(call => call.name === 'SRC_CaseMaster'), false);
+  assert.ok(app.zcqlCalls.some(query => query.includes('SRC_CaseMaster WHERE PoliceStationID')));
+  assert.ok(app.zcqlCalls.some(query => query.includes('SRC_CaseMaster WHERE CaseMasterID')));
   assert.doesNotMatch(JSON.stringify(expected), /BriefFacts|restricted|latitude|longitude|ROWID|SourceFileName/u);
 });
 
-test('station case reads use Unknown labels for missing master joins and preserve provenance', async () => {
+test('station case reads use Unknown labels for missing master joins', async () => {
   const fixture = catalystRows();
   Object.assign(fixture.tables, {
     SRC_CaseMaster: [{
       ROWID: 'CASE-ROW-2', CaseMasterID: 200000002, CrimeNo: '101011001202600016',
       PoliceStationID: 9999, CaseStatusID: 9999, InfoReceivedPSDate: '2026-06-03',
       IncidentFromDate: '2026-06-03T21:02:00+05:30', CrimeMajorHeadID: 9999,
-      CrimeMinorHeadID: 9999, IsSynthetic: false,
+      CrimeMinorHeadID: 9999, SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true,
     }],
     SRC_Unit: [], SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [{ ROWID: 'BATCH-ROW-1', BatchID: 'BATCH-1', Status: 'COMPLETED', CompletedAt: '2026-07-01', SourceRowCount: 1, AcceptedRowCount: 1, RejectedRowCount: 0, IsSynthetic: true }],
   });
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });
 
-  assert.deepEqual(await repository.listStationCaseRows(), [{
+  assert.deepEqual(await repository.listStationCaseRows({ unitIds: [9999] }), [{
     caseId: '200000002', caseNumber: '101011001202600016', unitId: 9999, unitName: 'Unknown',
     status: 'Unknown', registeredAt: '2026-06-03', incidentAt: '2026-06-03T21:02:00+05:30',
-    majorHead: 'Unknown', minorHead: 'Unknown', syntheticData: false,
+    majorHead: 'Unknown', minorHead: 'Unknown', syntheticData: true,
   }]);
   assert.equal(await repository.getStationCaseRow('missing'), undefined);
+});
+
+test('station case reads exclude rejected, non-synthetic, and incomplete-batch source rows', async () => {
+  const fixture = catalystRows();
+  const base = {
+    CaseNo: '202600015', PoliceStationID: 1001, CaseStatusID: 1, CrimeRegisteredDate: '2026-06-02',
+    IncidentFromDate: '2026-06-02T21:01:00+05:30', CrimeMajorHeadID: 10, CrimeMinorHeadID: 11,
+  };
+  Object.assign(fixture.tables, {
+    SRC_CaseMaster: [
+      { ROWID: 'CASE-OK', CaseMasterID: 1, ...base, SourceBatchRef: 'BATCH-COMPLETE', ValidationStatus: 'ACCEPTED', IsSynthetic: true },
+      { ROWID: 'CASE-REJECTED', CaseMasterID: 2, ...base, SourceBatchRef: 'BATCH-COMPLETE', ValidationStatus: 'REJECTED', IsSynthetic: true },
+      { ROWID: 'CASE-REAL', CaseMasterID: 3, ...base, SourceBatchRef: 'BATCH-COMPLETE', ValidationStatus: 'ACCEPTED', IsSynthetic: false },
+      { ROWID: 'CASE-INCOMPLETE', CaseMasterID: 4, ...base, SourceBatchRef: 'BATCH-LOADING', ValidationStatus: 'ACCEPTED', IsSynthetic: true },
+    ],
+    SRC_Unit: [{ ROWID: 'UNIT-1', UnitID: 1001, UnitName: 'Central PS', SourceBatchRef: 'BATCH-COMPLETE', ValidationStatus: 'ACCEPTED', IsSynthetic: true }],
+    SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [
+      { ROWID: 'BATCH-COMPLETE', BatchID: 'COMPLETE', Status: 'COMPLETED', CompletedAt: '2026-07-01', SourceRowCount: 5, AcceptedRowCount: 5, RejectedRowCount: 0, IsSynthetic: true },
+      { ROWID: 'BATCH-LOADING', BatchID: 'LOADING', Status: 'LOADING', IsSynthetic: true },
+      { ROWID: 'BATCH-NON-SYNTHETIC', BatchID: 'REAL', Status: 'COMPLETED', CompletedAt: '2026-07-01', IsSynthetic: false },
+    ],
+  });
+  const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });
+
+  assert.deepEqual((await repository.listStationCaseRows({ unitIds: [1001] })).map(row => row.caseId), ['1']);
+  assert.equal((await repository.listStationCaseRows({ unitIds: [1001] }))[0].syntheticData, true);
+  assert.equal(await repository.getStationCaseRow('2'), undefined);
+  assert.equal(await repository.getStationCaseRow('3'), undefined);
+  assert.equal(await repository.getStationCaseRow('4'), undefined);
+});
+
+test('station case lists use indexed station queries instead of scanning a source table over ten thousand rows', async () => {
+  const fixture = catalystRows();
+  const accepted = (row) => ({
+    ...row, SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true,
+  });
+  fixture.tables.SRC_CaseMaster = [
+    accepted({ ROWID: 'LOCAL-1', CaseMasterID: 1, CaseNo: '1', PoliceStationID: 1001 }),
+    accepted({ ROWID: 'LOCAL-2', CaseMasterID: 2, CaseNo: '2', PoliceStationID: 1001 }),
+    ...Array.from({ length: 10_001 }, (_, index) => accepted({
+      ROWID: `REMOTE-${index}`, CaseMasterID: index + 10, CaseNo: `R-${index}`, PoliceStationID: 2001,
+    })),
+  ];
+  Object.assign(fixture.tables, {
+    SRC_Unit: [accepted({ ROWID: 'UNIT-1', UnitID: 1001, UnitName: 'Central PS' })],
+    SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [{ ROWID: 'BATCH-ROW-1', BatchID: 'BATCH-1', Status: 'COMPLETED', CompletedAt: '2026-07-01', SourceRowCount: 10_005, AcceptedRowCount: 10_005, RejectedRowCount: 0, IsSynthetic: true }],
+  });
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  assert.deepEqual((await repository.listStationCaseRows({ unitIds: [1001] })).map(row => row.caseId), ['1', '2']);
+  assert.equal(app.calls.some(call => call.name === 'SRC_CaseMaster'), false);
 });
 
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {

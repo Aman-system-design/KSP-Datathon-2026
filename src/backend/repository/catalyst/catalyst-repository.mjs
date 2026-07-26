@@ -49,6 +49,7 @@ const SOURCE_TABLES = Object.freeze({
 });
 const CONTROL_TABLES = Object.freeze(['TRN_IngestionBatch', 'TRN_RejectedRecord', 'TRN_SourceKeyMap']);
 const ALLOWED_TABLES = new Set([...Object.values(TABLES), ...Object.values(SOURCE_TABLES), ...CONTROL_TABLES]);
+const STATION_CASE_READ_LIMIT = 5000;
 const DATETIME_COLUMNS = Object.freeze({
   INT_AnalysisRun: ['ObservationStart', 'ObservationEnd', 'CompletedAt', 'PublishedAt'],
   INT_PublicationState: ['PublishedAt', 'LatestAttemptAt'],
@@ -1123,14 +1124,28 @@ export class CatalystIntelligenceRepository {
     }) => unit);
   }
 
-  async listStationCaseRows() {
-    const [cases, unitRows, statusRows, majorRows, minorRows] = await Promise.all([
-      this.#read(SOURCE_TABLES.CaseMaster),
+  async #completedSyntheticSourceBatchRefs() {
+    const rows = await this.#queryIndexed('TRN_IngestionBatch', 'Status', 'COMPLETED', {
+      maxRows: STATION_CASE_READ_LIMIT,
+    });
+    return new Set(rows.filter(row => row.IsSynthetic === true && row.CompletedAt
+      && Number(row.SourceRowCount) === Number(row.AcceptedRowCount) + Number(row.RejectedRowCount))
+      .map(row => String(row.ROWID)));
+  }
+
+  #acceptedSyntheticSourceRows(rows, batchRefs) {
+    return rows.filter(row => row.IsSynthetic === true && row.ValidationStatus === 'ACCEPTED'
+      && batchRefs.has(String(row.SourceBatchRef)));
+  }
+
+  async #projectStationCaseRows(cases, batchRefs) {
+    if (cases.length === 0) return [];
+    const [unitRows, statusRows, majorRows, minorRows] = (await Promise.all([
       this.#read(SOURCE_TABLES.Unit),
       this.#read(SOURCE_TABLES.CaseStatusMaster),
       this.#read(SOURCE_TABLES.CrimeMajorHeadMaster),
       this.#read(SOURCE_TABLES.CrimeMinorHeadMaster),
-    ]);
+    ])).map(rows => this.#acceptedSyntheticSourceRows(rows, batchRefs));
     const units = new Map(unitRows.map(row => [Number(row.UnitID), row.UnitName]));
     const statuses = new Map(statusRows.map(row => [Number(row.CaseStatusID), row.CaseStatusName]));
     const majors = new Map(majorRows.map(row => [Number(row.CrimeHeadID), row.CrimeGroupName]));
@@ -1145,12 +1160,33 @@ export class CatalystIntelligenceRepository {
       incidentAt: row.IncidentFromDate,
       majorHead: majors.get(Number(row.CrimeMajorHeadID)) ?? 'Unknown',
       minorHead: minors.get(Number(row.CrimeMinorHeadID)) ?? 'Unknown',
-      syntheticData: row.IsSynthetic === true || row.SyntheticData === true,
+      syntheticData: true,
     }));
   }
 
+  async listStationCaseRows({ unitIds } = {}) {
+    const authorizedUnitIds = [...new Set([...(unitIds ?? [])].map(Number).filter(Number.isSafeInteger))];
+    if (authorizedUnitIds.length === 0) return [];
+    const batchRefs = await this.#completedSyntheticSourceBatchRefs();
+    const cases = [];
+    for (const unitId of authorizedUnitIds) {
+      const remaining = STATION_CASE_READ_LIMIT - cases.length;
+      if (remaining < 1) fail('DATA_NOT_READY', 'Station case result exceeds its governed read limit.');
+      const rows = await this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'PoliceStationID', unitId, { maxRows: remaining });
+      cases.push(...this.#acceptedSyntheticSourceRows(rows, batchRefs));
+    }
+    return this.#projectStationCaseRows(cases, batchRefs);
+  }
+
   async getStationCaseRow(caseId) {
-    return (await this.listStationCaseRows()).find(row => row.caseId === String(caseId));
+    const queryId = /^\d+$/u.test(String(caseId)) && Number.isSafeInteger(Number(caseId))
+      ? Number(caseId) : String(caseId);
+    const [batchRefs, rows] = await Promise.all([
+      this.#completedSyntheticSourceBatchRefs(),
+      this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'CaseMasterID', queryId, { maxRows: 1 }),
+    ]);
+    const cases = this.#acceptedSyntheticSourceRows(rows, batchRefs);
+    return (await this.#projectStationCaseRows(cases, batchRefs))[0];
   }
 
   async getAlert(alertId) {

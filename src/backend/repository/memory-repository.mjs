@@ -319,7 +319,7 @@ export class MemoryIntelligenceRepository {
   }
   async getAccessProfile(userId) { return clone(this.#state.profiles.find(row => String(row.CatalystUserID) === String(userId))); }
   async getUnits() { return clone(this.#state.units); }
-  async listStationCaseRows() {
+  async listStationCaseRows({ unitIds } = {}) {
     const source = this.#state.source?.tables ?? {};
     const units = new Map((source.Unit ?? []).map(row => [Number(row.UnitID), row.UnitName]));
     const statuses = new Map((source.CaseStatusMaster ?? [])
@@ -334,16 +334,19 @@ export class MemoryIntelligenceRepository {
       Number(row.CrimeMinorHeadID ?? row.CrimeSubHeadID),
       row.CrimeMinorHeadName ?? row.CrimeHeadName,
     ]));
-    return clone((source.CaseMaster ?? []).map(row => ({
+    const authorizedUnitIds = unitIds ? new Set([...unitIds].map(Number)) : null;
+    return clone((source.CaseMaster ?? [])
+      .filter(row => !authorizedUnitIds || authorizedUnitIds.has(Number(row.PoliceStationID)))
+      .map(row => ({
       caseId: String(row.CaseMasterID),
       caseNumber: row.CaseNo ?? row.CrimeNo,
       unitId: Number(row.PoliceStationID),
-      unitName: units.get(Number(row.PoliceStationID)),
+      unitName: units.get(Number(row.PoliceStationID)) ?? 'Unknown',
       status: statuses.get(Number(row.CaseStatusID)) ?? 'Unknown',
       registeredAt: row.FIRDate ?? row.CrimeRegisteredDate ?? row.InfoReceivedPSDate,
       incidentAt: row.IncidentFromDate,
-      majorHead: majors.get(Number(row.CrimeMajorHeadID)) ?? 'Other',
-      minorHead: minors.get(Number(row.CrimeMinorHeadID)) ?? 'Other',
+      majorHead: majors.get(Number(row.CrimeMajorHeadID)) ?? 'Unknown',
+      minorHead: minors.get(Number(row.CrimeMinorHeadID)) ?? 'Unknown',
       syntheticData: true,
     })));
   }
