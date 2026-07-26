@@ -1,7 +1,12 @@
 import { fail } from '../services/errors.mjs';
 
 const DAY_MS = 86_400_000;
-const CLOSED_LIFECYCLE = /closed|disposed|acquitted|convicted|false|mistake/iu;
+const OPEN_LIFECYCLE_STATUSES = new Set([
+  'under investigation',
+  'chargesheet filed',
+  'synthetic under investigation',
+  'synthetic chargesheet filed',
+]);
 
 const instant = (value) => {
   if (value === null || value === undefined || value === '') return Number.NaN;
@@ -24,7 +29,8 @@ export function ageingBucket(value) {
   return '60+ days';
 }
 
-const isOpenStatus = value => !CLOSED_LIFECYCLE.test(String(value ?? ''));
+const normalizedStatus = value => String(value ?? '').trim().replace(/\s+/gu, ' ').toLowerCase();
+const isOpenStatus = value => OPEN_LIFECYCLE_STATUSES.has(normalizedStatus(value));
 
 const project = (row, currentTime) => {
   const ageDays = ageInDays(row.registeredAt, currentTime);
@@ -53,17 +59,36 @@ const boundedLimit = (value) => {
   return Math.max(1, Math.min(200, Math.floor(numeric)));
 };
 
+const normalizeOpenOnly = (query) => {
+  if (!Object.hasOwn(query, 'openOnly')) return true;
+  if (query.openOnly === true || query.openOnly === 'true') return true;
+  if (query.openOnly === false || query.openOnly === 'false') return false;
+  fail('INVALID_REQUEST');
+};
+
+const compareCases = (left, right) => {
+  const leftTime = instant(left.registeredAt);
+  const rightTime = instant(right.registeredAt);
+  const leftValid = Number.isFinite(leftTime);
+  const rightValid = Number.isFinite(rightTime);
+  if (leftValid && rightValid && leftTime !== rightTime) return rightTime - leftTime;
+  if (leftValid !== rightValid) return leftValid ? -1 : 1;
+  const leftId = String(left.caseId);
+  const rightId = String(right.caseId);
+  return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+};
+
 export function createStationCaseService({ repository, now = () => new Date() }) {
   const allowed = (row, access) => access?.authorizedUnitIds?.has(Number(row.unitId)) === true;
   return Object.freeze({
     async list({ access, query = {} }) {
+      const openOnly = normalizeOpenOnly(query);
       const currentTime = now();
       const projected = (await repository.listStationCaseRows())
         .filter(row => allowed(row, access))
         .map(row => project(row, currentTime));
-      const filtered = query.openOnly === false
-        ? projected
-        : projected.filter(row => row.isOpen);
+      const filtered = (openOnly ? projected.filter(row => row.isOpen) : projected)
+        .sort(compareCases);
       return {
         data: { items: filtered.slice(0, boundedLimit(query.limit)) },
         syntheticData: true,
