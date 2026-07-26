@@ -23,10 +23,13 @@ function transformItems(dashboard, transform) {
   if (!dashboard) return null;
   const items = (dashboard.items ?? []).map(transform);
   const byId = new Map(items.map(item => [item.id, item]));
+  const ordered = values => values.map(item => byId.get(item.id) ?? item)
+    .sort((left, right) => (Number(left.row) - Number(right.row))
+      || (Number(left.column) - Number(right.column)));
   return {
     ...dashboard, items,
     tabs: (dashboard.tabs ?? []).map(tab => ({
-      ...tab, items: (tab.items ?? []).map(item => byId.get(item.id) ?? item),
+      ...tab, items: ordered(tab.items ?? []),
     })),
   };
 }
@@ -163,10 +166,10 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
   return <section className="station-operations" aria-labelledby="station-operations-title">
     <header className="station-operations__header">
       <div className="station-operations__identity">
-        <span>{workspace?.scopeUnit?.type || 'Police station'}</span>
+        <span>Operations workspace</span>
         <h1 id="station-operations-title">Station Operations</h1>
         <strong>{stationName}</strong>
-        <p>Current case workload, ageing and local operational patterns.</p>
+        <p>{workspace?.scopeUnit?.type || 'Police station'} · Case workload, ageing and local patterns</p>
       </div>
       <div className="station-operations__actions">
         <div className="station-period" role="group" aria-label="Station reporting period">
