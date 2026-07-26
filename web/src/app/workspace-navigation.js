@@ -48,7 +48,7 @@ const roleDefinitions = Object.freeze({
     workspaceLabel: 'Persona Workspaces', home: '/admin/personas',
     modules: [
       { to: '/admin/personas', label: 'Persona workspaces', icon: 'people' },
-      { to: '/?persona=COMMAND_CENTER', label: 'Command Center', icon: 'command' },
+      { to: '/?persona=COMMAND_CENTER', label: 'Command Centre', icon: 'command' },
     ],
   },
 });
@@ -76,7 +76,7 @@ export const personaWorkspaceDefinitions = Object.freeze([
 
 export const commandCentreWorkspace = Object.freeze({
   role: 'COMMAND_CENTER',
-  label: 'Command Center',
+  label: 'Command Centre',
   workspace: 'Live Operational Overview',
   scope: 'Presentation display',
   icon: 'command',
