@@ -16,7 +16,7 @@ const rule = (utilityKey, thresholds, overrides = {}) => ({
   ThresholdsJSON: JSON.stringify(thresholds),
   EvaluationWindowDays: 30,
   Severity: 'HIGH',
-  RecipientRolesJSON: JSON.stringify(['DISTRICT_LEADERSHIP', 'CRIME_ANALYST']),
+  RecipientRolesJSON: JSON.stringify(['COMMAND_CENTER', 'CRIME_ANALYST']),
   Version: 3,
   SyntheticData: true,
   ...overrides,
@@ -39,6 +39,7 @@ test('pattern candidate is deterministic, scoped and retains governed provenance
   const envelope = JSON.parse(first.alert.OriginalFindingJSON);
   assert.equal(envelope.rule.id, 'RULE-patterns');
   assert.equal(envelope.rule.version, 3);
+  assert.deepEqual(envelope.rule.recipientRoles, ['COMMAND_CENTER', 'CRIME_ANALYST']);
   assert.equal(envelope.analysisRun.id, run('PATTERN').AnalysisRunID);
   assert.equal(envelope.provenance.syntheticData, true);
   assert.equal(envelope.provenance.claim, 'DEMONSTRATION_DATA');
