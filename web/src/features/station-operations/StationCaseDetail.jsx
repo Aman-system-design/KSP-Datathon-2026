@@ -1,12 +1,22 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 
-import { Busy } from '../../app/AsyncStates.jsx';
+import { Busy, Failure } from '../../app/AsyncStates.jsx';
 import { governedAppLocation } from '../../app/runtime.js';
 import { useLoad } from '../../app/useLoad.js';
 import './station-operations.css';
 
 const UNAVAILABLE = 'Unavailable';
+const KARNATAKA_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/u;
+const CIVIL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/u;
+const PROVENANCE_LABELS = Object.freeze({
+  SYNTHETIC: 'Synthetic data', OPERATIONAL: 'Operational data',
+  MIXED: 'Mixed-source data', EMPTY: 'No source records',
+});
+const KARNATAKA_DATE = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric',
+});
 const KARNATAKA_TIME = new Intl.DateTimeFormat('en-IN', {
   timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric',
   hour: 'numeric', minute: '2-digit', hour12: true,
@@ -17,9 +27,38 @@ function valueOrUnavailable(value) {
 }
 
 function formatKarnatakaTimestamp(value) {
+  if (typeof value === 'string') {
+    const dateOnly = value.match(DATE_ONLY);
+    if (dateOnly) {
+      const date = civilDate(dateOnly.slice(1));
+      return date ? KARNATAKA_DATE.format(date) : UNAVAILABLE;
+    }
+    const civil = value.match(CIVIL_DATETIME);
+    if (civil) {
+      const date = civilDate(civil.slice(1));
+      return date ? formatKarnatakaInstant(date) : UNAVAILABLE;
+    }
+  }
   if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date)) return UNAVAILABLE;
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return UNAVAILABLE;
+  return formatKarnatakaInstant(date);
+}
+
+function civilDate(parts) {
+  const [year, month, day, hour = '0', minute = '0', second = '0', fraction = '0'] = parts;
+  const milliseconds = Date.UTC(
+    Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second),
+    Number(fraction.slice(0, 3).padEnd(3, '0')),
+  );
+  const check = new Date(milliseconds);
+  if (check.getUTCFullYear() !== Number(year) || check.getUTCMonth() !== Number(month) - 1
+    || check.getUTCDate() !== Number(day) || check.getUTCHours() !== Number(hour)
+    || check.getUTCMinutes() !== Number(minute) || check.getUTCSeconds() !== Number(second)) return null;
+  return new Date(milliseconds - KARNATAKA_OFFSET_MS);
+}
+
+function formatKarnatakaInstant(date) {
   return KARNATAKA_TIME.format(date).replace(' at ', ', ').replace(/\b(am|pm)\b/gu, match => match.toLowerCase());
 }
 
@@ -36,7 +75,7 @@ function CaseUnavailable() {
   return <section className="station-case-detail station-case-detail--state" aria-labelledby="case-unavailable-title">
     <div role="alert">
       <h1 id="case-unavailable-title">Case unavailable</h1>
-      <p>This case cannot be displayed in the current authorized station scope.</p>
+      <p>The requested case is unavailable.</p>
       <Link className="station-case-detail__back" to={governedAppLocation('/', { search: '?persona=STATION_OPERATIONS' })}>
         <ArrowLeft aria-hidden="true" />Back to Station Operations
       </Link>
@@ -53,12 +92,21 @@ export function StationCaseDetail({ api }) {
   }, [api, encodedCaseId]);
 
   if (state.loading) return <div className="station-case-detail station-case-detail--state"><Busy label="Loading governed case record…" /></div>;
-  if (state.error || !caseContract(state.data?.caseRecord)) return <CaseUnavailable />;
+  if (state.error) {
+    if (state.error.status === 403 || state.error.status === 404) return <CaseUnavailable />;
+    return <div className="station-case-detail station-case-detail--state"><Failure error={{
+      code: 'CASE_DETAIL_REQUEST_FAILED', requestId: state.error.requestId,
+    }} /></div>;
+  }
+  if (!caseContract(state.data?.caseRecord)) return <CaseUnavailable />;
 
   const record = state.data.caseRecord;
-  const synthetic = record.syntheticData === true || state.data.syntheticData === true
-    || String(state.data.provenance ?? '').toUpperCase() === 'SYNTHETIC';
-  const age = Number.isFinite(Number(record.ageDays)) ? `${Math.max(0, Number(record.ageDays))} days` : UNAVAILABLE;
+  const provenance = record.syntheticData === true || state.data.syntheticData === true
+    ? 'SYNTHETIC' : String(state.data.provenance ?? '').toUpperCase();
+  const provenanceLabel = PROVENANCE_LABELS[provenance];
+  const hasAge = record.ageDays !== null && record.ageDays !== undefined
+    && String(record.ageDays).trim() !== '' && Number.isFinite(Number(record.ageDays));
+  const age = hasAge ? `${Math.max(0, Number(record.ageDays))} days` : UNAVAILABLE;
 
   return <article className="station-case-detail" aria-labelledby="station-case-title">
     <header className="station-case-detail__header">
@@ -73,7 +121,7 @@ export function StationCaseDetail({ api }) {
         <div className="station-case-detail__cues">
           <span className="station-case-detail__status">{valueOrUnavailable(record.status)}</span>
           <span>Read-only case record</span>
-          {synthetic ? <span>Synthetic data</span> : state.data.provenance ? <span>Governed source</span> : null}
+          {provenanceLabel ? <span>{provenanceLabel}</span> : null}
         </div>
       </div>
     </header>
