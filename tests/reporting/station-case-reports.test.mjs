@@ -85,6 +85,21 @@ test('new case reports count all lifecycle states registered in the last thirty 
   assert.deepEqual(result.result.data.items, [{ recordCount_sum: 2 }]);
 });
 
+test('selected-period reports exclude future registrations across every supported period', async () => {
+  for (const periodDays of [7, 30, 90]) {
+    const result = await execute([
+      caseRow(1, { registeredAt: '2026-07-20T00:00:00Z' }),
+      caseRow(2, { registeredAt: '2026-08-01T00:00:00Z' }),
+    ], {
+      name: `New Cases - Last ${periodDays} Days`, sourceKey: 'stationCases',
+      measures: [{ field: 'recordCount', aggregate: 'sum' }],
+      filters: [{ field: 'registeredAgeDays', operator: 'lte', value: periodDays }],
+      visualization: { type: 'number' },
+    });
+    assert.deepEqual(result.result.data.items, [{ recordCount_sum: 1 }]);
+  }
+});
+
 test('incident pattern reports group valid server-derived Karnataka civil hours', async () => {
   const result = await execute([
     caseRow(1, { incidentAt: '2026-07-19T22:15:00Z' }),

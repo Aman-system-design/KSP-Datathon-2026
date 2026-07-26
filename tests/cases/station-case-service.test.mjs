@@ -127,6 +127,17 @@ test('invalid source dates remain unavailable for report filters and incident gr
   assert.equal(projected.incidentHour, null);
 });
 
+test('future registrations keep display age at zero but stay unavailable to report filters', async () => {
+  const future = { ...rows[0], registeredAt: '2026-07-27T00:00:00Z' };
+  const futureService = createStationCaseService({
+    repository: { async listStationCaseRows() { return [future]; } },
+    now: () => new Date('2026-07-26T00:00:00Z'),
+  });
+  const [projected] = (await futureService.listForReport({ access })).data.items;
+  assert.equal(projected.ageDays, 0);
+  assert.equal(projected.registeredAgeDays, null);
+});
+
 test('openOnly accepts strict boolean transport forms', async () => {
   const lifecycleRows = [
     ...rows.slice(0, 1),

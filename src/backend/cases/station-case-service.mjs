@@ -64,6 +64,10 @@ export function ageInDays(registeredAt, now) {
 }
 
 function registeredAgeInDays(registeredAt, now) {
+  const registeredMilliseconds = karnatakaInstant(registeredAt);
+  const nowMilliseconds = karnatakaInstant(now);
+  if (!Number.isFinite(registeredMilliseconds) || !Number.isFinite(nowMilliseconds)
+    || registeredMilliseconds > nowMilliseconds) return null;
   return karnatakaCalendarAgeDays(registeredAt, now);
 }
 
