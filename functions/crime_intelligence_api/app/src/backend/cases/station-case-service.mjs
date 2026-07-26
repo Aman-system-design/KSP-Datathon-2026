@@ -131,7 +131,10 @@ const compareCases = (left, right) => {
 };
 
 export function createStationCaseService({ repository, now = () => new Date() }) {
-  const allowed = (row, access) => access?.authorizedUnitIds?.has(Number(row.unitId)) === true;
+  const authorizedUnits = access => new Set(
+    [...(access?.authorizedUnitIds ?? [])].map(Number).filter(Number.isSafeInteger),
+  );
+  const allowed = (row, units) => units.has(Number(row.unitId));
   const requireAccess = (access) => {
     if (!access?.actions?.includes('READ_CASE')) fail('FORBIDDEN_ACTION');
   };
@@ -140,8 +143,9 @@ export function createStationCaseService({ repository, now = () => new Date() })
       requireAccess(access);
       const openOnly = normalizeOpenOnly(query);
       const currentTime = now();
+      const units = authorizedUnits(access);
       const projected = (await repository.listStationCaseRows({ unitIds: access.authorizedUnitIds }))
-        .filter(row => allowed(row, access))
+        .filter(row => allowed(row, units))
         .map(row => project(row, currentTime));
       const filtered = (openOnly ? projected.filter(row => row.isOpen) : projected)
         .sort(compareCases);
@@ -151,8 +155,9 @@ export function createStationCaseService({ repository, now = () => new Date() })
     async listForReport({ access }) {
       requireAccess(access);
       const currentTime = now();
+      const units = authorizedUnits(access);
       const projected = (await repository.listStationCaseRows({ unitIds: access.authorizedUnitIds }))
-        .filter(row => allowed(row, access))
+        .filter(row => allowed(row, units))
         .map(row => project(row, currentTime))
         .sort(compareCases);
       if (projected.length > ANALYTICS_LIMIT) fail('DATA_NOT_READY');
@@ -161,7 +166,7 @@ export function createStationCaseService({ repository, now = () => new Date() })
     async get({ access, caseId }) {
       requireAccess(access);
       const row = await repository.getStationCaseRow(caseId);
-      if (!row || !allowed(row, access)) fail('NOT_FOUND');
+      if (!row || !allowed(row, authorizedUnits(access))) fail('NOT_FOUND');
       const data = project(row, now());
       return { data, ...provenanceFields([data]) };
     },

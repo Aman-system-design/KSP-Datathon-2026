@@ -20,8 +20,8 @@
     },
     {
       "path": "src/backend/cases/station-case-service.mjs",
-      "sha256": "d69ad6da5ece4fe2570e41d58e0c11edd0de93de7e611d1671bcf6e2f35f3b80",
-      "bytes": 7380
+      "sha256": "2b766a189079c08fdd2169b6dcdfa809cc10d2a4cafbfe935daf6e7c7ee177a5",
+      "bytes": 7572
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",

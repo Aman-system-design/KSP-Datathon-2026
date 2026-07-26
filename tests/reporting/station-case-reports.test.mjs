@@ -62,6 +62,16 @@ test('station case ageing bars aggregate only the current viewer station', async
   ]);
 });
 
+test('station case reports accept Catalyst string unit identifiers at the authorization boundary', async () => {
+  const catalystAccess = { ...owner, scopeUnitId: '1001', authorizedUnitIds: new Set(['1001']) };
+  const result = await execute([caseRow(1), caseRow(2, { unitId: 2001 })], {
+    name: 'Catalyst station cases', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }], visualization: { type: 'number' },
+  }, catalystAccess);
+
+  assert.deepEqual(result.result.data.items, [{ recordCount_sum: 1 }]);
+});
+
 test('station case number reports count open cases', async () => {
   const result = await execute([
     caseRow(1), caseRow(2, { status: 'Closed' }), caseRow(3),
