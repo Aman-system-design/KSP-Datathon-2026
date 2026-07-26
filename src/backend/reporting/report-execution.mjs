@@ -113,7 +113,7 @@ export function reportRowsFromEnvelope(envelope) {
 }
 
 const periodOf = envelope => envelope?.meta?.observationPeriod?.to;
-const unitOf = envelope => envelope?.meta?.scopeUnitId;
+const unitOf = envelope => String(envelope?.meta?.scopeUnitId);
 
 export function projectReportRows(sourceKey, envelope) {
   const rows = reportRowsFromEnvelope(envelope);
@@ -143,10 +143,10 @@ export function projectReportRows(sourceKey, envelope) {
     score: row.score, period,
   }));
   if (sourceKey === 'districtContext') return rows.flatMap(row => Object.entries(row.indicators ?? {}).map(([indicator, value]) => ({
-    unitId: row.unitId, indicator, value, period: row.period ?? period,
+    unitId: String(row.unitId), indicator, value, period: row.period ?? period,
   })));
   if (sourceKey === 'alerts') return rows.map(row => ({
-    alertId: row.id, alertType: row.type, state: row.status, unitId: row.scopeUnitId,
+    alertId: row.id, alertType: row.type, state: row.status, unitId: String(row.scopeUnitId),
     severity: row.severity, createdAt: row.createdAt,
   }));
   if (sourceKey === 'stationCases') return rows.map(row => ({

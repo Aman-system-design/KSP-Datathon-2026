@@ -15,6 +15,15 @@ const anomalySource = {
   visualizations: ['table', 'bar', 'line'],
 };
 
+const stationCaseSource = {
+  key: 'stationCases', label: 'Station cases',
+  fields: {
+    isOpen: { type: 'boolean', dimension: true },
+    recordCount: { type: 'number', aggregates: ['sum'] },
+  },
+  visualizations: ['table', 'number'],
+};
+
 function renderNew(api, props = {}) {
   return render(<MemoryRouter initialEntries={['/reports/new']}><ReportBuilder api={api} {...props} /></MemoryRouter>);
 }
@@ -45,6 +54,57 @@ test('creates and executes a governed report through the progressive workflow', 
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
   expect(api.post).toHaveBeenNthCalledWith(1, '/v1/reports', expect.objectContaining({
     name: 'Anomaly watch', dimensions: ['unitId'], measures: [{ field: 'observed', aggregate: 'sum' }],
+  }));
+});
+
+test.each([
+  ['eq', 'true', true],
+  ['neq', 'false', false],
+])('creates station case reports with typed boolean %s filters', async (operator, input, expected) => {
+  const api = {
+    get: vi.fn(async () => ({ data: [stationCaseSource] })),
+    post: vi.fn(async () => ({ data: { id: 'R-BOOL', version: 1 } })),
+  };
+  renderNew(api);
+  await screen.findByRole('option', { name: 'Station cases' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Open case filter' } });
+  next(); next();
+  fireEvent.change(screen.getByLabelText('Filter field'), { target: { value: 'isOpen' } });
+  fireEvent.change(screen.getByLabelText('Filter operator'), { target: { value: operator } });
+  fireEvent.change(screen.getByLabelText('Filter value'), { target: { value: input } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/v1/reports', expect.objectContaining({
+    sourceKey: 'stationCases', filters: [{ field: 'isOpen', operator, value: expected }],
+  })));
+});
+
+test('edits station case reports with typed boolean in filters', async () => {
+  const api = {
+    get: vi.fn(async path => {
+      if (path === '/v1/report-sources') return { data: [stationCaseSource] };
+      if (path === '/v1/reports/R-BOOL') return { data: {
+        id: 'R-BOOL', name: 'Boolean cases', version: 2,
+        definition: {
+          name: 'Boolean cases', sourceKey: 'stationCases', dimensions: [], measures: [],
+          filters: [{ field: 'isOpen', operator: 'in', value: [true, false] }], sort: [],
+          visualization: { type: 'table' }, limit: 100,
+        },
+      } };
+      throw new Error(`Unexpected GET ${path}`);
+    }),
+    patch: vi.fn(async () => ({ data: { id: 'R-BOOL', version: 3 } })), post: vi.fn(),
+  };
+
+  render(<MemoryRouter initialEntries={['/reports/R-BOOL']}><Routes><Route path="/reports/:reportId" element={<ReportBuilder api={api} />} /></Routes></MemoryRouter>);
+  expect(await screen.findByLabelText('Report title')).toHaveValue('Boolean cases');
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/v1/reports/R-BOOL', {
+    expectedVersion: 2,
+    definition: expect.objectContaining({
+      filters: [{ field: 'isOpen', operator: 'in', value: [true, false] }],
+    }),
   }));
 });
 

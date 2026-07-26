@@ -340,6 +340,25 @@ test('station case analytics count only eligible cases while scanning bounded ra
   assert.equal((await repository.listStationCaseRows({ unitIds: [1001] })).length, 5000);
 });
 
+test('station case analytics fail safely when eligibility cannot be proven within 10,000 raw rows', async () => {
+  const fixture = catalystRows();
+  fixture.tables.SRC_CaseMaster = Array.from({ length: 10_001 }, (_, index) => ({
+    ROWID: `INELIGIBLE-${index + 1}`, CaseMasterID: index + 1,
+    CaseNo: `X-${index + 1}/2026`, PoliceStationID: 1001,
+    SourceBatchRef: 'BATCH-INCOMPLETE', ValidationStatus: 'ACCEPTED', IsSynthetic: true,
+  }));
+  Object.assign(fixture.tables, {
+    SRC_Unit: [], SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [],
+  });
+  const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });
+
+  await assert.rejects(
+    repository.listStationCaseRows({ unitIds: [1001] }),
+    { code: 'DATA_NOT_READY' },
+  );
+});
+
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {
   const fixture = catalystRows();
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });

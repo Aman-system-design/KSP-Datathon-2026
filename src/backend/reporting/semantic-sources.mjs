@@ -73,7 +73,7 @@ export const REPORT_SOURCES = Object.freeze({
     fields: {
       unitId: field('string', { dimension: true }), indicator: field('string', { dimension: true }),
       value: field('number', { aggregates: ['sum', 'avg', 'min', 'max', 'count'] }),
-      period: field('date', { dimension: true }),
+      period: field('string', { dimension: true }),
     },
     visualizations: ['number', 'table', 'bar', 'line'],
   }),
