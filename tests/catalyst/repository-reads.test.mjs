@@ -251,6 +251,62 @@ test('station case lists use indexed station queries instead of scanning a sourc
   assert.equal(app.calls.some(call => call.name === 'SRC_CaseMaster'), false);
 });
 
+test('station case analytics permit exactly 5,000 cases when later authorized stations are empty', async () => {
+  const fixture = catalystRows();
+  const accepted = row => ({
+    ...row, SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true,
+  });
+  fixture.tables.SRC_CaseMaster = Array.from({ length: 5000 }, (_, index) => accepted({
+    ROWID: `CASE-${index + 1}`, CaseMasterID: index + 1,
+    CaseNo: `${index + 1}/2026`, PoliceStationID: 1001,
+  }));
+  Object.assign(fixture.tables, {
+    SRC_Unit: [
+      accepted({ ROWID: 'UNIT-1', UnitID: 1001, UnitName: 'Central PS' }),
+      accepted({ ROWID: 'UNIT-2', UnitID: 2001, UnitName: 'North PS' }),
+    ],
+    SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [{
+      ROWID: 'BATCH-ROW-1', BatchID: 'BATCH-1', Status: 'COMPLETED', CompletedAt: '2026-07-01',
+      SourceRowCount: 5002, AcceptedRowCount: 5002, RejectedRowCount: 0, IsSynthetic: true,
+    }],
+  });
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  assert.equal((await repository.listStationCaseRows({ unitIds: [1001, 2001] })).length, 5000);
+  assert.ok(app.zcqlCalls.some(query => query.includes('PoliceStationID = 2001')));
+});
+
+test('station case analytics probe remaining stations and reject a 5,001st case', async () => {
+  const fixture = catalystRows();
+  const accepted = row => ({
+    ...row, SourceBatchRef: 'BATCH-ROW-1', ValidationStatus: 'ACCEPTED', IsSynthetic: true,
+  });
+  fixture.tables.SRC_CaseMaster = [
+    ...Array.from({ length: 5000 }, (_, index) => accepted({
+      ROWID: `CASE-${index + 1}`, CaseMasterID: index + 1,
+      CaseNo: `${index + 1}/2026`, PoliceStationID: 1001,
+    })),
+    accepted({ ROWID: 'CASE-5001', CaseMasterID: 5001, CaseNo: '5001/2026', PoliceStationID: 2001 }),
+  ];
+  Object.assign(fixture.tables, {
+    SRC_Unit: [], SRC_CaseStatusMaster: [], SRC_CrimeHead: [], SRC_CrimeSubHead: [],
+    TRN_IngestionBatch: [{
+      ROWID: 'BATCH-ROW-1', BatchID: 'BATCH-1', Status: 'COMPLETED', CompletedAt: '2026-07-01',
+      SourceRowCount: 5001, AcceptedRowCount: 5001, RejectedRowCount: 0, IsSynthetic: true,
+    }],
+  });
+  const app = fakeApplication(fixture.tables);
+  const repository = new CatalystIntelligenceRepository({ application: app });
+
+  await assert.rejects(
+    repository.listStationCaseRows({ unitIds: [1001, 2001] }),
+    { code: 'DATA_NOT_READY' },
+  );
+  assert.ok(app.zcqlCalls.some(query => query.includes('PoliceStationID = 2001')));
+});
+
 test('reconstructs paged findings, evidence, network/repeat appearances and district context', async () => {
   const fixture = catalystRows();
   const repository = new CatalystIntelligenceRepository({ application: fakeApplication(fixture.tables) });

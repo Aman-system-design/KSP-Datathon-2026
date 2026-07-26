@@ -1171,9 +1171,13 @@ export class CatalystIntelligenceRepository {
     const cases = [];
     for (const unitId of authorizedUnitIds) {
       const remaining = STATION_CASE_READ_LIMIT - cases.length;
-      if (remaining < 1) fail('DATA_NOT_READY', 'Station case result exceeds its governed read limit.');
-      const rows = await this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'PoliceStationID', unitId, { maxRows: remaining });
+      const rows = await this.#queryIndexed(SOURCE_TABLES.CaseMaster, 'PoliceStationID', unitId, {
+        maxRows: remaining + 1,
+      });
       cases.push(...this.#acceptedSyntheticSourceRows(rows, batchRefs));
+      if (cases.length > STATION_CASE_READ_LIMIT) {
+        fail('DATA_NOT_READY', 'Station case result exceeds its governed read limit.');
+      }
     }
     return this.#projectStationCaseRows(cases, batchRefs);
   }
