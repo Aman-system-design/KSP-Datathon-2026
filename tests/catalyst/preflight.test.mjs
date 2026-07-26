@@ -30,7 +30,7 @@ function input(overrides = {}) {
     sourceSchema: { tables: Array.from({ length: 29 }, (_, i) => ({ name: `SRC_${i}` })) },
     intelligenceSchema: canonicalIntelligenceSchema,
     migrationState: { migrationId: '2026-07-22-publication-pointer-v1', status: 'VERIFIED', deploymentBundle: 'PUBLICATION_POINTER' },
-    apiOperations: Array.from({ length: 42 }, (_, i) => ({ method: 'GET', path: `/v1/${i}` })),
+    apiOperations: Array.from({ length: 49 }, (_, i) => ({ method: 'GET', path: `/v1/${i}` })),
     cliVersion: '1.27.0', gitStatus: '', branch: 'codex/intelligence-workspaces', remote: true,
     ...overrides,
   };
@@ -42,7 +42,7 @@ test('preflight locks the approved Development project and inventories', () => {
   assert.equal(result.environment, 'Development');
   assert.equal(result.sourceTableCount, 29);
   assert.equal(result.intelligenceTableCount, 33);
-  assert.equal(result.apiOperationCount, 42);
+  assert.equal(result.apiOperationCount, 49);
   assert.equal(result.organizationId, 'ORG-KSP');
   assert.equal(result.syntheticOnly, true);
   assert.deepEqual(result.git, { branch: 'codex/intelligence-workspaces', clean: true });
@@ -63,7 +63,7 @@ test('preflight rejects the wrong project or any non-Development environment', (
 test('preflight rejects unsafe provenance, inventories, CLI and branch state', () => {
   assert.throws(() => evaluateCatalystPreflight(input({ projectConfig: { ...projectConfig, syntheticOnly: false } })), /synthetic/i);
   assert.throws(() => evaluateCatalystPreflight(input({ intelligenceSchema: { tables: [] } })), /32|manifest/i);
-  assert.throws(() => evaluateCatalystPreflight(input({ apiOperations: [] })), /42/);
+  assert.throws(() => evaluateCatalystPreflight(input({ apiOperations: [] })), /49/);
   assert.throws(() => evaluateCatalystPreflight(input({ cliVersion: '1.26.9' })), /CLI/i);
   assert.throws(() => evaluateCatalystPreflight(input({ gitStatus: ' M unsafe.txt' })), /clean/i);
   assert.throws(() => evaluateCatalystPreflight(input({ branch: 'main' })), /branch/i);
