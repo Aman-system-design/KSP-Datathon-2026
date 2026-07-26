@@ -28,6 +28,12 @@ const definitions = deepFreeze([
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listPatterns' },
     analyticalMethod: 'Multi-signal pattern fusion',
+    aiAssistance: {
+      method: 'EXPLAINABLE_MULTI_SIGNAL_FUSION',
+      engineVersion: '1.0.0',
+      explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+    },
     stages: lifecycle({
       data: 'Authorized case features',
       analyze: 'Fuse cross-district signals',
@@ -53,6 +59,12 @@ const definitions = deepFreeze([
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listHotspots' },
     analyticalMethod: 'Density-based spatial clustering',
+    aiAssistance: {
+      method: 'HAVERSINE_DBSCAN',
+      engineVersion: '1.0.0',
+      explanation: 'The HAVERSINE_DBSCAN engine groups nearby cases within an authorized spatial and time window, using case density to create a machine-generated hotspot signal. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+    },
     stages: lifecycle({
       data: 'Authorized geocoded cases',
       analyze: 'Detect spatial concentrations',
@@ -78,6 +90,12 @@ const definitions = deepFreeze([
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listAnomalies' },
     analyticalMethod: 'Baseline deviation analysis',
+    aiAssistance: {
+      method: 'MEDIAN_MAD',
+      engineVersion: '1.0.0',
+      explanation: 'The MEDIAN_MAD engine compares observed values with a robust median baseline and median absolute deviation; SEASONAL_MEDIAN_MAD is used only when a seasonal period is configured. The model creates a machine-generated anomaly signal for material departures. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+    },
     stages: lifecycle({
       data: 'Authorized area time series',
       analyze: 'Compare values with baselines',
