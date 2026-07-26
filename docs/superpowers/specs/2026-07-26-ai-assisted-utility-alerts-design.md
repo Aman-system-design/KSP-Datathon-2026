@@ -51,6 +51,10 @@ The existing evaluated, matched, suppressed, and alert-link values remain author
 
 Follow the existing Catalyst-inspired ACE language: white and pale-blue surfaces, restrained borders, one orange analytical accent, compact spacing, and no oversized hero treatment. The explanation panel must be visually secondary to the editable policy and must not increase cognitive load with multiple cards.
 
+## Command Centre Entry Point
+
+Utilities is a first-class operational module, not a subsection of the generic Intelligence workspace. The Command Centre rail will expose a dedicated **Utilities** destination that opens `/utilities?persona=COMMAND_CENTER`. Other Command Centre module buttons will navigate to their governed routes instead of changing only the selected icon. Leadership and analyst personas retain Utilities access during the MVP, but Command Centre is the primary operational entry point.
+
 ## Contract and Compatibility
 
 - Add `COMMAND_CENTER` to the recipient allowlist used by frontend and backend validation.
@@ -64,6 +68,7 @@ Follow the existing Catalyst-inspired ACE language: white and pale-blue surfaces
 - Frontend test: Command Centre appears and is selected by default with Crime Analyst.
 - Frontend test: each available utility displays its correct method and substantive explanation.
 - Frontend test: evaluation result explains model assessment and policy qualification without changing counts.
+- Navigation test: Command Centre exposes Utilities and routes it to `/utilities?persona=COMMAND_CENTER`, while Analytics remains `/intelligence`.
 - Backend tests: `COMMAND_CENTER` is accepted, persisted, returned, and embedded in generated alert evidence.
 - Regression tests: invalid and duplicate recipient roles remain rejected; existing stored policies render unchanged.
 
