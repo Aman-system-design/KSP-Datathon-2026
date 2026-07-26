@@ -94,7 +94,7 @@ export function StationCaseDetail({ api }) {
   if (state.loading) return <div className="station-case-detail station-case-detail--state"><Busy label="Loading governed case record…" /></div>;
   if (state.error) {
     if (state.error.status === 403 || state.error.status === 404) return <CaseUnavailable />;
-    return <div className="station-case-detail station-case-detail--state"><Failure error={{
+    return <div className="station-case-detail station-case-detail--state" role="alert"><Failure error={{
       code: 'CASE_DETAIL_REQUEST_FAILED', requestId: state.error.requestId,
     }} /></div>;
   }

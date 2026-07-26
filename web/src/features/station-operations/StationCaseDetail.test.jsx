@@ -95,6 +95,7 @@ test('uses a safe retry state for service failures instead of the unavailable-re
   renderDetail(api, '/cases/SECRET-99?persona=STATION_OPERATIONS');
 
   expect(await screen.findByText('Intelligence is unavailable')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('The request could not be completed.');
   expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Case unavailable' })).not.toBeInTheDocument();
   expect(screen.queryByText(/SECRET-99|private transport detail/i)).not.toBeInTheDocument();
