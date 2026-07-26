@@ -3,7 +3,7 @@ import { lazy } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { AlertsPage, Application, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
+import { AlertsPage, Application, commandCenterModuleLocation, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
 
 test('failure state exposes a safe boundary code without requiring a server request id', () => {
   render(<Failure error={{ code: 'AUTH_SESSION_FAILED' }} />);
@@ -40,6 +40,12 @@ test('maps workspace chooser destinations without weakening persona validation',
     pathname: '/', search: '?release=1&persona=COMMAND_CENTER',
   });
   expect(() => workspaceDestinationLocation({ type: 'route', pathname: '//unsafe.example' }, '')).toThrow(TypeError);
+});
+
+test('command center module navigation preserves release and forces its persona', () => {
+  expect(commandCenterModuleLocation('?release=1&persona=CRIME_ANALYST', 'utilities')).toEqual({
+    pathname: '/utilities', search: '?release=1&persona=COMMAND_CENTER',
+  });
 });
 
 const geospatialApi = ({ datasets = [], datasetError } = {}) => ({

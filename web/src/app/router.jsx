@@ -76,7 +76,7 @@ export function commandCenterModuleLocation(currentSearch = '', moduleId = 'home
   if (moduleId === 'home') return Object.freeze({ pathname: '/', search: personaSearch(currentSearch, 'COMMAND_CENTER') });
   const pathname = routes[moduleId];
   if (!pathname) throw new TypeError('A Command Center module is required');
-  return Object.freeze({ pathname, search: personaSearch(currentSearch, readDemoPersona(currentSearch) ?? 'COMMAND_CENTER') });
+  return Object.freeze({ pathname, search: personaSearch(currentSearch, 'COMMAND_CENTER') });
 }
 
 function AuthorizedApplication({ api, auth, requestedPersona }) {
