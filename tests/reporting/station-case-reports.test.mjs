@@ -101,6 +101,17 @@ test('new case reports count all lifecycle states registered in the last thirty 
   assert.deepEqual(result.result.data.items, [{ recordCount_sum: 2 }]);
 });
 
+test('number reports return a truthful zero when no rows match', async () => {
+  const result = await execute([caseRow(1, { registeredAt: '2026-01-01T00:00:00Z' })], {
+    name: 'New Cases Â· Last 30 Days', sourceKey: 'stationCases',
+    measures: [{ field: 'recordCount', aggregate: 'sum' }],
+    filters: [{ field: 'registeredAgeDays', operator: 'lte', value: 30 }],
+    visualization: { type: 'number' },
+  });
+
+  assert.deepEqual(result.result.data.items, [{ recordCount_sum: 0 }]);
+});
+
 test('selected-period reports exclude future registrations across every supported period', async () => {
   for (const periodDays of [7, 30, 90]) {
     const result = await execute([

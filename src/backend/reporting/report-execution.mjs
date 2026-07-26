@@ -14,6 +14,7 @@ function matches(row, { field, operator, value }) {
 function aggregate(values, operation) {
   const numbers = values.map(Number).filter(Number.isFinite);
   if (operation === 'count') return values.length;
+  if (operation === 'sum' && numbers.length === 0) return 0;
   if (numbers.length === 0) return null;
   if (operation === 'sum') return numbers.reduce((total, value) => total + value, 0);
   if (operation === 'avg') return numbers.reduce((total, value) => total + value, 0) / numbers.length;
