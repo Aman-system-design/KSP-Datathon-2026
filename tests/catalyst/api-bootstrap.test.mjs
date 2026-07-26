@@ -100,6 +100,51 @@ test('API composition serves utility categories and one utility definition', asy
   assert.equal(utility.body.data.alertPolicy.enabled, false);
 });
 
+test('API composition gives Command Center read-only utility and alert access', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
+  const headers = { 'X-Demo-Persona': 'COMMAND_CENTER' };
+
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers, body: null });
+  assert.equal(workspace.status, 200);
+  assert.equal(workspace.body.data.role, 'COMMAND_CENTER');
+  assert.equal(workspace.body.data.syntheticData, true);
+
+  const utilities = await application({ method: 'GET', url: '/v1/utilities', headers, body: null });
+  assert.equal(utilities.status, 200);
+  assert.equal(utilities.body.data.length, 4);
+
+  const alerts = await application({ method: 'GET', url: '/v1/alerts', headers, body: null });
+  assert.equal(alerts.status, 200);
+  assert.equal(alerts.body.data.items.some(item => item.id === 'ALT-PATTERN-1'), true);
+  const detail = await application({ method: 'GET', url: '/v1/alerts/ALT-PATTERN-1', headers, body: null });
+  assert.equal(detail.status, 200);
+
+  const forbidden = [
+    {
+      method: 'POST', url: '/v1/utility-alert-rules',
+      headers: { ...headers, 'Idempotency-Key': 'command-center-denied' },
+      body: {
+        utilityKey: 'patterns', enabled: true, scopeUnitId: 101,
+        thresholds: { threshold: 0.8 }, evaluationWindowDays: 30,
+        severity: 'HIGH', recipientRoles: ['COMMAND_CENTER'],
+      },
+    },
+    {
+      method: 'PATCH', url: '/v1/utility-alert-rules/RULE-DENIED', headers,
+      body: { expectedVersion: 1, enabled: false },
+    },
+    {
+      method: 'POST', url: '/v1/utility-alert-rules/RULE-DENIED/evaluate', headers,
+      body: { expectedVersion: 1 },
+    },
+  ];
+  for (const request of forbidden) {
+    const response = await application(request);
+    assert.equal(response.status, 403, `${request.method} ${request.url}`);
+    assert.equal(response.body.error.code, 'FORBIDDEN_ACTION');
+  }
+});
+
 test('API composition denies utility catalogue reads to a role without READ_UTILITY', async () => {
   const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
 

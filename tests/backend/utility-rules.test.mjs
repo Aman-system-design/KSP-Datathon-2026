@@ -25,6 +25,13 @@ test('normalizes the exact bounded rule payload and derives registry version', (
   });
 });
 
+test('accepts command center recipients and canonicalizes them first', () => {
+  assert.deepEqual(normalizeUtilityRuleInput({
+    ...base,
+    recipientRoles: ['CRIME_ANALYST', 'COMMAND_CENTER'],
+  }, { authorizedUnitIds }).recipientRoles, ['COMMAND_CENTER', 'CRIME_ANALYST']);
+});
+
 test('uses the utility-specific threshold name and registry bounds', () => {
   assert.equal(normalizeUtilityRuleInput({
     ...base, utilityKey: 'hotspots', thresholds: { minimumCases: 2 }, evaluationWindowDays: 180,

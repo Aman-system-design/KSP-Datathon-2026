@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "4bab35e8ae57f86d7992595f55f6fc02bc4a17c22e2e3995d55c32df98b6b5d3",
-      "bytes": 2149
+      "sha256": "eb344a61648798d2d261e4b0afa0468cf79f546ee9a9e10a225798ec4f4821ff",
+      "bytes": 2367
     },
     {
       "path": "data/synthetic-demo-input.json",
@@ -15,8 +15,8 @@
     },
     {
       "path": "data/synthetic-identity-authority.json",
-      "sha256": "d28ee1b9c6b8df45acfc99eb381dcde5f8f3a6fdce38e615ff86c0da6e6588e7",
-      "bytes": 774
+      "sha256": "b08ef169d88f361e3d33ce03c7397896c71de65e2ed1dfe15bc25efe4d5b2acb",
+      "bytes": 792
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -95,8 +95,8 @@
     },
     {
       "path": "src/backend/utilities/rule-contract.mjs",
-      "sha256": "e4e5150f6097ec315131fdb9e51a63d4e9d6456f5dfb7d076860ae16e9808981",
-      "bytes": 4554
+      "sha256": "219d5c12b848561e0138ec37e6ed37e0b568a817b04f7cd40466a2f6bfeb5c13",
+      "bytes": 4757
     },
     {
       "path": "src/backend/utilities/utility-evaluator.mjs",
@@ -105,8 +105,8 @@
     },
     {
       "path": "src/backend/utilities/utility-registry.mjs",
-      "sha256": "a87d94d74061cef78c3ea51a04c392f0c3cb123ecd226cafc172dbb780a524e9",
-      "bytes": 5013
+      "sha256": "8a88c907cca26e07dbbcfa5630b8f672b9e5d08d5412def76edfb13d81243d1d",
+      "bytes": 6540
     },
     {
       "path": "src/backend/utilities/utility-run-evaluation.mjs",
@@ -130,8 +130,8 @@
     },
     {
       "path": "src/ingestion/to-intelligence-input.mjs",
-      "sha256": "085ac9bebf9d65cfb8a592d2d133147a003b8f78f8e4d9eb0d7c16f3af59ac82",
-      "bytes": 6057
+      "sha256": "2a4aef7b7be4d9ae3fcb0aac2279742feb1f10b95a09817129509c2d2f46d221",
+      "bytes": 6069
     },
     {
       "path": "src/ingestion/validate-source-seed.mjs",
@@ -140,13 +140,13 @@
     },
     {
       "path": "src/synthetic/source-seed.mjs",
-      "sha256": "968e304f01e00dda5fbc841a6976451c93e8194a1e65d91a508fc533734df395",
-      "bytes": 13495
+      "sha256": "66bf1a419944242ac77108b63f3ffaeaa698aef4f28d7957f95807533ef04bb5",
+      "bytes": 13506
     },
     {
       "path": "src/synthetic/statewide-source-seed.mjs",
-      "sha256": "072eb27682c1353face3fb84a8b3e1d6d9c5175123c35d612a0e1e66d234aaa4",
-      "bytes": 16446
+      "sha256": "485e9b9f71dff0c3385e7b80e6771152678bee06f4352dcdcf77c066ff640bd5",
+      "bytes": 16773
     },
     {
       "path": "vendor/intelligence-core/index.mjs",
@@ -170,8 +170,8 @@
     },
     {
       "path": "vendor/intelligence-core/src/candidates.mjs",
-      "sha256": "cb5eacae0283df32c56811907745df10db33773fa92ee02c42e558c5b7f61936",
-      "bytes": 5924
+      "sha256": "d539f6144edfa74ef02997688280f81231ea00360921742e60a21158f32231ea",
+      "bytes": 6045
     },
     {
       "path": "vendor/intelligence-core/src/contracts.mjs",
@@ -185,13 +185,13 @@
     },
     {
       "path": "vendor/intelligence-core/src/hotspot.mjs",
-      "sha256": "36fb03322e69dd18c5bbe2c1f0398470df14997a7656966f4afa4b67499ca9a0",
-      "bytes": 2662
+      "sha256": "ed04cfd025122534630deea57319425e16c88c3e717c2dba96518a72097b29bc",
+      "bytes": 2690
     },
     {
       "path": "vendor/intelligence-core/src/identity.mjs",
-      "sha256": "4c9fa19782c876275510357f227cbff050c7a865904d01a46fd2bf49972449c4",
-      "bytes": 1697
+      "sha256": "3a07a69a4890e137d35f14205b0f6b3dbb8d9a5c0b822b4b68285bc07abb4272",
+      "bytes": 1705
     },
     {
       "path": "vendor/intelligence-core/src/math.mjs",
@@ -205,13 +205,13 @@
     },
     {
       "path": "vendor/intelligence-core/src/pattern-fusion.mjs",
-      "sha256": "4c19c261a518633043eec4448f6f5624e05e988b29dca423f0651baa99249847",
-      "bytes": 4242
+      "sha256": "45a2faf2be072115ccfb5c646c9dbe5136a26784a0bca1b8dd03a9a7fe3ddf6e",
+      "bytes": 4259
     },
     {
       "path": "vendor/intelligence-core/src/pipeline.mjs",
-      "sha256": "3ad3f20a2e5bcabbb3aa08c0ec075e202750a6a0b788e04fa33021459323408c",
-      "bytes": 3886
+      "sha256": "66c2d943366f07e185d1e64278999bc8c48944ee8bda4abf3cff5abac6b991ce",
+      "bytes": 3892
     },
     {
       "path": "vendor/intelligence-core/src/text-similarity.mjs",

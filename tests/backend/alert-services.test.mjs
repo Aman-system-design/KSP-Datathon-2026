@@ -6,12 +6,29 @@ import { MemoryIntelligenceRepository } from '../../src/backend/repository/memor
 import { createAlertServices } from '../../src/backend/services/alert-services.mjs';
 import { evaluateUtilityFinding } from '../../src/backend/utilities/utility-evaluator.mjs';
 
-const access = (units) => ({
-  actualUserId: 'USER-1', role: 'DISTRICT_LEADERSHIP', actions: ['READ_ALERT'],
+const access = (units, role = 'DISTRICT_LEADERSHIP') => ({
+  actualUserId: 'USER-1', role, actions: ['READ_ALERT'],
   authorizedUnitIds: new Set(units), scopeUnitId: units[0], syntheticData: true,
 });
 
-test('alert discovery is scoped and exposes explainable immutable finding evidence', async () => {
+async function utilityAlertFixture(recipientRoles) {
+  const state = buildDemoState();
+  const repository = new MemoryIntelligenceRepository(state);
+  const analysisRun = state.runGroups[0].runs.find(row => row.AnalysisType === 'HOTSPOT');
+  const utilityRule = {
+    RuleID: 'RULE-HOT-RECIPIENTS', UtilityKey: 'hotspots', UtilityVersion: '1.0.0', Enabled: true,
+    ScopeUnitID: 101, ThresholdsJSON: '{"minimumCases":5}', EvaluationWindowDays: 30,
+    Severity: 'HIGH', RecipientRolesJSON: JSON.stringify(recipientRoles), Version: 1,
+  };
+  await repository.createUtilityRule(utilityRule);
+  const evaluated = evaluateUtilityFinding({
+    rule: utilityRule, finding: state.hotspots[0], analysisRun, now: '2026-07-26T10:00:00.000Z',
+  });
+  await repository.createAlertIfAbsent(evaluated.alert);
+  return { repository, alert: evaluated.alert };
+}
+
+test('legacy alert discovery remains scoped and exposes explainable immutable finding evidence', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const alerts = createAlertServices({ repository });
   const list = await alerts.listAlerts({ access: access([101]), query: { status: 'GENERATED' } });
@@ -25,6 +42,82 @@ test('alert discovery is scoped and exposes explainable immutable finding eviden
   assert.ok(detail.data.observation.every(({ unitId }) => unitId === 101));
   assert.equal(detail.data.originalFinding.status, 'IMMUTABLE');
   assert.deepEqual(detail.data.limitations, ['SYNTHETIC_DATA', 'SIMILARITY_IS_NOT_PROOF']);
+});
+
+test('utility alert discovery and detail require the access role to be an intended recipient', async () => {
+  const { repository, alert } = await utilityAlertFixture(['COMMAND_CENTER', 'CRIME_ANALYST']);
+  const alerts = createAlertServices({ repository });
+
+  for (const role of ['COMMAND_CENTER', 'CRIME_ANALYST']) {
+    const list = await alerts.listAlerts({ access: access([101], role), query: {} });
+    assert.equal(list.data.items.some(item => item.id === alert.AlertID), true, role);
+    assert.equal((await alerts.getAlertDetail({
+      access: access([101], role), params: { alertId: alert.AlertID },
+    })).data.id, alert.AlertID, role);
+  }
+
+  const district = access([101], 'DISTRICT_LEADERSHIP');
+  const hidden = await alerts.listAlerts({ access: district, query: {} });
+  assert.equal(hidden.data.items.some(item => item.id === alert.AlertID), false);
+  await assert.rejects(alerts.getAlertDetail({
+    access: district, params: { alertId: alert.AlertID },
+  }), { code: 'NOT_FOUND' });
+});
+
+test('utility alerts with malformed recipient metadata fail closed without discovery leakage', async () => {
+  const { repository, alert } = await utilityAlertFixture(['CRIME_ANALYST']);
+  const invalidRecipients = [
+    ['missing', undefined],
+    ['empty', []],
+    ['duplicate', ['CRIME_ANALYST', 'CRIME_ANALYST']],
+    ['unsupported', ['STATION_OPERATIONS']],
+    ['non-array', 'CRIME_ANALYST'],
+  ];
+  const invalidIds = [];
+  for (const [suffix, recipientRoles] of invalidRecipients) {
+    const finding = JSON.parse(alert.OriginalFindingJSON);
+    if (recipientRoles === undefined) delete finding.rule.recipientRoles;
+    else finding.rule.recipientRoles = recipientRoles;
+    const AlertID = `${alert.AlertID}-${suffix}`;
+    invalidIds.push(AlertID);
+    await repository.createAlertIfAbsent({
+      ...alert, AlertID, OriginalFindingJSON: JSON.stringify(finding),
+    });
+  }
+
+  const alerts = createAlertServices({ repository });
+  const analyst = access([101], 'CRIME_ANALYST');
+  const listed = await alerts.listAlerts({ access: analyst, query: {} });
+  assert.equal(listed.data.items.some(item => invalidIds.includes(item.id)), false);
+  for (const alertId of invalidIds) {
+    await assert.rejects(alerts.getAlertDetail({
+      access: analyst, params: { alertId },
+    }), { code: 'NOT_FOUND' });
+  }
+});
+
+test('rule-only and utility-only alert markers fail closed for list and detail', async () => {
+  const { repository, alert } = await utilityAlertFixture(['CRIME_ANALYST']);
+  const partialIds = [];
+  for (const marker of ['rule', 'utility']) {
+    const finding = JSON.parse(alert.OriginalFindingJSON);
+    delete finding[marker === 'rule' ? 'utility' : 'rule'];
+    const AlertID = `${alert.AlertID}-${marker}-only`;
+    partialIds.push(AlertID);
+    await repository.createAlertIfAbsent({
+      ...alert, AlertID, OriginalFindingJSON: JSON.stringify(finding),
+    });
+  }
+
+  const alerts = createAlertServices({ repository });
+  const unintended = access([101], 'DISTRICT_LEADERSHIP');
+  const listed = await alerts.listAlerts({ access: unintended, query: {} });
+  assert.equal(listed.data.items.some(item => partialIds.includes(item.id)), false);
+  for (const alertId of partialIds) {
+    await assert.rejects(alerts.getAlertDetail({
+      access: unintended, params: { alertId },
+    }), { code: 'NOT_FOUND' });
+  }
 });
 
 test('alert discovery rejects missing permission, invalid filters and hidden geography', async () => {
@@ -52,7 +145,7 @@ test('utility alert detail exposes deterministic rule, run and demonstration pro
   await repository.createAlertIfAbsent(evaluated.alert);
 
   const detail = await createAlertServices({ repository }).getAlertDetail({
-    access: access([101]), params: { alertId: evaluated.alert.AlertID },
+    access: access([101], 'CRIME_ANALYST'), params: { alertId: evaluated.alert.AlertID },
   });
   assert.deepEqual(detail.data.evaluation, {
     utilityKey: 'hotspots', ruleId: 'RULE-HOT-1', ruleVersion: 1,
@@ -66,10 +159,10 @@ test('utility alert detail exposes deterministic rule, run and demonstration pro
     Enabled: false, UpdatedAt: '2026-07-26T11:00:00.000Z',
   });
   const afterRuleChange = await createAlertServices({ repository }).listAlerts({
-    access: access([101]), query: {},
+    access: access([101], 'CRIME_ANALYST'), query: {},
   });
   assert.equal(afterRuleChange.data.items.some(item => item.id === evaluated.alert.AlertID), false);
   await assert.rejects(createAlertServices({ repository }).getAlertDetail({
-    access: access([101]), params: { alertId: evaluated.alert.AlertID },
+    access: access([101], 'CRIME_ANALYST'), params: { alertId: evaluated.alert.AlertID },
   }), { code: 'NOT_FOUND' });
 });

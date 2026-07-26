@@ -7,10 +7,15 @@ const inputKeys = Object.freeze([
 const patchKeys = new Set(inputKeys.filter(key => key !== 'utilityKey'));
 const severities = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 const recipientRoleOrder = Object.freeze([
-  'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST',
+  'COMMAND_CENTER', 'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST',
 ]);
 const recipientRoles = new Set(recipientRoleOrder);
 const supportedUtilities = new Set(['patterns', 'hotspots', 'anomalies']);
+
+export const isValidUtilityRecipientRoles = value => Array.isArray(value)
+  && value.length > 0
+  && new Set(value).size === value.length
+  && value.every(role => recipientRoles.has(role));
 
 const fail = message => { throw new TypeError(message); };
 const isPlainObject = value => value !== null

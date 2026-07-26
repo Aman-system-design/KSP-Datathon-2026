@@ -152,6 +152,18 @@ test('rule creation requires management permission and persists server-owned met
   );
 });
 
+test('rule creation persists and returns command center recipients in canonical order', async () => {
+  const { services: ruleServices, state } = ruleHarness();
+  const result = await ruleServices.createUtilityAlertRule({
+    access,
+    headers: { 'Idempotency-Key': 'create-command-center' },
+    body: { ...input, recipientRoles: ['CRIME_ANALYST', 'COMMAND_CENTER'] },
+  });
+
+  assert.equal(state[0].RecipientRolesJSON, '["COMMAND_CENTER","CRIME_ANALYST"]');
+  assert.deepEqual(result.data.recipientRoles, ['COMMAND_CENTER', 'CRIME_ANALYST']);
+});
+
 test('rule creation requires an idempotency key and reconciles only the same normalized request', async () => {
   const { services: ruleServices, state } = ruleHarness();
   await assert.rejects(ruleServices.createUtilityAlertRule({ access, headers: {}, body: input }), { code: 'INVALID_REQUEST' });

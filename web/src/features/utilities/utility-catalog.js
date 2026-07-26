@@ -24,6 +24,19 @@ function nonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isPlainRecord(value) {
+  return isRecord(value) && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function hasExactKeys(value, keys) {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every(key => Object.hasOwn(value, key));
+}
+
+function boundedString(value, maxLength) {
+  return nonEmptyString(value) && value.trim().length <= maxLength;
+}
+
 function normalizeStages(value) {
   if (!Array.isArray(value) || value.length !== lifecycleStages.length) return null;
   const stages = value.map((item, index) => isRecord(item)
@@ -61,14 +74,32 @@ function normalizeAlertPolicy(value) {
   return { enabled: value.enabled, fields: Object.fromEntries(entries.map(([name, bounds]) => [name, { kind: bounds.kind, min: bounds.min, max: bounds.max }])) };
 }
 
+function normalizeAiAssistance(value) {
+  const assistanceKeys = ['method', 'engineVersion', 'explanation', 'governance'];
+  const governanceKeys = ['machineGeneratedSignal', 'humanGovernedDelivery', 'humanReviewRequired'];
+  if (!isPlainRecord(value) || !hasExactKeys(value, assistanceKeys)
+    || !boundedString(value.method, 80)
+    || !boundedString(value.engineVersion, 32)
+    || !boundedString(value.explanation, 1200)
+    || !isPlainRecord(value.governance) || !hasExactKeys(value.governance, governanceKeys)
+    || governanceKeys.some(key => value.governance[key] !== true)) return null;
+  return {
+    method: value.method.trim(), engineVersion: value.engineVersion.trim(), explanation: value.explanation.trim(),
+    governance: Object.fromEntries(governanceKeys.map(key => [key, true])),
+  };
+}
+
 function normalizeUtilityDefinition(value, requestedKey) {
   const base = normalizeCatalogueDefinition(value);
   if (!base || base.key !== requestedKey || !nonEmptyString(value.analyticalMethod)) return null;
   const outputs = normalizeStringList(value.outputs);
   const limitations = normalizeStringList(value.limitations);
   const alertPolicy = normalizeAlertPolicy(value.alertPolicy);
-  return outputs && limitations && alertPolicy
-    ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy }
+  const aiAssistance = value.availability === 'AVAILABLE'
+    ? normalizeAiAssistance(value.aiAssistance)
+    : undefined;
+  return outputs && limitations && alertPolicy && (value.availability !== 'AVAILABLE' || aiAssistance)
+    ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy, ...(aiAssistance ? { aiAssistance } : {}) }
     : null;
 }
 

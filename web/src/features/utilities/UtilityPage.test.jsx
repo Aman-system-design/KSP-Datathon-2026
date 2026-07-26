@@ -1,8 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
 import { afterEach, expect, test, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { UtilityPage } from './UtilityPage.jsx';
+
+const policyCss = readFileSync('src/features/utilities/utility-policy.css', 'utf8');
 
 afterEach(cleanup);
 
@@ -28,6 +31,11 @@ const patterns = {
   description: 'Connects related signals across authorized districts for human review.',
   category: 'patterns-networks', availability: 'AVAILABLE', icon: 'network',
   analyticalMethod: 'Multi-signal pattern fusion',
+  aiAssistance: {
+    method: 'EXPLAINABLE_MULTI_SIGNAL_FUSION', engineVersion: '1.0.0',
+    explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+    governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+  },
   stages: [
     { stage: 'Data', label: 'Authorized case features' },
     { stage: 'Analyze', label: 'Fuse cross-district signals' },
@@ -41,6 +49,36 @@ const patterns = {
     enabled: true,
     fields: { threshold: { kind: 'number', min: 0.65, max: 1 }, evaluationWindowDays: { kind: 'integer', min: 1, max: 180 } },
   },
+};
+
+const hotspots = {
+  ...patterns,
+  key: 'hotspots', name: 'Emerging Hotspot Intelligence', category: 'spatial-intelligence', icon: 'map-pin',
+  analyticalMethod: 'Density-based spatial clustering',
+  aiAssistance: {
+    method: 'HAVERSINE_DBSCAN', engineVersion: '1.0.0',
+    explanation: 'The HAVERSINE_DBSCAN engine groups nearby cases within an authorized spatial and time window, using case density to create a machine-generated hotspot signal. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+    governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+  },
+  alertPolicy: { enabled: true, fields: {
+    minimumCases: { kind: 'integer', min: 2, max: 50 },
+    evaluationWindowDays: { kind: 'integer', min: 1, max: 180 },
+  } },
+};
+
+const anomalies = {
+  ...patterns,
+  key: 'anomalies', name: 'Trend Anomaly Intelligence', category: 'trends-anomalies', icon: 'chart-no-axes-combined',
+  analyticalMethod: 'Baseline deviation analysis',
+  aiAssistance: {
+    method: 'MEDIAN_MAD', engineVersion: '1.0.0',
+    explanation: 'The MEDIAN_MAD engine compares observed values with a robust median baseline and median absolute deviation; SEASONAL_MEDIAN_MAD is used only when a seasonal period is configured. The model creates a machine-generated anomaly signal for material departures. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+    governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+  },
+  alertPolicy: { enabled: true, fields: {
+    deviation: { kind: 'number', min: 1, max: 10 },
+    evaluationWindowDays: { kind: 'integer', min: 1, max: 180 },
+  } },
 };
 
 const savedPatternRule = {
@@ -125,6 +163,38 @@ test.each([
   expect(screen.queryByRole('heading', { name: 'Area Attention Intelligence' })).not.toBeInTheDocument();
 });
 
+test.each([
+  ['missing metadata', undefined],
+  ['non-plain object', Object.assign(Object.create({ inherited: true }), patterns.aiAssistance)],
+  ['extra unsafe key', { ...patterns.aiAssistance, internalPrompt: 'private' }],
+  ['empty method', { ...patterns.aiAssistance, method: '' }],
+  ['oversized engine version', { ...patterns.aiAssistance, engineVersion: 'v'.repeat(33) }],
+  ['oversized explanation', { ...patterns.aiAssistance, explanation: 'x'.repeat(1201) }],
+  ['missing governance', { ...patterns.aiAssistance, governance: undefined }],
+  ['disabled human review', { ...patterns.aiAssistance, governance: { ...patterns.aiAssistance.governance, humanReviewRequired: false } }],
+  ['extra governance key', { ...patterns.aiAssistance, governance: { ...patterns.aiAssistance.governance, autonomousAction: false } }],
+])('rejects available utility AI assistance with %s', async (_case, aiAssistance) => {
+  const api = { get: vi.fn(async () => ({ data: { ...patterns, aiAssistance } })) };
+  renderRoute(api, '/utilities/patterns');
+
+  expect(await screen.findByText('Reference UTILITY_CONTRACT_INVALID')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: patterns.name })).not.toBeInTheDocument();
+});
+
+test('accepts revised server-owned AI assistance copy without a client copy allowlist', async () => {
+  const explanation = 'Seasonal observations are processed into a review signal. Delivery remains governed and requires review.';
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: { ...anomalies, aiAssistance: { ...anomalies.aiAssistance, method: 'SEASONAL_MEDIAN_MAD', explanation } } }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/anomalies');
+  await screen.findByRole('heading', { name: anomalies.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+
+  const panel = await screen.findByRole('complementary', { name: 'AI-assisted detection' });
+  expect(panel).toHaveTextContent('SEASONAL_MEDIAN_MAD');
+  expect(panel).toHaveTextContent(explanation);
+});
+
 test('keeps an invalid utility key inside a safe catalogue boundary', async () => {
   const notFound = Object.assign(new Error('private service detail'), { status: 404, code: 'NOT_FOUND' });
   const api = { get: vi.fn(async () => { throw notFound; }) };
@@ -154,6 +224,31 @@ test('loads and lists alert policies only after the progressive section is opene
   expect(screen.queryByText(/QuickML/i)).not.toBeInTheDocument();
 });
 
+test.each([
+  [patterns, /linking authorized case features.*assigning confidence/i],
+  [hotspots, /authorized spatial and time window.*case density/i],
+  [anomalies, /SEASONAL_MEDIAN_MAD.*seasonal period is configured/i],
+])('renders one governed AI-assisted detection panel for $key', async (utility, methodExplanation) => {
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: utility }
+    : { data: { items: [] } }) };
+  renderRoute(api, `/utilities/${utility.key}`);
+  await screen.findByRole('heading', { name: utility.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+
+  const panels = await screen.findAllByRole('complementary', { name: 'AI-assisted detection' });
+  expect(panels).toHaveLength(1);
+  expect(panels[0]).toHaveTextContent(utility.aiAssistance.method);
+  expect(panels[0]).toHaveTextContent(utility.aiAssistance.engineVersion);
+  expect(panels[0]).toHaveTextContent(methodExplanation);
+  expect(panels[0]).toHaveTextContent(/human review is required/i);
+});
+
+test('keeps AI assistance and evaluation narrative typography at 12px', () => {
+  expect(policyCss).toMatch(/\.utilities-ai-assistance p\s*\{[^}]*font-size:\s*12px/);
+  expect(policyCss).toMatch(/\.utilities-policy-result p\s*\{[^}]*font-size:\s*12px/);
+});
+
 test('creates one bounded policy and keeps its idempotency key for a retry until the draft changes', async () => {
   const failure = Object.assign(new Error('failed'), { code: 'INTERNAL_ERROR' });
   const api = {
@@ -166,6 +261,9 @@ test('creates one bounded policy and keeps its idempotency key for a retry until
   fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Add alert policy' }));
   expect(screen.getByText('Assigned units and cases')).toBeInTheDocument();
+  expect(screen.getByLabelText('Command Centre')).toBeChecked();
+  expect(screen.getByLabelText('Crime analyst')).toBeChecked();
+  expect(screen.getByLabelText('District leadership')).not.toBeChecked();
 
   fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('could not be saved');
@@ -180,7 +278,29 @@ test('creates one bounded policy and keeps its idempotency key for a retry until
   expect(api.idempotent.mock.calls[2][0]).toBe('/v1/utility-alert-rules');
   expect(api.idempotent.mock.calls[2][1]).toEqual(expect.objectContaining({
     utilityKey: 'patterns', scopeUnitId: 101, thresholds: { threshold: 0.85 },
-    evaluationWindowDays: 30, severity: 'HIGH', recipientRoles: ['CRIME_ANALYST'], enabled: true,
+    evaluationWindowDays: 30, severity: 'HIGH', recipientRoles: ['COMMAND_CENTER', 'CRIME_ANALYST'], enabled: true,
+  }));
+});
+
+test('keeps existing policy recipients unchanged when saving an edit', async () => {
+  const api = {
+    get: vi.fn(async path => path.startsWith('/v1/utilities/')
+      ? { data: patterns }
+      : { data: { items: [savedPatternRule] } }),
+    patch: vi.fn(async () => ({ data: { ...savedPatternRule, version: 4 } })),
+  };
+  renderRoute(api, '/utilities/patterns');
+  await screen.findByRole('heading', { name: patterns.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit policy' }));
+
+  expect(screen.getByLabelText('Command Centre')).not.toBeChecked();
+  expect(screen.getByLabelText('District leadership')).toBeChecked();
+  expect(screen.getByLabelText('Crime analyst')).toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
+
+  expect(api.patch).toHaveBeenCalledWith('/v1/utility-alert-rules/URULE-PRIVATE', expect.objectContaining({
+    recipientRoles: ['DISTRICT_LEADERSHIP', 'CRIME_ANALYST'],
   }));
 });
 
@@ -226,16 +346,9 @@ test('fails safely when an alert policy response contains a malformed rule', asy
 });
 
 test('preserves an integer threshold contract and rejects decimal hotspot counts', async () => {
-  const hotspot = {
-    ...patterns, key: 'hotspots', name: 'Emerging Hotspot Intelligence', icon: 'map-pin',
-    alertPolicy: { enabled: true, fields: {
-      minimumCases: { kind: 'integer', min: 2, max: 50 },
-      evaluationWindowDays: { kind: 'integer', min: 1, max: 180 },
-    } },
-  };
-  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/') ? { data: hotspot } : { data: { items: [] } }) };
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/') ? { data: hotspots } : { data: { items: [] } }) };
   renderRoute(api, '/utilities/hotspots');
-  await screen.findByRole('heading', { name: hotspot.name });
+  await screen.findByRole('heading', { name: hotspots.name });
   fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Add alert policy' }));
   const minimumCases = screen.getByLabelText('Minimum cases');
@@ -261,6 +374,12 @@ test('runs a saved policy and links the first created alert without exposing its
   resolveEvaluation({ data: evaluationResponse() });
 
   expect(await screen.findByText('12 evaluated · 2 matched · 10 suppressed')).toBeInTheDocument();
+  const result = screen.getByRole('status');
+  expect(result).toHaveTextContent(/published model findings were assessed against governed scope and evaluation-window rules/i);
+  expect(result).toHaveTextContent(/2 findings matched the human-governed delivery qualification, while 10 were suppressed/i);
+  expect(result).toHaveTextContent(/human review is required before action/i);
+  expect(result).toHaveTextContent('Synthetic demonstration data');
+  expect(result).not.toHaveTextContent(/confidence/i);
   expect(screen.getByRole('link', { name: 'Open alert' })).toHaveAttribute('href', '/alerts/ALT-PRIVATE?persona=CRIME_ANALYST');
   expect(screen.queryByText('ALT-PRIVATE')).not.toBeInTheDocument();
   expect(api.post).toHaveBeenCalledWith('/v1/utility-alert-rules/URULE-PRIVATE/evaluate', { expectedVersion: 3 });
@@ -275,7 +394,9 @@ test('shows a truthful zero-match result and disables evaluation for paused poli
   await screen.findByRole('heading', { name: patterns.name });
   fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Run evaluation' }));
-  expect(await screen.findByText('No finding met this policy in the current published run.')).toBeInTheDocument();
+  const result = await screen.findByRole('status');
+  expect(result).toHaveTextContent('8 evaluated · 0 matched · 8 suppressed');
+  expect(result).toHaveTextContent(/0 findings matched the human-governed delivery qualification, while 8 were suppressed/i);
   expect(screen.queryByRole('link', { name: 'Open alert' })).not.toBeInTheDocument();
 
   cleanup();

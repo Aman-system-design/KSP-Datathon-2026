@@ -1,4 +1,5 @@
 import { fail } from './errors.mjs';
+import { isValidUtilityRecipientRoles } from '../utilities/rule-contract.mjs';
 
 const STATUSES = new Set(['GENERATED', 'ASSIGNED', 'ACKNOWLEDGED', 'CONCLUDED', 'CLOSED']);
 
@@ -10,11 +11,28 @@ const parseFinding = (alert) => {
   try { return JSON.parse(alert.OriginalFindingJSON); } catch { fail('DATA_NOT_READY'); }
 };
 
+const classifyFinding = (finding) => {
+  const hasRule = finding !== null && typeof finding === 'object' && Object.hasOwn(finding, 'rule');
+  const hasUtility = finding !== null && typeof finding === 'object' && Object.hasOwn(finding, 'utility');
+  if (!hasRule && !hasUtility) return 'LEGACY';
+  return hasRule && hasUtility ? 'UTILITY' : 'MALFORMED_UTILITY';
+};
+
+const isIntendedRecipient = (access, finding) => {
+  const classification = classifyFinding(finding);
+  if (classification === 'LEGACY') return true;
+  if (classification !== 'UTILITY') return false;
+  return isValidUtilityRecipientRoles(finding.rule.recipientRoles)
+    && finding.rule.recipientRoles.includes(access?.role);
+};
+
 const isCurrentUtilityAlert = async (repository, alert, finding) => {
-  if (!finding?.rule || !finding?.utility) return true;
-  const rule = await repository.getUtilityRule(finding.rule.id);
+  const classification = classifyFinding(finding);
+  if (classification === 'LEGACY') return true;
+  if (classification !== 'UTILITY') return false;
+  const rule = await repository.getUtilityRule(finding.rule?.id);
   return Boolean(rule && rule.Enabled === true && rule.Version === finding.rule.version
-    && rule.UtilityVersion === finding.utility.version
+    && rule.UtilityVersion === finding.utility?.version
     && Number(rule.ScopeUnitID) === Number(alert.ScopeUnitID));
 };
 
@@ -28,6 +46,7 @@ export function createAlertServices({ repository }) {
         if (!access.authorizedUnitIds.has(alert.ScopeUnitID)
           || (query.status !== undefined && alert.Status !== query.status)) continue;
         const finding = parseFinding(alert);
+        if (!isIntendedRecipient(access, finding)) continue;
         if (!await isCurrentUtilityAlert(repository, alert, finding)) continue;
         items.push({
           id: alert.AlertID, type: finding.method, title: finding.title,
@@ -44,6 +63,7 @@ export function createAlertServices({ repository }) {
       const alert = await repository.getAlert(params?.alertId);
       if (!alert || !access.authorizedUnitIds.has(alert.ScopeUnitID)) fail('NOT_FOUND');
       const finding = parseFinding(alert);
+      if (!isIntendedRecipient(access, finding)) fail('NOT_FOUND');
       if (!await isCurrentUtilityAlert(repository, alert, finding)) fail('NOT_FOUND');
       const evidence = (finding.evidence ?? []).filter(({ unitId }) => access.authorizedUnitIds.has(unitId));
       return {

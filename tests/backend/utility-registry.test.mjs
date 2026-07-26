@@ -24,6 +24,12 @@ const EXPECTED_METADATA = [
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listPatterns' },
     analyticalMethod: 'Multi-signal pattern fusion',
+    aiAssistance: {
+      method: 'EXPLAINABLE_MULTI_SIGNAL_FUSION',
+      engineVersion: '1.0.0',
+      explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+    },
     stageLabels: [
       'Authorized case features',
       'Fuse cross-district signals',
@@ -42,6 +48,12 @@ const EXPECTED_METADATA = [
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listHotspots' },
     analyticalMethod: 'Density-based spatial clustering',
+    aiAssistance: {
+      method: 'HAVERSINE_DBSCAN',
+      engineVersion: '1.0.0',
+      explanation: 'The HAVERSINE_DBSCAN engine groups nearby cases within an authorized spatial and time window, using case density to create a machine-generated hotspot signal. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+    },
     stageLabels: [
       'Authorized geocoded cases',
       'Detect spatial concentrations',
@@ -60,6 +72,12 @@ const EXPECTED_METADATA = [
     availability: 'AVAILABLE',
     source: { service: 'readServices', method: 'listAnomalies' },
     analyticalMethod: 'Baseline deviation analysis',
+    aiAssistance: {
+      method: 'MEDIAN_MAD',
+      engineVersion: '1.0.0',
+      explanation: 'The MEDIAN_MAD engine compares observed values with a robust median baseline and median absolute deviation; SEASONAL_MEDIAN_MAD is used only when a seasonal period is configured. The model creates a machine-generated anomaly signal for material departures. Alert delivery is qualified by a human-governed policy, and human review is required before action.',
+      governance: { machineGeneratedSignal: true, humanGovernedDelivery: true, humanReviewRequired: true },
+    },
     stageLabels: [
       'Authorized area time series',
       'Compare values with baselines',
@@ -78,6 +96,7 @@ const EXPECTED_METADATA = [
     availability: 'ANALYSIS_ONLY',
     source: { service: 'readServices', method: 'getAreaRisk' },
     analyticalMethod: 'Weighted area-attention scoring',
+    aiAssistance: undefined,
     stageLabels: [
       'Authorized aggregate area signals',
       'Score area attention signals',
@@ -161,6 +180,7 @@ test('registry owns the exact utility metadata contract', () => {
     availability: utility.availability,
     source: utility.source,
     analyticalMethod: utility.analyticalMethod,
+    aiAssistance: utility.aiAssistance,
     stageLabels: utility.stages.map(({ label }) => label),
     outputs: utility.outputs,
     limitations: utility.limitations,
@@ -182,11 +202,40 @@ test('definitions are recursively immutable and list results cannot mutate the r
   assert.equal(Object.isFrozen(hotspot.stages), true);
   assert.equal(Object.isFrozen(hotspot.stages[0]), true);
   assert.equal(Object.isFrozen(hotspot.alertPolicy.fields.minimumCases), true);
+  assert.equal(Object.isFrozen(hotspot.aiAssistance), true);
+  assert.equal(Object.isFrozen(hotspot.aiAssistance.governance), true);
 
   const listed = listUtilities();
   listed[0].name = 'Changed';
   listed[0].stages[0].label = 'Changed';
+  listed[0].aiAssistance.method = 'Changed';
+  listed[0].aiAssistance.governance.humanReviewRequired = false;
   assert.notEqual(getUtility('patterns').name, 'Changed');
   assert.notEqual(getUtility('patterns').stages[0].label, 'Changed');
+  assert.equal(getUtility('patterns').aiAssistance.method, 'EXPLAINABLE_MULTI_SIGNAL_FUSION');
+  assert.equal(getUtility('patterns').aiAssistance.governance.humanReviewRequired, true);
   assert.equal(getUtility('unknown'), undefined);
+});
+
+test('available utilities explain AI assistance as a governed signal requiring human review', () => {
+  const utilities = listUtilities();
+  const available = utilities.filter(({ availability }) => availability === 'AVAILABLE');
+
+  assert.deepEqual(available.map(({ aiAssistance }) => [aiAssistance.method, aiAssistance.engineVersion]), [
+    ['EXPLAINABLE_MULTI_SIGNAL_FUSION', '1.0.0'],
+    ['HAVERSINE_DBSCAN', '1.0.0'],
+    ['MEDIAN_MAD', '1.0.0'],
+  ]);
+  for (const { aiAssistance } of available) {
+    assert.deepEqual(aiAssistance.governance, {
+      machineGeneratedSignal: true,
+      humanGovernedDelivery: true,
+      humanReviewRequired: true,
+    });
+    assert.match(aiAssistance.explanation, /human review is required/i);
+    assert.ok(aiAssistance.explanation.split(/(?<=[.!?])\s+/).length >= 2);
+    assert.ok(aiAssistance.explanation.split(/(?<=[.!?])\s+/).length <= 3);
+  }
+  assert.match(getUtility('anomalies').aiAssistance.explanation, /SEASONAL_MEDIAN_MAD.*only when a seasonal period is configured/);
+  assert.equal(getUtility('area-attention').aiAssistance, undefined);
 });

@@ -3,7 +3,7 @@ import { lazy } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { AlertsPage, Application, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
+import { AlertsPage, Application, commandCenterModuleLocation, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
 
 test('failure state exposes a safe boundary code without requiring a server request id', () => {
   render(<Failure error={{ code: 'AUTH_SESSION_FAILED' }} />);
@@ -40,6 +40,12 @@ test('maps workspace chooser destinations without weakening persona validation',
     pathname: '/', search: '?release=1&persona=COMMAND_CENTER',
   });
   expect(() => workspaceDestinationLocation({ type: 'route', pathname: '//unsafe.example' }, '')).toThrow(TypeError);
+});
+
+test('command center module navigation preserves release and forces its persona', () => {
+  expect(commandCenterModuleLocation('?release=1&persona=CRIME_ANALYST', 'utilities')).toEqual({
+    pathname: '/utilities', search: '?release=1&persona=COMMAND_CENTER',
+  });
 });
 
 const geospatialApi = ({ datasets = [], datasetError } = {}) => ({
@@ -168,9 +174,9 @@ test('legacy command-centre URL redirects to the canonical command center worksp
 test('command center persona verifies the ordinary workspace and renders without intelligence requests', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {
-      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true,
+      role: 'COMMAND_CENTER', scopeUnitId: 1, syntheticData: true,
       availableDashboards: [], alertSummary: { total: 0 },
-      personaSwitch: { allowed: true, personas: [] },
+      personaSwitch: { allowed: true, personas: ['COMMAND_CENTER'] },
     } };
     throw new Error(`Unexpected request: ${path}`);
   }) };
@@ -180,6 +186,34 @@ test('command center persona verifies the ordinary workspace and renders without
   expect(await screen.findByRole('application', { name: 'KSP Command Center' })).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledTimes(1);
   expect(api.get).toHaveBeenCalledWith('/v1/workspace');
+});
+
+test('command center forwards its governed persona and opens Utilities under that role', async () => {
+  const developmentApi = 'https://kspdatathon2026-60077844198.development.catalystserverless.in/server/crime_intelligence_api';
+  vi.stubGlobal('catalyst', { auth: {
+    generateAuthToken: vi.fn(async () => ({ access_token: 'TOKEN-COMMAND' })),
+    isUserAuthenticated: vi.fn(async () => ({ content: { user_id: 'CAT-DEMO' } })),
+  } });
+  const fetch = vi.fn(async (url, options) => {
+    const path = String(url).slice(developmentApi.length);
+    const data = path === '/v1/workspace' ? {
+      role: 'COMMAND_CENTER', scopeUnitId: 1, syntheticData: true,
+      availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['COMMAND_CENTER'] },
+    } : path === '/v1/utilities' ? [] : null;
+    if (data === null) throw new Error(`Unexpected request: ${path}`);
+    return { ok: true, status: 200, json: async () => ({ data }) };
+  });
+  vi.stubGlobal('fetch', fetch);
+
+  render(<MemoryRouter initialEntries={['/?persona=COMMAND_CENTER']}><Application /><LocationProbe /></MemoryRouter>);
+
+  expect(await screen.findByRole('application', { name: 'KSP Command Center' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Utilities' }));
+  expect(await screen.findByRole('heading', { name: 'Intelligence Utilities' })).toBeInTheDocument();
+  expect(screen.getByTestId('location')).toHaveTextContent('/utilities?persona=COMMAND_CENTER');
+  expect(fetch).toHaveBeenCalledTimes(2);
+  for (const [, options] of fetch.mock.calls) expect(options.headers['X-Demo-Persona']).toBe('COMMAND_CENTER');
 });
 
 test('authorized workspace lazy-loads Geospatial Studio from the governed catalog', async () => {

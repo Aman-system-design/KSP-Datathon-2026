@@ -18,6 +18,7 @@ function formatToken(value) {
 }
 
 const recipientOptions = Object.freeze([
+  ['COMMAND_CENTER', 'Command Centre'],
   ['STATE_LEADERSHIP', 'State leadership'],
   ['REGIONAL_LEADERSHIP', 'Regional leadership'],
   ['DISTRICT_LEADERSHIP', 'District leadership'],
@@ -78,7 +79,7 @@ function defaultDraft(utility, scopeUnitId) {
   return {
     enabled: true, scopeUnitId: String(scopeUnitId), thresholdName,
     threshold: String(Math.min(bounds.max, Math.max(bounds.min, preferred))),
-    evaluationWindowDays: '30', severity: 'HIGH', recipientRoles: ['CRIME_ANALYST'],
+    evaluationWindowDays: '30', severity: 'HIGH', recipientRoles: ['COMMAND_CENTER', 'CRIME_ANALYST'],
   };
 }
 
@@ -225,7 +226,7 @@ function normalizeEvaluation(value, rule) {
     || value.syntheticData !== true) return null;
   return {
     evaluated: value.evaluated, matched: value.matched, suppressed: value.suppressed,
-    alertIds: [...value.alertIds],
+    alertIds: [...value.alertIds], syntheticData: value.syntheticData,
   };
 }
 
@@ -251,10 +252,22 @@ function EvaluationAction({ api, rule, location }) {
     {state.error ? <p className="utilities-policy-message utilities-policy-message--error" role="alert">{state.error}</p> : null}
     {state.result ? <div className="utilities-policy-result" role="status">
       <span>{state.result.evaluated} evaluated · {state.result.matched} matched · {state.result.suppressed} suppressed</span>
-      {state.result.matched === 0 ? <small>No finding met this policy in the current published run.</small> : null}
+      <p>Published model findings were assessed against governed scope and evaluation-window rules. {state.result.matched} findings matched the human-governed delivery qualification, while {state.result.suppressed} were suppressed. Human review is required before action.</p>
+      {state.result.syntheticData ? <small className="utilities-policy-provenance">Synthetic demonstration data</small> : null}
       {state.result.alertIds[0] ? <Link to={governedAppLocation(`/alerts/${encodeURIComponent(state.result.alertIds[0])}`, location)}>Open alert</Link> : null}
     </div> : null}
   </div>;
+}
+
+function AiAssistedDetection({ aiAssistance }) {
+  return <aside className="utilities-ai-assistance" aria-label="AI-assisted detection">
+    <div className="utilities-ai-assistance__heading">
+      <span>AI-assisted detection</span>
+      <strong>{aiAssistance.method}</strong>
+      <small>{aiAssistance.engineVersion}</small>
+    </div>
+    <p>{aiAssistance.explanation}</p>
+  </aside>;
 }
 
 function AlertPolicy({ utility, api, workspace, location }) {
@@ -367,7 +380,7 @@ export function UtilityPage({ api, workspace }) {
       {activePanel === 'input-logic' ? <section id="input-logic" role="region" aria-labelledby="input-logic-tab"><h2>Input &amp; Logic</h2><p>{utility.stages?.[0]?.label}</p><strong>{utility.analyticalMethod}</strong>
         <ul>{(utility.limitations ?? []).map(item => <li key={item}>{formatToken(item)}</li>)}</ul>
       </section> : null}
-      {activePanel === 'alert-policy' ? <section id="alert-policy" role="region" aria-labelledby="alert-policy-tab"><h2>Alert Policy</h2><AlertPolicy utility={utility} api={api} workspace={workspace} location={location} /></section> : null}
+      {activePanel === 'alert-policy' ? <section id="alert-policy" role="region" aria-labelledby="alert-policy-tab"><h2>Alert Policy</h2>{utility.aiAssistance ? <AiAssistedDetection aiAssistance={utility.aiAssistance} /> : null}<AlertPolicy utility={utility} api={api} workspace={workspace} location={location} /></section> : null}
       {activePanel === 'outputs' ? <section id="outputs" role="region" aria-labelledby="outputs-tab"><h2>Outputs</h2><ul>{(utility.outputs ?? []).map(output => <li key={output}>{formatToken(output)}</li>)}</ul></section> : null}
     </div> : null}
   </article>;
