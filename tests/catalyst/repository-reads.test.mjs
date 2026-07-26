@@ -48,6 +48,7 @@ function catalystRows() {
       CFG_UserAccess: state.profiles.map((row, index) => ({ ROWID: `PROFILE-${index}`, AccessProfileID: `PROFILE-${index}`, ...row })),
       CFG_UtilityAlertRule: [{
         ROWID: 'RULE-ROW-1', CREATORID: 'CATALYST-METADATA', RuleID: 'RULE-1',
+        IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
         UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true, ScopeUnitID: 101,
         ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30, Severity: 'HIGH',
         RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1, CreatedByUserID: 'USER-1',
@@ -170,6 +171,8 @@ test('reads cloned physical utility rules with indexed filters and safe row mapp
   const repository = new CatalystIntelligenceRepository({ application: app });
 
   const [rule] = await repository.listUtilityRules({ utilityKey: 'patterns', createdByUserId: 'USER-1' });
+  assert.equal(rule.IdempotencyKeyHash, 'a'.repeat(64));
+  assert.equal(rule.RequestHash, 'b'.repeat(64));
   assert.equal(rule.RuleID, 'RULE-1');
   assert.equal(rule.ThresholdsJSON, '{"threshold":0.8}');
   assert.equal(Object.hasOwn(rule, 'ROWID'), false);

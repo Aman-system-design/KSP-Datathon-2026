@@ -31,6 +31,8 @@ test('utility alert rules persist only bounded declarative configuration', () =>
   assert.equal(table.businessId, 'RuleID');
   const exactColumns = [
     { name: 'RuleID', origin: 'SYSTEM', type: 'varchar', maxLength: 64, mandatory: true, unique: true, indexed: true, pii: false },
+    { name: 'IdempotencyKeyHash', origin: 'SYSTEM', type: 'varchar', maxLength: 64, mandatory: true, unique: true, indexed: true, pii: false },
+    { name: 'RequestHash', origin: 'SYSTEM', type: 'varchar', maxLength: 64, mandatory: true, unique: false, indexed: true, pii: false },
     { name: 'UtilityKey', origin: 'CONFIGURATION', type: 'varchar', maxLength: 32, mandatory: true, unique: false, indexed: true, pii: false },
     { name: 'UtilityVersion', origin: 'SYSTEM', type: 'varchar', maxLength: 32, mandatory: true, unique: false, indexed: true, pii: false },
     { name: 'Enabled', origin: 'CONFIGURATION', type: 'boolean', mandatory: true, default: true, pii: false },

@@ -161,7 +161,8 @@ export class MemoryIntelligenceRepository {
     return clone(this.#state.utilityRules.find(row => row.RuleID === id));
   }
   async createUtilityRule(row) {
-    if (this.#state.utilityRules.some(rule => rule.RuleID === row.RuleID)) {
+    if (this.#state.utilityRules.some(rule => rule.RuleID === row.RuleID
+      || (row.IdempotencyKeyHash !== undefined && rule.IdempotencyKeyHash === row.IdempotencyKeyHash))) {
       throw conflict('utility rule unique conflict');
     }
     this.#state.utilityRules.push(clone(row));

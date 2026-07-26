@@ -15,7 +15,8 @@ test('memory repository implements the complete asynchronous contract', () => {
 test('utility rules support filtered cloned CRUD and optimistic versions', async () => {
   const repository = new MemoryIntelligenceRepository(buildDemoState());
   const rule = {
-    RuleID: 'RULE-1', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    RuleID: 'RULE-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
+    UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
     ScopeUnitID: 101, ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30,
     Severity: 'HIGH', RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1,
     CreatedByUserID: 'USER-1', CreatedAt: '2026-07-26T00:00:00Z',
@@ -25,6 +26,9 @@ test('utility rules support filtered cloned CRUD and optimistic versions', async
   created.Enabled = false;
   assert.equal((await repository.getUtilityRule('RULE-1')).Enabled, true);
   await assert.rejects(repository.createUtilityRule(rule), { code: 'UNIQUE_CONFLICT' });
+  await assert.rejects(repository.createUtilityRule({
+    ...rule, RuleID: 'RULE-2', RequestHash: 'c'.repeat(64),
+  }), { code: 'UNIQUE_CONFLICT' });
 
   assert.equal((await repository.listUtilityRules({ utilityKey: 'patterns' })).length, 1);
   assert.equal((await repository.listUtilityRules({ utilityKey: 'hotspots' })).length, 0);

@@ -20,9 +20,11 @@ function harness({
   logger = { info() {}, error() {} },
   repositoryFactory,
   schedulerFactory = () => ({ submit: async () => ({ jobId: 'JOB-1' }) }),
+  state = buildDemoState(), configureRepository,
 } = {}) {
   const calls = [];
-  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  const repository = new MemoryIntelligenceRepository(state);
+  configureRepository?.(repository);
   const sdk = { initialize(_request, options) {
     calls.push(options);
     if (options.scope === 'user') return { userManagement: () => ({ getCurrentUser: async () => currentUser }) };
@@ -98,6 +100,28 @@ test('API composition serves utility categories and one utility definition', asy
   assert.equal(utility.body.data.alertPolicy.enabled, false);
 });
 
+test('API composition denies utility catalogue reads to a role without READ_UTILITY', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
+
+  for (const url of ['/v1/utilities', '/v1/utilities/categories', '/v1/utilities/patterns']) {
+    const response = await application({ method: 'GET', url, headers: {}, body: null });
+    assert.equal(response.status, 403);
+    assert.equal(response.body.error.code, 'FORBIDDEN_ACTION');
+  }
+});
+
+test('API composition permits PLATFORM_ADMIN to read the utility catalogue end to end', async () => {
+  const state = buildDemoState();
+  state.profiles.push({
+    CatalystUserID: 'CAT-ADMIN', DefaultRole: 'PLATFORM_ADMIN', ScopeUnitID: 1,
+    Active: true, DemoPersonaAllowed: false, PermissionVersion: '1.0.0', SyntheticData: true,
+  });
+  const { application } = harness({ currentUser: { user_id: 'CAT-ADMIN', status: 'ACTIVE' }, state });
+  const response = await application({ method: 'GET', url: '/v1/utilities', headers: {}, body: null });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.length, 4);
+});
+
 test('API composition returns stable NOT_FOUND for an unknown utility', async () => {
   const { application } = harness();
 
@@ -107,6 +131,99 @@ test('API composition returns stable NOT_FOUND for an unknown utility', async ()
   assert.equal(response.body.error.code, 'NOT_FOUND');
   assert.equal(response.body.error.message, 'The requested resource was not found.');
   assert.match(response.body.error.requestId, /^REQ-\d+$/u);
+});
+
+test('API composition creates, lists and optimistically updates authorized utility alert rules', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' } });
+  const input = {
+    utilityKey: 'patterns', enabled: true, scopeUnitId: 101,
+    thresholds: { threshold: 0.8 },
+    evaluationWindowDays: 30, severity: 'HIGH', recipientRoles: ['CRIME_ANALYST'],
+  };
+  const created = await application({ method: 'POST', url: '/v1/utility-alert-rules', headers: { 'Idempotency-Key': 'rule-one' }, body: input });
+  assert.equal(created.status, 200);
+  assert.match(created.body.data.id, /^URULE-[a-f0-9]{57}$/u);
+  assert.equal(created.body.data.createdBy, 'CAT-ANALYST');
+
+  const listed = await application({ method: 'GET', url: '/v1/utility-alert-rules?utilityKey=patterns', headers: {}, body: null });
+  assert.equal(listed.status, 200);
+  assert.deepEqual(listed.body.data.items.map(rule => rule.id), [created.body.data.id]);
+
+  const updated = await application({
+    method: 'PATCH', url: `/v1/utility-alert-rules/${created.body.data.id}`, headers: {},
+    body: { expectedVersion: 1, severity: 'CRITICAL' },
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.data.version, 2);
+  assert.equal(updated.body.data.severity, 'CRITICAL');
+
+  const stale = await application({
+    method: 'PATCH', url: `/v1/utility-alert-rules/${created.body.data.id}`, headers: {},
+    body: { expectedVersion: 1, enabled: false },
+  });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.error.code, 'VERSION_CONFLICT');
+});
+
+test('POST rule retries after audit failure without duplicating durable state', async () => {
+  let failConfigurationAudit = true;
+  const { application, repository } = harness({
+    currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' },
+    configureRepository(repo) {
+      const append = repo.appendAuditEvent.bind(repo);
+      repo.appendAuditEvent = async event => {
+        if (failConfigurationAudit && event.EventType === 'CONFIGURATION_CHANGED') {
+          failConfigurationAudit = false;
+          throw new Error('audit unavailable');
+        }
+        return append(event);
+      };
+    },
+  });
+  const body = {
+    utilityKey: 'patterns', enabled: true, scopeUnitId: 101, thresholds: { threshold: 0.8 },
+    evaluationWindowDays: 30, severity: 'HIGH', recipientRoles: ['CRIME_ANALYST'],
+  };
+  const request = payload => ({ method: 'POST', url: '/v1/utility-alert-rules', headers: { 'Idempotency-Key': 'audit-retry' }, body: payload });
+  assert.equal((await application(request(body))).status, 500);
+  const retry = await application(request(body));
+  assert.equal(retry.status, 200);
+  assert.equal((await repository.listUtilityRules()).length, 1);
+  assert.equal((await repository.listAuditEvents()).filter(row => row.EventType === 'CONFIGURATION_CHANGED').length, 1);
+  const changed = await application(request({ ...body, severity: 'CRITICAL' }));
+  assert.equal(changed.status, 409);
+  assert.equal(changed.body.error.code, 'IDEMPOTENCY_CONFLICT');
+});
+
+test('PATCH rule reconciles a durable update after audit failure and audits the retry', async () => {
+  let configurationAudits = 0;
+  const { application, repository } = harness({
+    currentUser: { user_id: 'CAT-ANALYST', status: 'ACTIVE' },
+    configureRepository(repo) {
+      const append = repo.appendAuditEvent.bind(repo);
+      repo.appendAuditEvent = async event => {
+        if (event.EventType === 'CONFIGURATION_CHANGED' && ++configurationAudits === 2) {
+          throw new Error('audit unavailable');
+        }
+        return append(event);
+      };
+    },
+  });
+  const created = await application({
+    method: 'POST', url: '/v1/utility-alert-rules', headers: { 'Idempotency-Key': 'patch-audit-retry' },
+    body: {
+      utilityKey: 'patterns', enabled: true, scopeUnitId: 101, thresholds: { threshold: 0.8 },
+      evaluationWindowDays: 30, severity: 'HIGH', recipientRoles: ['CRIME_ANALYST'],
+    },
+  });
+  assert.equal(created.status, 200);
+  const patch = { method: 'PATCH', url: `/v1/utility-alert-rules/${created.body.data.id}`, headers: {}, body: { expectedVersion: 1, enabled: false } };
+  assert.equal((await application(patch)).status, 500);
+  const retry = await application(patch);
+  assert.equal(retry.status, 200);
+  assert.equal(retry.body.data.version, 2);
+  assert.equal((await repository.getUtilityRule(created.body.data.id)).Version, 2);
+  assert.equal((await repository.listAuditEvents()).filter(row => row.EventType === 'CONFIGURATION_CHANGED').length, 2);
 });
 
 test('read-only requests do not initialize Catalyst Job Scheduling', async () => {

@@ -41,7 +41,7 @@ function fakeApplication({
         INT_RepeatOffenderSignal: ['RepeatSignalID'], WF_Alert: ['AlertID'],
         INT_PublicationState: ['PublicationStateID'],
         OPS_IntelligenceRunRequest: ['RunRequestID', 'IdempotencyKeyHash'],
-        CFG_UtilityAlertRule: ['RuleID'],
+        CFG_UtilityAlertRule: ['RuleID', 'IdempotencyKeyHash'],
       }[name] ?? [];
       if (rows.some(row => uniqueColumns.some(column => row[column] !== undefined && row[column] === input[column]))) {
         const error = new Error('duplicate row'); error.code = 'DUPLICATE_VALUE'; throw error;
@@ -186,7 +186,8 @@ test('Catalyst utility rules preserve physical JSON, datetime and optimistic upd
   const fake = fakeApplication();
   const repository = new CatalystIntelligenceRepository({ application: fake.application });
   const rule = {
-    RuleID: 'RULE-1', UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
+    RuleID: 'RULE-1', IdempotencyKeyHash: 'a'.repeat(64), RequestHash: 'b'.repeat(64),
+    UtilityKey: 'patterns', UtilityVersion: '1.0.0', Enabled: true,
     ScopeUnitID: 101, ThresholdsJSON: '{"threshold":0.8}', EvaluationWindowDays: 30,
     Severity: 'HIGH', RecipientRolesJSON: '["CRIME_ANALYST"]', Version: 1,
     CreatedByUserID: 'USER-1', CreatedAt: '2026-07-26T00:00:00Z',
@@ -195,8 +196,12 @@ test('Catalyst utility rules preserve physical JSON, datetime and optimistic upd
 
   const created = await repository.createUtilityRule(rule);
   assert.equal(created.ThresholdsJSON, rule.ThresholdsJSON);
+  assert.equal(created.IdempotencyKeyHash, rule.IdempotencyKeyHash);
   assert.equal(fake.tables.get('CFG_UtilityAlertRule')[0].CreatedAt, '2026-07-26 00:00:00');
   await assert.rejects(repository.createUtilityRule(rule), { code: 'UNIQUE_CONFLICT' });
+  await assert.rejects(repository.createUtilityRule({
+    ...rule, RuleID: 'RULE-2', RequestHash: 'c'.repeat(64),
+  }), { code: 'UNIQUE_CONFLICT' });
   assert.deepEqual(await repository.updateUtilityRule('RULE-1', 2, { Enabled: false }), { conflict: true });
 
   for (const changes of [{ RuleID: 'RULE-2' }, { Version: 9 }, { CreatedByUserID: 'OTHER' }, { Unknown: true }, {}]) {

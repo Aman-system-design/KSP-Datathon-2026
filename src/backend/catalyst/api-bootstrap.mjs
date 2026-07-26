@@ -15,7 +15,7 @@ import { createMapViewService } from '../geospatial/map-view-service.mjs';
 import { createUtilityServices } from '../utilities/utility-services.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
-const utilityServices = createUtilityServices();
+const utilityCatalogueServices = createUtilityServices();
 
 function safeFailure(code, requestId) {
   const known = {
@@ -111,9 +111,13 @@ export function createApiApplication({
       const runService = createIntelligenceRunService({
         repository, scheduler: lazyScheduler, clock: now, idFactory,
       });
+      const utilityRuleServices = createUtilityServices({ repository, idFactory, now });
       const resourceServices = Object.freeze({
         ...workspaceServices, ...createIntelligenceRunResources({ runService }),
-        ...utilityServices,
+        ...utilityCatalogueServices,
+        listUtilityAlertRules: utilityRuleServices.listUtilityAlertRules,
+        createUtilityAlertRule: utilityRuleServices.createUtilityAlertRule,
+        updateUtilityAlertRule: utilityRuleServices.updateUtilityAlertRule,
         listGeospatialDatasets: geospatialServices.listDatasets,
         executeGeospatialLayer: geospatialServices.executeLayer,
         getGeospatialFreshness: geospatialServices.getFreshness,

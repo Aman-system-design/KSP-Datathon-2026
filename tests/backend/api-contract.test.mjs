@@ -40,14 +40,16 @@ const post = (path, idempotencyKey, expectedState, expectedVersion, payload) => 
   body: { expectedState, expectedVersion, payload }, requestId: 'REQ-API',
 });
 
-test('the public contract contains exactly the forty-five platform operations', () => {
-  assert.equal(API_OPERATIONS.length, 45);
+test('the public contract contains exactly the forty-eight platform operations', () => {
+  assert.equal(API_OPERATIONS.length, 48);
   assert.deepEqual(API_OPERATIONS.map(({ method, path }) => `${method} ${path}`), [
     'GET /v1/intelligence/brief', 'GET /v1/patterns', 'GET /v1/patterns/{patternId}',
     'GET /v1/hotspots', 'GET /v1/anomalies', 'GET /v1/area-risk',
     'GET /v1/networks/{nodeId}', 'GET /v1/district-context',
     'GET /v1/workspace', 'GET /v1/report-sources',
     'GET /v1/utilities', 'GET /v1/utilities/categories', 'GET /v1/utilities/{utilityKey}',
+    'GET /v1/utility-alert-rules', 'POST /v1/utility-alert-rules',
+    'PATCH /v1/utility-alert-rules/{ruleId}',
     'GET /v1/geospatial/datasets', 'POST /v1/geospatial/layers/execute',
     'GET /v1/geospatial/freshness',
     'GET /v1/geospatial/views', 'POST /v1/geospatial/views',
