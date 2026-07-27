@@ -23,9 +23,9 @@ The district dashboard provides an authorized district operational view:
 - Crime-category mix
 - Case lifecycle
 - District hotspot/geospatial evidence
-- Case-ageing distribution
+- Investigation backlog/status distribution
 
-Its layout emphasizes the trend and map, with supporting concentration, mix, lifecycle, and ageing panels.
+Its layout emphasizes the trend and map, with supporting concentration, mix, lifecycle, and backlog panels. The governed case catalogue does not expose case-age fields, so the district template must not invent an ageing measure.
 
 ### Crime Analyst Dashboard
 
