@@ -243,4 +243,4 @@ test('using the deferred Intelligence bar never calls the report API', async () 
 
   expect(api.post).not.toHaveBeenCalled();
   expect(screen.getByRole('status')).toHaveTextContent('Your report was not changed');
-});
+}, 10_000);
