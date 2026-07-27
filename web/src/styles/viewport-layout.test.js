@@ -56,4 +56,10 @@ describe('platform viewport layout contract', () => {
     expect(appCss).toMatch(/\.command-center-dashboard-delete-dialog__danger/);
     expect(appCss).toMatch(/@media\(max-width:720px\)[^{]*{[\s\S]*\.command-center-dashboard-delete-dialog/);
   });
+
+  test('keeps persona dashboards readable and stacked on narrow screens', () => {
+    expect(appCss).toMatch(/\.persona-dashboard-workspace\s*{[^}]*min-width:\s*0/s);
+    expect(appCss).toMatch(/\.persona-dashboard-workspace__header\s*{[^}]*display:\s*flex/s);
+    expect(appCss).toMatch(/@media\s*\(max-width:\s*760px\)[^{]*{[\s\S]*\.persona-dashboard-workspace__header\s*{[^}]*flex-direction:\s*column/s);
+  });
 });
