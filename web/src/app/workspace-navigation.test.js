@@ -12,11 +12,18 @@ test('command center keeps one operational navigation contract across every scre
   expect(paths('COMMAND_CENTER')).not.toContain('/networks');
 });
 
-test('state and jurisdiction leaders receive governed intelligence tools within their authorized scope', () => {
+test('state leadership uses Home as its only intelligence dashboard entry', () => {
   expect(getWorkspaceNavigation({ role: 'STATE_LEADERSHIP' }).home).toBe('/');
-  expect(paths('STATE_LEADERSHIP')).toEqual(['/', '/utilities', '/intelligence', '/alerts', '/reports', '/dashboards']);
+  expect(paths('STATE_LEADERSHIP')).toEqual(['/', '/utilities', '/alerts', '/reports', '/dashboards']);
   expect(getWorkspaceNavigation({ role: 'STATE_LEADERSHIP' }).modules)
-    .toContainEqual(expect.objectContaining({ to: '/intelligence', label: 'Intelligence' }));
+    .not.toContainEqual(expect.objectContaining({ to: '/intelligence' }));
+});
+
+test('other personas retain their existing navigation without State Leadership changes', () => {
+  const expected = ['/', '/utilities', '/alerts', '/geospatial', '/networks', '/reports', '/dashboards'];
+  expect(paths('DISTRICT_LEADERSHIP')).toEqual(expected);
+  expect(paths('CRIME_ANALYST')).toEqual(expected);
+  expect(paths('STATION_OPERATIONS')).toEqual(expected);
   expect(getWorkspaceNavigation({ role: 'DISTRICT_LEADERSHIP' }).workspaceLabel).toBe('Jurisdiction Intelligence Pulse');
   expect(paths('DISTRICT_LEADERSHIP')).not.toContain('/admin');
 });

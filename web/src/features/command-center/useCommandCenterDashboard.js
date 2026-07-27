@@ -3,11 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeDashboard } from './command-center-dashboard-model.js';
 import { submissionSyntheticRows } from './submission-synthetic-results.js';
 
+const EMPTY_EXECUTION_BODY = () => ({});
+const INCLUDE_ALL_REPORTS = () => true;
+
 function executedItem(item, result) {
   if (result.status === 'rejected') return {
     ...item,
     status: 'error',
-    title: 'Report unavailable',
+    title: item.title ?? 'Report unavailable',
     errorCode: result.reason?.code ?? 'REPORT_EXECUTION_FAILED',
   };
   const payload = result.value?.data ?? {};
@@ -39,12 +42,17 @@ function executedItem(item, result) {
   };
 }
 
-async function executeWithSubmissionFallback(api, item) {
+async function executeWithSubmissionFallback(api, item, body = {}) {
   try {
-    return await api.post(`/v1/reports/${item.reportId}/execute`, {});
+    return await api.post(`/v1/reports/${item.reportId}/execute`, body);
   } catch (executionError) {
     try {
-      const report = (await api.get(`/v1/reports/${item.reportId}`)).data;
+      let report;
+      try {
+        report = (await api.get(`/v1/reports/${item.reportId}`)).data;
+      } catch {
+        report = item.title ? { id: item.reportId, name: item.title, definition: item.definition } : null;
+      }
       const rows = submissionSyntheticRows(report?.name);
       if (!rows.length) throw executionError;
       return { data: {
@@ -57,10 +65,9 @@ async function executeWithSubmissionFallback(api, item) {
   }
 }
 
-export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null }) {
-  const stateIntelligenceId = workspace?.role === 'STATE_LEADERSHIP'
-    ? workspace?.availableDashboards?.find(dashboard => dashboard.name === 'State Crime Intelligence')?.id
-    : null;
+export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null, executionBody = EMPTY_EXECUTION_BODY, reloadKey = null, reportPredicate = INCLUDE_ALL_REPORTS }) {
+  const stateIntelligenceId = workspace?.availableDashboards
+    ?.find(dashboard => dashboard.name === 'State Crime Intelligence')?.id;
   const initialId = requestedDashboardId ?? stateIntelligenceId ?? workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState(initialId);
   const [dashboard, setDashboard] = useState(null);
@@ -73,37 +80,52 @@ export function useCommandCenterDashboard({ api, workspace, requestedDashboardId
   const [error, setError] = useState(null);
   const [stale, setStale] = useState(false);
   const hasDashboard = useRef(false);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async id => {
+    const generation = ++loadGeneration.current;
     if (!id) { setDashboard(null); setItems([]); setLoading(false); return; }
     setLoading(true); setError(null);
     try {
       const definition = (await api.get(`/v1/dashboards/${id}`)).data;
-      const placements = Array.isArray(definition?.items) ? definition.items : [];
-      const executions = await Promise.allSettled(placements.map(item => executeWithSubmissionFallback(api, item)));
+      const reportsById = new Map((workspace?.availableReports ?? []).map(report => [report.id, report]));
+      const placements = (Array.isArray(definition?.items) ? definition.items : [])
+        .filter(item => reportPredicate(reportsById.get(item.reportId), item.reportId))
+        .map(item => {
+          const report = reportsById.get(item.reportId);
+          return report ? { ...item, title: report.name, definition: report.definition } : item;
+        });
+      const executions = await Promise.allSettled(placements.map(item => executeWithSubmissionFallback(
+        api, item, executionBody(item.reportId) ?? {},
+      )));
+      if (generation !== loadGeneration.current) return;
       const executed = placements.map((item, index) => executedItem(item, executions[index]));
       const next = normalizeDashboard({ ...definition, items: executed });
       setDashboard(next); hasDashboard.current = true; setPersistedItems(executed); setItems(executed);
       setActiveTab(next.tabs[0]?.id ?? 'overview'); setEditing(false); setStale(false);
     } catch (loadError) {
+      if (generation !== loadGeneration.current) return;
       setError(loadError); setStale(hasDashboard.current);
-    } finally { setLoading(false); }
-  }, [api]);
+    } finally { if (generation === loadGeneration.current) setLoading(false); }
+  }, [api, executionBody, reportPredicate, workspace?.availableReports]);
 
   useEffect(() => { setSelectedId(initialId); }, [initialId]);
-  useEffect(() => { load(selectedId); }, [load, selectedId]);
+  useEffect(() => { load(selectedId); }, [load, reloadKey, selectedId]);
 
   const selectDashboard = id => { if (id && id !== selectedId) setSelectedId(id); };
   const beginEdit = () => { setItems(persistedItems); setEditing(true); };
   const stageItems = next => setItems(next);
-  const addReport = report => setItems(current => {
-    if (!report?.id || current.some(item => item.reportId === report.id)) return current;
-    const row = current.reduce((last, item) => Math.max(last, item.row + item.height), 1);
-    return [...current, {
-      id: `draft-${report.id}`, reportId: report.id, title: report.name ?? 'Governed report',
-      definition: report.definition, data: [], status: 'ready', column: 1, row, width: 6, height: 4,
-    }];
-  });
+  const addReport = report => {
+    if (!report?.id || !reportPredicate(report, report.id)) return;
+    setItems(current => {
+      if (current.some(item => item.reportId === report.id)) return current;
+      const row = current.reduce((last, item) => Math.max(last, item.row + item.height), 1);
+      return [...current, {
+        id: `draft-${report.id}`, reportId: report.id, title: report.name ?? 'Governed report',
+        definition: report.definition, data: [], status: 'ready', column: 1, row, width: 6, height: 4,
+      }];
+    });
+  };
   const removeReport = itemId => setItems(current => current.filter(item => item.id !== itemId));
   const cancelEdit = () => { setItems(persistedItems); setEditing(false); };
   const saveItems = async () => {

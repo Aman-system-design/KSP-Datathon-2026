@@ -28,6 +28,27 @@ test('renders nothing outside operator edit mode', () => {
   expect(api.get).not.toHaveBeenCalled();
 });
 
+test('filters reports for the active persona and preserves the dashboard return target', async () => {
+  const api = { get: vi.fn(async () => ({ data: [
+    { id: 'R-A', name: 'Anomaly evidence', definition: { sourceKey: 'anomalies', visualization: { type: 'line' } } },
+    { id: 'R-S', name: 'Open cases', definition: { sourceKey: 'stationCases', visualization: { type: 'table' } } },
+  ] })) };
+  render(<MemoryRouter initialEntries={['/?persona=CRIME_ANALYST']}>
+    <CommandCenterAddReportDrawer
+      api={api}
+      open
+      reportPredicate={report => report.definition?.sourceKey === 'anomalies'}
+      recommendedReports={[]}
+      returnTo="dashboards"
+    />
+  </MemoryRouter>);
+
+  expect(await screen.findByRole('button', { name: 'Add Anomaly evidence' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Add Open cases' })).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Create new report' }))
+    .toHaveAttribute('href', '/reports/new?persona=CRIME_ANALYST&returnTo=dashboards');
+});
+
 test('creates a recommended governed report before adding it to the dashboard', async () => {
   const api = {
     get: vi.fn(async () => ({ data: [] })),

@@ -43,7 +43,7 @@ test('renders a focused branded shell without report-level status clutter', () =
   expect(screen.queryByRole('button', { name: 'Support' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Open settings' })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /^alerts$/i }).length).toBeGreaterThan(0);
-  expect(screen.getByText('Unit 101')).toBeInTheDocument();
+  expect(screen.getAllByText('Analyst Workbench').length).toBeGreaterThan(0);
   expect(screen.queryByText('Intelligence freshness')).not.toBeInTheDocument();
   expect(screen.queryByText('21 Jul 2026, 23:15 IST')).not.toBeInTheDocument();
   expect(screen.queryByText('Data mode')).not.toBeInTheDocument();
@@ -104,7 +104,7 @@ test('platform navigation preserves the governed persona but drops unrelated que
     <LocationProbe />
   </MemoryRouter>);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Intelligence' }));
-  expect(screen.getByTestId('location')).toHaveTextContent('/intelligence?persona=CRIME_ANALYST');
+  fireEvent.click(screen.getByRole('link', { name: 'Dashboards' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/dashboards?persona=CRIME_ANALYST');
   expect(screen.getByTestId('location')).not.toHaveTextContent('token');
 });

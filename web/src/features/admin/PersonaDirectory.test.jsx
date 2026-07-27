@@ -9,7 +9,7 @@ afterEach(cleanup);
 test('demo presenter can open every allowlisted persona workspace for the jury walkthrough', () => {
   render(<MemoryRouter><PersonaDirectory role="DEMO_PRESENTER" /></MemoryRouter>);
   expect(screen.getByRole('heading', { name: 'Persona Workspaces' })).toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: 'Open workspace' })).toHaveLength(5);
+  expect(screen.getAllByRole('link', { name: 'Open workspace' })).toHaveLength(4);
   expect(screen.getByText('State Leadership')).toBeInTheDocument();
   expect(screen.getByText('Crime Analyst')).toBeInTheDocument();
   expect(screen.getByText('Station Operations')).toBeInTheDocument();
