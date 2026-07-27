@@ -46,6 +46,10 @@ test('renders an interactive governed report and shared dashboard editing contro
   const theft = within(screen.getByTestId('report-legend')).getByRole('button', { name: /Theft/ });
   fireEvent.click(theft);
   expect(screen.getByRole('region', { name: 'Selected category' })).toHaveTextContent('28');
+  const theftSlice = screen.getByRole('button', { name: 'Theft: 28' });
+  fireEvent.keyDown(theftSlice, { key: 'Enter' });
+  expect(screen.getByRole('region', { name: 'Selected category' })).toHaveTextContent('Theft');
+  expect(screen.getByRole('region', { name: 'Selected category' })).toHaveTextContent('28');
 
   fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard' }));
   expect(screen.getByText('Shared role default')).toBeInTheDocument();
@@ -54,6 +58,20 @@ test('renders an interactive governed report and shared dashboard editing contro
   expect(screen.getByRole('link', { name: 'Edit Crime Category Share report' })).toHaveAttribute('href', '/reports/R-1?persona=STATE_LEADERSHIP&returnTo=state-leadership');
   expect(screen.getByRole('button', { name: 'Remove Crime Category Share report' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
+});
+
+test('saves staged State Leadership report placements through the governed dashboard endpoint', async () => {
+  const { api, workspace } = apiWithDashboard();
+  render(<MemoryRouter><StateLeadershipDashboard api={api} workspace={workspace} /></MemoryRouter>);
+  await screen.findByTestId('report-pie-chart');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Move Crime Category Share down' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/v1/dashboards/D-STATE/items', {
+    items: [{ reportId: 'R-1', column: 1, row: 2, width: 6, height: 4 }],
+  }));
 });
 
 test('keeps shared system dashboards view-only for ordinary State Leadership viewers', async () => {
