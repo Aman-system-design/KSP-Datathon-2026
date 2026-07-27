@@ -217,3 +217,30 @@ test('station report builder presents only server-authorized station sources', a
   expect(screen.queryByRole('option', { name: 'Trend anomalies' })).not.toBeInTheDocument();
   expect(screen.queryByRole('option', { name: /hotspot/i })).not.toBeInTheDocument();
 });
+
+test('keeps the report preview beside every authoring step', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  expect(screen.getByRole('region', { name: 'Report preview workspace' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Ask Intelligence')).toBeInTheDocument();
+  expect(screen.getByText('Run the report to generate its preview.')).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Hourly FIR pattern' } });
+  next();
+  expect(screen.getByRole('heading', { name: 'Select a visualization' })).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Report preview workspace' })).toBeInTheDocument();
+});
+
+test('using the deferred Intelligence bar never calls the report API', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  fireEvent.change(screen.getByLabelText('Ask Intelligence'), { target: { value: 'Show FIR count by hour' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Intelligence' }));
+
+  expect(api.post).not.toHaveBeenCalled();
+  expect(screen.getByRole('status')).toHaveTextContent('Your report was not changed');
+});
