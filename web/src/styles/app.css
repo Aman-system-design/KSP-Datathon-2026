@@ -622,6 +622,8 @@ td a { color: var(--blue-500); font-weight: 700; }
 .persona-dashboard-workspace__header p { max-width: 760px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .persona-dashboard-workspace__scope { flex: 0 0 auto; padding: 6px 9px; color: var(--navy-700) !important; background: #eaf3fb; border: 1px solid #cfe1f1; border-radius: 999px; }
 .persona-dashboard-workspace__error { margin: 0; padding: 9px 11px; color: #8f1d24; background: #fff4f4; border: 1px solid #efc4c7; border-radius: 7px; font-size: 12px; }
+.dashboard-setup-warning { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 0 0 12px; padding: 9px 12px; color: #744500; background: #fff9e8; border: 1px solid #ead59a; border-radius: 7px; font-size: 12px; }
+.dashboard-setup-warning strong { color: #5e3800; }
 @media (max-width: 760px) {
   .persona-dashboard-workspace__header { align-items: stretch; flex-direction: column; }
   .persona-dashboard-workspace__scope { align-self: flex-start; }

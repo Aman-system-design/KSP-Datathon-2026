@@ -24,5 +24,13 @@ export function ProvisionedDashboardApplication({ api, workspace, children }) {
   }, [api, workspace?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (state.loading) return <main className="application-gate"><Busy branded label="Preparing governed dashboardâ€¦" /></main>;
-  return children(state.workspace ?? workspace);
+  return <>
+    {state.warnings?.length > 0 ? <div className="dashboard-setup-warning" role="alert">
+      <strong>Dashboard setup incomplete</strong>
+      {state.warnings.map(warning => <span key={warning.key}>
+        {warning.key} · {warning.error?.code ?? 'SETUP_FAILED'}
+      </span>)}
+    </div> : null}
+    {children(state.workspace ?? workspace)}
+  </>;
 }
