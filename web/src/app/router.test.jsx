@@ -258,7 +258,10 @@ test('station dashboard detail route uses the standalone police station dashboar
     if (path === '/v1/workspace') return { data: {
       role: 'STATION_OPERATIONS', scopeUnitId: 1001,
       scopeUnit: { name: 'Central Police Station', type: 'Police station' },
-      availableDashboards: [], availableReports: [], alertSummary: { total: 0 },
+      availableDashboards: [{
+        id: 'D-BLOCKED', name: 'Police Station Dashboard', relationship: 'OWNED',
+        description: '[ACE:station-operations:v1:complete]',
+      }], availableReports: [], alertSummary: { total: 0 },
     } };
     throw new Error(`Unexpected request: ${path}`);
   }), post: vi.fn(), put: vi.fn() };
