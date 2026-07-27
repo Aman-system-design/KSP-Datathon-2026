@@ -8,7 +8,8 @@ import { SignInRequired } from '../auth/SignInRequired.jsx';
 import { PersonaDirectory } from '../features/admin/PersonaDirectory.jsx';
 import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor.jsx';
 import { AlertPage, AlertsPage } from '../features/alerts/AlertPages.jsx';
-import { DashboardLibrary, DashboardPage, RoutedDashboardPage } from '../features/dashboards/DashboardPages.jsx';
+import { DashboardLibrary, DashboardPage } from '../features/dashboards/DashboardPages.jsx';
+import { PersonaDashboardRoute } from '../features/dashboards/PersonaDashboardRoute.jsx';
 import { GeospatialPage } from '../features/geospatial/GeospatialPage.jsx';
 import { IntelligenceWorkspacePage } from '../features/intelligence/IntelligenceWorkspacePage.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
@@ -56,8 +57,11 @@ function LegacyMapsRedirect() {
 
 function StationDashboardRoute({ api, workspace }) {
   const { dashboardId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   return <Suspense fallback={<Busy label="Loading station operationsâ€¦" />}>
-    <StationOperationsShell api={api} workspace={workspace} requestedDashboardId={dashboardId} />
+    <PersonaDashboardRoute api={api} workspace={workspace} dashboardId={dashboardId}
+      onDeleted={() => navigate(governedAppLocation('/dashboards', location))} />
   </Suspense>;
 }
 
@@ -147,9 +151,7 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     <Route path="/reports/new" element={<ReportBuilder api={api} />} />
     <Route path="/reports/:reportId" element={<ReportBuilder api={api} />} />
     <Route path="/dashboards" element={<DashboardLibrary api={api} workspace={workspace} />} />
-    <Route path="/dashboards/:dashboardId" element={workspace.role === 'STATION_OPERATIONS'
-      ? <StationDashboardRoute api={api} workspace={workspace} />
-      : <RoutedDashboardPage api={api} />} />
+    <Route path="/dashboards/:dashboardId" element={<StationDashboardRoute api={api} workspace={workspace} />} />
     <Route path="/cases/:caseId" element={workspace.role === 'STATION_OPERATIONS'
       ? <Suspense fallback={<Busy label="Loading governed case record…" />}><StationCaseDetail api={api} /></Suspense>
       : <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />} />

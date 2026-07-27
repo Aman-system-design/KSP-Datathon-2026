@@ -231,7 +231,7 @@ test('station operations persona renders its distinct workspace inside the norma
   expect(screen.queryByRole('application', { name: 'KSP Command Center' })).not.toBeInTheDocument();
 });
 
-test('station dashboard detail route remains inside the station operations shell', async () => {
+test('station dashboard detail route uses the standalone police station dashboard', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {
       role: 'STATION_OPERATIONS', scopeUnitId: 1001,
@@ -243,8 +243,9 @@ test('station dashboard detail route remains inside the station operations shell
 
   render(<MemoryRouter initialEntries={['/dashboards/D-BLOCKED?persona=STATION_OPERATIONS']}><Application api={api} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
-  expect(await screen.findByRole('alert')).toHaveTextContent('Requested station dashboard is unavailable.');
+  expect(await screen.findByRole('heading', { name: 'Police Station Dashboard' })).toBeInTheDocument();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Dashboard is unavailable.');
+  expect(screen.queryByRole('group', { name: 'Station reporting period' })).not.toBeInTheDocument();
   expect(api.post).not.toHaveBeenCalled();
   expect(api.put).not.toHaveBeenCalled();
   expect(screen.queryByRole('heading', { name: /Dashboard library/i })).not.toBeInTheDocument();
