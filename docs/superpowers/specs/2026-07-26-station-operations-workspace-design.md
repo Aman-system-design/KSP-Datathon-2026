@@ -29,7 +29,7 @@ The normal view is presentation-quality and avoids editor chrome. An explicit Ed
 
 Reuse the ACE platform shell and Catalyst-inspired design language: true white surfaces, navy typography, restrained blue accent, thin borders, generous whitespace, compact controls, and subtle motion. Avoid a marketing hero, excessive cards, decorative badges, gradients, and dense explanatory copy.
 
-The first viewport should have one clear operational hierarchy: header, summary strip, ageing visualization, and open-case table preview. Crime-pattern analysis continues below. Hover, selected, focus, loading, and reduced-motion states are required.
+The dashboard should have one clear operational hierarchy: header, summary strip, all analytical charts, then the full-width open-case register. Operational patterns must be understood before users enter row-level case work. Hover, selected, focus, loading, and reduced-motion states are required.
 
 ## Architecture
 

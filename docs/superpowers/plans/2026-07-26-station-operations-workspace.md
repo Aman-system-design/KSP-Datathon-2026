@@ -417,7 +417,7 @@ In `router.jsx`, choose `StationOperationsShell` for `STATION_OPERATIONS` on `/`
 
 - [ ] **Step 5: Add Catalyst-inspired visual and responsive states**
 
-Use existing tokens for true-white surfaces, navy text, blue selection, 1px borders, 10–12px radii, 150–180ms transitions, visible focus rings, and `prefers-reduced-motion`. Keep the first viewport to header, four-metric strip, ageing/chart region, and case-register preview; do not add a marketing hero.
+Use existing tokens for true-white surfaces, navy text, blue selection, 1px borders, 10–12px radii, 150–180ms transitions, visible focus rings, and `prefers-reduced-motion`. Keep the visual order consistent at every breakpoint: four-metric strip, all analytical charts, then the full-width case register; do not add a marketing hero.
 
 - [ ] **Step 6: Run station, router, and navigation tests**
 
