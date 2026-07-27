@@ -49,11 +49,13 @@ function filtered(item, filter) {
 const isStationReport = report => STATION_REPORT_SOURCES.has(report?.definition?.sourceKey);
 const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
   || (dashboard?.relationship === 'OWNED' && dashboard?.name === 'Station Operations');
-const stationPlacementClass = item => item.definition?.visualization?.type === 'number' ? 'station-placement--metric'
+export const stationPlacementClass = item => item.definition?.visualization?.type === 'number' ? 'station-placement--metric'
   : item.definition?.sourceKey === 'stationCases' && item.definition?.dimensions?.includes('ageingBucket')
     && item.definition?.visualization?.type === 'bar' ? 'station-placement--ageing'
     : item.definition?.sourceKey === 'stationCases' && item.definition?.dimensions?.includes('caseId')
-      && item.definition?.visualization?.type === 'table' ? 'station-placement--register' : 'station-placement--detail';
+      && item.definition?.visualization?.type === 'table' ? 'station-placement--register'
+      : item.definition?.visualization?.type === 'funnel'
+        ? 'station-placement--detail station-placement--lifecycle' : 'station-placement--detail';
 
 export function StationOperationsShell({ api, workspace, onOpenCase, requestedDashboardId = null }) {
   const [periodDays, setPeriodDays] = useState(30);

@@ -2,9 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { StationOperationsShell } from './StationOperationsShell.jsx';
+import { StationOperationsShell, stationPlacementClass } from './StationOperationsShell.jsx';
 
 afterEach(cleanup);
+
+test('places the lifecycle funnel beside case ageing', () => {
+  expect(stationPlacementClass({ definition: { sourceKey: 'stationCases', dimensions: ['status'], visualization: { type: 'funnel' } } }))
+    .toBe('station-placement--detail station-placement--lifecycle');
+});
 
 const reportDefinitions = {
   'R-OPEN': { name: 'Open Cases', sourceKey: 'stationCases', dimensions: [], measures: [{ field: 'recordCount', aggregate: 'sum' }], filters: [], visualization: { type: 'number' } },
