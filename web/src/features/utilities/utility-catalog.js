@@ -123,9 +123,9 @@ function normalizeUtilityDefinition(value, requestedKey) {
   const limitations = normalizeStringList(value.limitations);
   const alertPolicy = normalizeAlertPolicy(value.alertPolicy);
   const aiAssistance = value.availability === 'AVAILABLE'
-    ? normalizeAiAssistance(value.aiAssistance, value.key)
+    ? value.aiAssistance === undefined ? undefined : normalizeAiAssistance(value.aiAssistance, value.key)
     : undefined;
-  return outputs && limitations && alertPolicy && (value.availability !== 'AVAILABLE' || aiAssistance)
+  return outputs && limitations && alertPolicy && (value.aiAssistance === undefined || aiAssistance)
     ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy, ...(aiAssistance ? { aiAssistance } : {}) }
     : null;
 }

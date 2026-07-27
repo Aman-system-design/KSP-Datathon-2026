@@ -164,7 +164,6 @@ test.each([
 });
 
 test.each([
-  ['missing metadata', undefined],
   ['non-plain object', Object.assign(Object.create({ inherited: true }), patterns.aiAssistance)],
   ['extra unsafe key', { ...patterns.aiAssistance, internalPrompt: 'private' }],
   ['empty method', { ...patterns.aiAssistance, method: '' }],
@@ -197,6 +196,18 @@ test('accepts revised server-owned AI assistance copy without a client copy allo
   const panel = await screen.findByRole('complementary', { name: 'AI-assisted detection' });
   expect(panel).toHaveTextContent('SEASONAL_MEDIAN_MAD');
   expect(panel).toHaveTextContent(explanation);
+});
+
+test('loads an older deployed utility without inventing missing AI assistance metadata', async () => {
+  const { aiAssistance: _missing, ...legacyUtility } = patterns;
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: legacyUtility }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/patterns');
+
+  await screen.findByRole('heading', { name: patterns.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  expect(screen.queryByRole('complementary', { name: 'AI-assisted detection' })).not.toBeInTheDocument();
 });
 
 test('accepts the legacy deployed AI assistance contract while the backend rolls forward', async () => {
