@@ -105,8 +105,8 @@
     },
     {
       "path": "src/backend/reporting/workspace-services.mjs",
-      "sha256": "ea5fa309cc6113778487e83926fbf8a9641a777ac73114ad1b3c5f4457dd453b",
-      "bytes": 7065
+      "sha256": "342c702b11c68c3e4e59e0166b11b26e9a07f2a21b8a9ebb18f7e43f1b324e56",
+      "bytes": 7075
     },
     {
       "path": "src/backend/repository/catalyst/catalyst-repository.mjs",
@@ -180,8 +180,8 @@
     },
     {
       "path": "src/backend/services/read-services.mjs",
-      "sha256": "85479d34b472e346b891976cc2d0936232993f25471026b52970fc35dac8498e",
-      "bytes": 4922
+      "sha256": "0a45aa59b0700d356ac94c9aa18b12dd1fd5592a50f38280c7caa0aed6a53e4a",
+      "bytes": 4893
     },
     {
       "path": "src/backend/services/result-provenance.mjs",

@@ -10,6 +10,7 @@ import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor
 import { AlertPage, AlertsPage } from '../features/alerts/AlertPages.jsx';
 import { DashboardLibrary, DashboardPage } from '../features/dashboards/DashboardPages.jsx';
 import { PersonaDashboardRoute } from '../features/dashboards/PersonaDashboardRoute.jsx';
+import { PersonaDashboardHome } from '../features/dashboards/PersonaDashboardHome.jsx';
 import { ProvisionedDashboardApplication } from '../features/dashboards/ProvisionedDashboardApplication.jsx';
 import { GeospatialPage } from '../features/geospatial/GeospatialPage.jsx';
 import { IntelligenceWorkspacePage } from '../features/intelligence/IntelligenceWorkspacePage.jsx';
@@ -164,7 +165,7 @@ function AuthorizedWorkspaceApplication({ api, auth, requestedPersona, workspace
   return <AppShell workspace={workspace} auth={auth}><Routes>
     <Route path="/" element={workspace.role === 'STATION_OPERATIONS'
       ? <Suspense fallback={<Busy label="Loading station operations…" />}><StationOperationsShell api={api} workspace={workspace} /></Suspense>
-      : <HomePage api={api} workspace={workspace} />} />
+      : <PersonaDashboardHome api={api} workspace={workspace} fallback={<HomePage api={api} workspace={workspace} />} />} />
     <Route path="/intelligence" element={<IntelligenceRoute api={api} role={workspace.role} />} />
     <Route path="/utilities" element={<UtilitiesPage api={api} />} />
     <Route path="/utilities/:utilityKey" element={<UtilityPage api={api} workspace={workspace} />} />

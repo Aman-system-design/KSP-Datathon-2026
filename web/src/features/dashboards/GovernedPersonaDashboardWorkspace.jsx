@@ -7,7 +7,7 @@ import { useCommandCenterDashboard } from '../command-center/useCommandCenterDas
 import { DashboardDeleteDialog } from './DashboardDeleteDialog.jsx';
 
 export function GovernedPersonaDashboardWorkspace({
-  api, workspace, dashboardId, title, description, eyebrow, onDeleted = () => {},
+  api, workspace, dashboardId, title, description, eyebrow, scopeLabel = 'Viewer scoped', scopeAriaLabel, onDeleted = () => {},
 }) {
   const controller = useCommandCenterDashboard({
     api, workspace, requestedDashboardId: dashboardId,
@@ -33,7 +33,7 @@ export function GovernedPersonaDashboardWorkspace({
   return <section className="persona-dashboard-workspace" aria-labelledby="persona-dashboard-title">
     <header className="persona-dashboard-workspace__header">
       <div><span>{eyebrow}</span><h1 id="persona-dashboard-title">{title}</h1><p>{description}</p></div>
-      <span className="persona-dashboard-workspace__scope">Viewer scoped</span>
+      <span className="persona-dashboard-workspace__scope" aria-label={scopeAriaLabel}>{scopeLabel}</span>
     </header>
     {controller.error ? <p className="persona-dashboard-workspace__error" role="alert">{controller.dashboard ? 'Dashboard changes could not be saved.' : 'Dashboard is unavailable.'}</p> : null}
     {controller.loading && !controller.dashboard ? <div className="command-center-dashboard-status" role="status">Loading authorized dashboard…</div> : <>

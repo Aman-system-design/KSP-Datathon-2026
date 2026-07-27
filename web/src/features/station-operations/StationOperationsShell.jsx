@@ -189,7 +189,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
       <div className="station-operations__identity">
         <span>Operations workspace</span>
         <h1 id="station-operations-title">Station Operations</h1>
-        <strong>{stationName}</strong>
+        <strong className="station-operations__scope" aria-label="Authorized police station">{stationName}</strong>
         <p>{workspace?.scopeUnit?.type || 'Police station'} · Case workload, ageing and local patterns</p>
       </div>
       <div className="station-operations__actions">

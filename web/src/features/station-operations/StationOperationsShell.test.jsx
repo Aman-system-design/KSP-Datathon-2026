@@ -92,6 +92,7 @@ test('renders the station identity and role dashboard without internal or state-
 
   expect(await screen.findByRole('heading', { name: 'Station Operations' })).toBeInTheDocument();
   expect(screen.getByText('Central Police Station')).toBeInTheDocument();
+  expect(screen.getByLabelText('Authorized police station')).toHaveTextContent('Central Police Station');
   expect(screen.getByLabelText('Station reporting period')).toBeInTheDocument();
   expect(screen.queryByText(/authorized workspace|scopeunit|unit 1001|backend/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/FIRs by Karnataka District|State Intelligence/i)).not.toBeInTheDocument();

@@ -94,6 +94,12 @@ test('all remaining read services return governed envelopes', async () => {
   assert.equal(responses[4].data.items[0].correlation.scope, 'AGGREGATE_DISTRICT_ONLY');
 });
 
+test('district context normalizes a Catalyst string scope identifier', async () => {
+  const access = { ...districtAccess, scopeUnitId: '101' };
+  const response = await createServices().getDistrictContext({ access, query: {} });
+  assert.equal(response.data.items[0].unitId, 101);
+});
+
 test('person network exposes authorized repeat appearances and redacts other districts', async () => {
   const response = await createServices().getNetwork({
     access: districtAccess, params: { nodeId: 'PERSON:PERSON-008' }, query: {},

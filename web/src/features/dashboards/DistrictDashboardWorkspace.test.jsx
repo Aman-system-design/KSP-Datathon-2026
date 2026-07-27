@@ -36,6 +36,7 @@ test('renders an editable district-scoped governed dashboard', async () => {
   </MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Mysuru District Intelligence' })).toBeVisible();
+  expect(screen.getByLabelText('Authorized district')).toHaveTextContent('Mysuru District');
   fireEvent.click(await screen.findByRole('button', { name: 'Dashboard options' }));
   fireEvent.click(screen.getByRole('menuitem', { name: 'Edit dashboard' }));
   fireEvent.click(screen.getByRole('button', { name: 'Dashboard options' }));

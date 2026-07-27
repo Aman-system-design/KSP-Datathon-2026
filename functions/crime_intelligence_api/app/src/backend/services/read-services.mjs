@@ -102,7 +102,7 @@ export function createReadServices({ repository, clock, idFactory }) {
 
     async getDistrictContext({ access, query = {} }) {
       const request = await context(access, actions.context);
-      const unitId = query.unitId === undefined ? access.scopeUnitId : Number(query.unitId);
+      const unitId = Number(query.unitId ?? access.scopeUnitId);
       if (!Number.isInteger(unitId)) fail('INVALID_REQUEST');
       if (!access.authorizedUnitIds.has(unitId)) fail('FORBIDDEN_SCOPE');
       const items = await repository.getDistrictContext(unitId);

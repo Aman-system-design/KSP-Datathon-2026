@@ -22,6 +22,7 @@
 .station-operations__identity > span { grid-column: 1 / -1; color: #6b7f95; font-size: 9px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 .station-operations__identity h1 { margin: 0; color: #142b49; font-size: 19px; font-weight: 700; line-height: 1.25; letter-spacing: -.015em; }
 .station-operations__identity strong { min-width: 0; overflow: hidden; color: #385776; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.station-operations__identity .station-operations__scope { width: fit-content; padding: 3px 8px; border: 1px solid #cfe1f1; border-radius: 999px; background: #eaf3fb; color: #174f78; font-weight: 750; }
 .station-operations__identity p { grid-column: 1 / -1; margin: 0; color: #77899c; font-size: 10.5px; }
 .station-operations__actions, .station-edit-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .station-period { display: inline-flex; padding: 2px; border: 1px solid #d8e0e9; border-radius: 7px; background: #f7f9fc; }
