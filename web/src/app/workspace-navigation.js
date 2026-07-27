@@ -11,7 +11,6 @@ const intelligenceModules = Object.freeze([
 const stateLeadershipModules = Object.freeze([
   { to: '/', label: 'Home', icon: 'home' },
   { to: '/utilities', label: 'Utilities', icon: 'utilities' },
-  { to: '/intelligence', label: 'Intelligence', icon: 'intelligence' },
   { to: '/alerts', label: 'Alerts', icon: 'alerts' },
   { to: '/reports', label: 'Reports', icon: 'report' },
   { to: '/dashboards', label: 'Dashboards', icon: 'dashboard' },
