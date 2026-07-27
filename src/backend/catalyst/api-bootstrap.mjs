@@ -159,7 +159,7 @@ export function createApiApplication({
           ParentUnit: unit.ParentUnit == null ? unit.ParentUnit : Number(unit.ParentUnit),
         }));
         const demoScopeUnitId = demoUnit ? Number(demoUnit.UnitID) : undefined;
-        const scopeUnitId = demoScopeUnitId ?? base.scopeUnitId;
+        const scopeUnitId = demoScopeUnitId ?? Number(base.scopeUnitId);
         return Object.freeze({
           ...base,
           scopeUnitId,

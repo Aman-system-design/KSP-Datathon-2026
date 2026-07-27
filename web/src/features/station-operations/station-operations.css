@@ -85,6 +85,19 @@
 .station-operations .command-center-report:focus-within { border-color: #b9ccdd; box-shadow: 0 5px 14px rgb(22 46 75 / 6%); }
 .station-operations .command-center-report > header { min-height: 34px; padding-inline: 12px; border-bottom-color: #edf1f5; background: #fff; }
 .station-operations .command-center-report h2 { color: #193552; font-size: 12px; font-weight: 650; letter-spacing: 0; }
+.station-operations .station-placement--metric .command-center-report { grid-template-rows: 40px minmax(0, 1fr) 22px; }
+.station-operations .station-placement--metric .command-center-report h2 { line-height: 1.2; text-overflow: clip; white-space: normal; }
+.station-operations .station-placement--metric .report-number span {
+  max-width: 92%;
+  margin-inline: auto;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.25;
+  text-transform: none;
+  white-space: normal;
+}
 .station-operations .command-center-report > header > div > span { display: none; }
 .station-operations .command-center-report > footer { justify-content: flex-end; min-height: 22px; padding-inline: 12px; border-top-color: #edf1f5; background: #fbfcfe; color: #6e8196; }
 .station-operations .command-center-report > footer > span { display: none; }

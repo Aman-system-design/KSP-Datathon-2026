@@ -92,6 +92,7 @@ test('assumed district leadership is scoped to an active district and can read d
     UnitID: String(unit.UnitID),
     ParentUnit: unit.ParentUnit == null ? unit.ParentUnit : String(unit.ParentUnit),
   }));
+  state.profiles = state.profiles.map(profile => ({ ...profile, ScopeUnitID: String(profile.ScopeUnitID) }));
   const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' }, state });
   const headers = { 'X-Demo-Persona': 'DISTRICT_LEADERSHIP' };
 
@@ -103,6 +104,23 @@ test('assumed district leadership is scoped to an active district and can read d
   const context = await application({ method: 'GET', url: '/v1/district-context', headers, body: null });
   assert.equal(context.status, 200);
   assert.equal(context.body.data.items[0].unitId, 101);
+});
+
+test('assumed statewide persona keeps a numeric HQ scope with Catalyst string unit identifiers', async () => {
+  const state = buildDemoState();
+  state.units = state.units.map(unit => ({
+    ...unit,
+    UnitID: String(unit.UnitID),
+    ParentUnit: unit.ParentUnit == null ? unit.ParentUnit : String(unit.ParentUnit),
+  }));
+  state.profiles = state.profiles.map(profile => ({ ...profile, ScopeUnitID: String(profile.ScopeUnitID) }));
+  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' }, state });
+
+  const workspace = await application({
+    method: 'GET', url: '/v1/workspace', headers: { 'X-Demo-Persona': 'CRIME_ANALYST' }, body: null,
+  });
+  assert.equal(workspace.status, 200);
+  assert.equal(workspace.body.data.scopeUnitId, 1);
 });
 
 test('API composition serves station-scoped case lists and hides unauthorized case detail', async () => {

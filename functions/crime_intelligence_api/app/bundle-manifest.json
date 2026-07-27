@@ -25,8 +25,8 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "159fe0e196cc6b5956aa0f8c36728a31367ea35a6b566aed0223fdf8de2e0326",
-      "bytes": 10121
+      "sha256": "230bec10983a4451bab74abf0e193ddb0e733392c77b9862eb37a5cf8e5c38f4",
+      "bytes": 10129
     },
     {
       "path": "src/backend/catalyst/job-scheduling-adapter.mjs",

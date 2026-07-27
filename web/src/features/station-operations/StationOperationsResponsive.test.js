@@ -23,6 +23,8 @@ test('station workspace defines compact responsive and reduced-motion contracts'
   expect(css).toMatch(/station-placement--detail[^}]*order:\s*3/s);
   expect(css).toMatch(/station-placement--register[^}]*order:\s*4/s);
   expect(css).toMatch(/command-center-report:hover[^}]*border-color:/s);
+  expect(css).toMatch(/station-placement--metric[^}]*command-center-report h2[^}]*white-space:\s*normal/s);
+  expect(css).toMatch(/station-placement--metric[^}]*report-number span[^}]*letter-spacing:\s*normal[^}]*text-transform:\s*none[^}]*white-space:\s*normal/s);
   expect(css).toMatch(/command-center-report\s*>\s*footer\s*>\s*span[^}]*display:\s*none/s);
   expect(css).toMatch(/report-preview-canvas\[data-density="dashboard"\][^}]*report-pie-layout[^}]*padding:/s);
   expect(css).toMatch(/report-preview-canvas\[data-density="dashboard"\][^}]*report-funnel\s+button[^}]*color:\s*#fff/s);
