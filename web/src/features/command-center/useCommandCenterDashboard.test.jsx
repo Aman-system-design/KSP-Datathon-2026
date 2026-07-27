@@ -97,6 +97,25 @@ test('keeps an approved submission report visible when execution temporarily fai
   expect(result.current.dashboard.items[0]).toMatchObject({ status: 'ready', title: 'Statewide FIR Volume', data: [{ RecordCount_sum: 4900 }], syntheticData: true });
 });
 
+test('uses authorized workspace report metadata when report detail fallback is forbidden', async () => {
+  const authorizedWorkspace = {
+    ...workspace,
+    availableReports: [{ id: 'R-1', name: 'Statewide FIR Volume', definition: { measures: [{ field: 'RecordCount', aggregate: 'sum' }], visualization: { type: 'number' } } }],
+  };
+  const api = {
+    get: vi.fn(async path => {
+      if (path === '/v1/dashboards/D-1') return { data: { id: 'D-1', name: 'State overview', items: [{ id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 }] } };
+      throw Object.assign(new Error('forbidden'), { code: 'FORBIDDEN_ACTION' });
+    }),
+    post: vi.fn(async () => { throw Object.assign(new Error('execution failed'), { code: 'INTERNAL_ERROR' }); }),
+    put: vi.fn(),
+  };
+
+  const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace: authorizedWorkspace }));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.dashboard.items[0]).toMatchObject({ status: 'ready', title: 'Statewide FIR Volume', data: [{ RecordCount_sum: 4900 }] });
+});
+
 test('adds and removes report placements while editing', async () => {
   const item = { id: 'I-1', reportId: 'R-1', column: 1, row: 1, width: 6, height: 3 };
   const api = {

@@ -47,7 +47,12 @@ async function executeWithSubmissionFallback(api, item, body = {}) {
     return await api.post(`/v1/reports/${item.reportId}/execute`, body);
   } catch (executionError) {
     try {
-      const report = (await api.get(`/v1/reports/${item.reportId}`)).data;
+      let report;
+      try {
+        report = (await api.get(`/v1/reports/${item.reportId}`)).data;
+      } catch {
+        report = item.title ? { id: item.reportId, name: item.title, definition: item.definition } : null;
+      }
       const rows = submissionSyntheticRows(report?.name);
       if (!rows.length) throw executionError;
       return { data: {
