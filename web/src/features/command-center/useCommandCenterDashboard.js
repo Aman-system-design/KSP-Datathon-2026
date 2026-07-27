@@ -61,7 +61,10 @@ async function executeWithSubmissionFallback(api, item, body = {}) {
 }
 
 export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null, executionBody = EMPTY_EXECUTION_BODY, reloadKey = null, reportPredicate = INCLUDE_ALL_REPORTS }) {
-  const initialId = requestedDashboardId ?? workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
+  const stateIntelligenceId = workspace?.role === 'STATE_LEADERSHIP'
+    ? workspace?.availableDashboards?.find(dashboard => dashboard.name === 'State Crime Intelligence')?.id
+    : null;
+  const initialId = requestedDashboardId ?? stateIntelligenceId ?? workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState(initialId);
   const [dashboard, setDashboard] = useState(null);
   const [persistedItems, setPersistedItems] = useState([]);

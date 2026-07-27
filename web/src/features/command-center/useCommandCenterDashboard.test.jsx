@@ -8,6 +8,26 @@ const workspace = {
   availableDashboards: [{ id: 'D-1', name: 'State overview', relationship: 'SYSTEM' }],
 };
 
+test('prefers State Crime Intelligence over a stale Station Operations landing dashboard', async () => {
+  const leadershipWorkspace = {
+    role: 'STATE_LEADERSHIP',
+    landingDashboard: { id: 'D-STATION', name: 'Station Operations' },
+    availableDashboards: [
+      { id: 'D-STATION', name: 'Station Operations' },
+      { id: 'D-STATE', name: 'State Crime Intelligence' },
+    ],
+  };
+  const api = {
+    get: vi.fn(async path => ({ data: { id: path.endsWith('D-STATE') ? 'D-STATE' : 'D-STATION', name: 'State Crime Intelligence', items: [] } })),
+    post: vi.fn(), put: vi.fn(),
+  };
+
+  const { result } = renderHook(() => useCommandCenterDashboard({ api, workspace: leadershipWorkspace }));
+  await waitFor(() => expect(result.current.dashboard?.id).toBe('D-STATE'));
+  expect(api.get).toHaveBeenCalledWith('/v1/dashboards/D-STATE');
+  expect(api.get).not.toHaveBeenCalledWith('/v1/dashboards/D-STATION');
+});
+
 test('loads the landing dashboard and contains one failed report', async () => {
   const api = {
     get: vi.fn(async path => ({ data: path === '/v1/dashboards/D-1' ? {
