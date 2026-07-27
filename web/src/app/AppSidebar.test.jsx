@@ -15,6 +15,7 @@ function SidebarHarness({ workspace }) {
 test('owns collapsible workspace navigation without hiding platform modules', () => {
   const workspace = {
     role: 'CRIME_ANALYST', scopeUnitId: 101,
+    scopeUnit: { name: 'Synthetic Bagalkot District' },
     availableDashboards: [{ id: 'D-1', name: 'Analyst desk' }],
     alertSummary: { total: 3 },
   };
@@ -22,6 +23,8 @@ test('owns collapsible workspace navigation without hiding platform modules', ()
 
   expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toHaveTextContent('Analyst Workbench');
+  expect(screen.getByRole('navigation', { name: 'Workspace navigation' })).toHaveTextContent('Bagalkot District');
+  expect(screen.queryByText('Synthetic Bagalkot District')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Collapse workspace panel' }));
   expect(screen.queryByRole('navigation', { name: 'Workspace navigation' })).not.toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Platform modules' })).toBeInTheDocument();

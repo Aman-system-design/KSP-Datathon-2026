@@ -27,7 +27,7 @@ test('renders an editable district-scoped governed dashboard', async () => {
     delete: vi.fn(async () => ({ data: {} })),
   };
   const workspace = {
-    role: 'DISTRICT_LEADERSHIP', scopeUnit: { name: 'Mysuru District' },
+    role: 'DISTRICT_LEADERSHIP', scopeUnit: { name: 'Synthetic Mysuru District' },
     landingDashboard: { id: 'D-1' }, availableDashboards: [{ id: 'D-1', name: 'District pulse' }],
     availableReports: [districtReport],
   };

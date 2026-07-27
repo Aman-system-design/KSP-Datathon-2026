@@ -13,7 +13,7 @@ test('renders a standalone police station dashboard without changing the station
     post: vi.fn(), put: vi.fn(), delete: vi.fn(),
   };
   const workspace = {
-    role: 'STATION_OPERATIONS', scopeUnit: { name: 'Central Police Station' },
+    role: 'STATION_OPERATIONS', scopeUnit: { name: 'Synthetic Central Police Station' },
     landingDashboard: { id: 'D-S' }, availableDashboards: [{ id: 'D-S', name: 'Station dashboard' }],
     availableReports: [stationReport],
   };

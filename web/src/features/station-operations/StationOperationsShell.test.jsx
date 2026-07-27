@@ -34,7 +34,7 @@ const reportDefinitions = {
 
 const workspace = {
   role: 'STATION_OPERATIONS', scopeUnitId: 1001,
-  scopeUnit: { name: 'Central Police Station', type: 'Police station' },
+  scopeUnit: { name: 'Synthetic Central Police Station', type: 'Police station' },
   landingDashboard: { id: 'D-STATION' },
   availableDashboards: [{ id: 'D-STATION', name: 'Station Operations', relationship: 'SYSTEM', defaultRole: 'STATION_OPERATIONS' }],
   availableReports: Object.entries(reportDefinitions).map(([id, definition]) => ({ id, name: definition.name, definition })),

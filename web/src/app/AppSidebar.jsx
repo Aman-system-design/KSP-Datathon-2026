@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../components/icons.jsx';
+import { demonstrationLabel } from '../lib/display-text.js';
 import { governedAppLocation } from './runtime.js';
 import { titleCase } from './workspace-labels.js';
 import { getWorkspaceNavigation } from './workspace-navigation.js';
@@ -9,7 +10,7 @@ export function AppSidebar({ workspace, collapsed = false, locked = false, onCol
   const location = useLocation();
   const navigation = getWorkspaceNavigation(workspace);
   const dashboards = workspace?.availableDashboards ?? [];
-  const unitLabel = workspace?.scopeUnit?.name?.trim()
+  const unitLabel = demonstrationLabel(workspace?.scopeUnit?.name?.trim())
     || (workspace?.role === 'STATION_OPERATIONS' ? 'Local station' : navigation.workspaceLabel);
   return <>
     <nav className="module-rail" aria-label="Platform modules"><div className="module-links">

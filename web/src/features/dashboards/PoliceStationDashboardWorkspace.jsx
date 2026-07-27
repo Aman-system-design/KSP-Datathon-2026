@@ -1,11 +1,12 @@
 import { GovernedPersonaDashboardWorkspace } from './GovernedPersonaDashboardWorkspace.jsx';
+import { demonstrationLabel } from '../../lib/display-text.js';
 
 const POLICE_STATION_SOURCES = new Set(['stationCases', 'alerts']);
 
 export const isPoliceStationReport = report => POLICE_STATION_SOURCES.has(report?.definition?.sourceKey);
 
 export function PoliceStationDashboardWorkspace(props) {
-  const stationName = props.workspace?.scopeUnit?.name?.trim() || 'Local station';
+  const stationName = demonstrationLabel(props.workspace?.scopeUnit?.name?.trim()) || 'Local station';
   return <GovernedPersonaDashboardWorkspace
     {...props}
     eyebrow={stationName}

@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Busy, Failure } from '../../app/AsyncStates.jsx';
 import { governedAppLocation } from '../../app/runtime.js';
 import { useLoad } from '../../app/useLoad.js';
+import { demonstrationLabel } from '../../lib/display-text.js';
 import './station-operations.css';
 
 const UNAVAILABLE = 'Unavailable';
@@ -11,7 +12,7 @@ const KARNATAKA_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/u;
 const CIVIL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/u;
 const PROVENANCE_LABELS = Object.freeze({
-  SYNTHETIC: 'Synthetic data', OPERATIONAL: 'Operational data',
+  SYNTHETIC: 'Demonstration data', OPERATIONAL: 'Operational data',
   MIXED: 'Mixed-source data', EMPTY: 'No source records',
 });
 const KARNATAKA_DATE = new Intl.DateTimeFormat('en-IN', {
@@ -23,7 +24,7 @@ const KARNATAKA_TIME = new Intl.DateTimeFormat('en-IN', {
 });
 
 function valueOrUnavailable(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : UNAVAILABLE;
+  return typeof value === 'string' && value.trim() ? demonstrationLabel(value.trim()) : UNAVAILABLE;
 }
 
 function formatKarnatakaTimestamp(value) {

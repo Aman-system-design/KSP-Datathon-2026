@@ -1,4 +1,5 @@
 import { GovernedPersonaDashboardWorkspace } from './GovernedPersonaDashboardWorkspace.jsx';
+import { demonstrationLabel } from '../../lib/display-text.js';
 
 const DISTRICT_SOURCES = new Set([
   'brief', 'patterns', 'hotspots', 'anomalies', 'areaRisk',
@@ -10,7 +11,7 @@ export const isDistrictReport = report => DISTRICT_SOURCES.has(report?.definitio
 export const districtDisplayName = name => /\bdistrict$/iu.test(name) ? name : `${name} District`;
 
 export function DistrictDashboardWorkspace(props) {
-  const districtName = props.workspace?.scopeUnit?.name?.trim() || 'Authorized';
+  const districtName = demonstrationLabel(props.workspace?.scopeUnit?.name?.trim()) || 'Authorized';
   const displayName = districtDisplayName(districtName);
   return <GovernedPersonaDashboardWorkspace
     {...props}

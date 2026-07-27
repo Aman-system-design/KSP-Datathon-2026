@@ -10,6 +10,7 @@ test('uses a compact account menu with workspace switching and sign out', () => 
   const signOut = vi.fn();
   const workspace = {
     role: 'STATE_LEADERSHIP', scopeUnitId: 1,
+    scopeUnit: { name: 'Synthetic Karnataka Headquarters' },
     identity: { employeeId: 9900, actualRole: 'DEMO_PRESENTER', demoPersona: true },
     personaSwitch: { allowed: true, personas: ['STATE_LEADERSHIP', 'CRIME_ANALYST'] },
   };
@@ -19,7 +20,7 @@ test('uses a compact account menu with workspace switching and sign out', () => 
 
   expect(screen.queryByRole('group', { name: 'Switch demonstration persona' })).not.toBeInTheDocument();
   expect(screen.getByText('State Leadership')).toBeInTheDocument();
-  expect(screen.getByText('State Intelligence Brief')).toBeInTheDocument();
+  expect(screen.getByText('Karnataka Headquarters')).toBeInTheDocument();
   expect(screen.queryByText('Unit 1')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }));
   expect(onPersonaChange).toHaveBeenCalledWith(null);

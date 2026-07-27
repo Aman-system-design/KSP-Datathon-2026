@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon } from '../components/icons.jsx';
+import { demonstrationLabel } from '../lib/display-text.js';
 import { roleLabel } from './workspace-labels.js';
 import { getWorkspaceNavigation } from './workspace-navigation.js';
 
@@ -7,7 +8,7 @@ export function AccountMenu({ workspace, auth, onPersonaChange, triggerLabel }) 
   const [open, setOpen] = useState(false);
   const currentRoleLabel = roleLabel(workspace?.role);
   const identity = workspace?.identity ?? {};
-  const unitLabel = workspace?.scopeUnit?.name?.trim()
+  const unitLabel = demonstrationLabel(workspace?.scopeUnit?.name?.trim())
     || (workspace?.role === 'STATION_OPERATIONS' ? 'Local station' : getWorkspaceNavigation(workspace).workspaceLabel);
   const choosePersona = persona => { setOpen(false); onPersonaChange(persona); };
   return <div className="account-menu">

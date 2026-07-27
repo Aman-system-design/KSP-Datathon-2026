@@ -7,10 +7,10 @@ import { StationCaseDetail } from './StationCaseDetail.jsx';
 afterEach(cleanup);
 
 const governedCase = {
-  caseId: 'CASE / 17', caseNumber: '0017/2026', status: 'Under Investigation',
+  caseId: 'CASE / 17', caseNumber: '0017/2026', status: 'Synthetic Under Investigation',
   ageDays: 9, ageingBucket: '8–30 days', registeredAt: '2026-07-20T00:00:00Z',
-  incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Property', minorHead: 'Burglary',
-  unitName: 'Central Police Station', syntheticData: true,
+  incidentAt: '2026-07-19T22:00:00Z', majorHead: 'Synthetic Property', minorHead: 'Synthetic Burglary',
+  unitName: 'Synthetic Central Police Station', syntheticData: true,
   BriefFacts: 'restricted narrative', accused: ['restricted'], complainant: 'restricted',
   latitude: 12.97, longitude: 77.59, unitId: 1001, employeeId: 'E-1',
 };
@@ -35,7 +35,7 @@ test('loads the encoded case path and renders only the approved governed project
   expect(screen.getByText('Property')).toBeInTheDocument();
   expect(screen.getByText('Burglary')).toBeInTheDocument();
   expect(screen.getByText('Central Police Station')).toBeInTheDocument();
-  expect(screen.getByText('Synthetic data')).toBeInTheDocument();
+  expect(screen.getByText('Demonstration data')).toBeInTheDocument();
   expect(screen.getByText('Read-only case record')).toBeInTheDocument();
   expect(screen.queryByText('restricted narrative')).not.toBeInTheDocument();
   expect(screen.queryByText('restricted')).not.toBeInTheDocument();

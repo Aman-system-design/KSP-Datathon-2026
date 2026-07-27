@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { governedAppLocation } from '../../app/runtime.js';
+import { demonstrationLabel } from '../../lib/display-text.js';
 import { CommandCenterAddReportDrawer } from '../command-center/CommandCenterAddReportDrawer.jsx';
 import { CommandCenterDashboardCanvas } from '../command-center/CommandCenterDashboardCanvas.jsx';
 import { useCommandCenterDashboard } from '../command-center/useCommandCenterDashboard.js';
@@ -124,7 +125,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
     controller.dashboard,
     item => stationPresentation(filtered(periodized(item, periodDays), stationFilter)),
   ), [controller.dashboard, periodDays, stationFilter]);
-  const stationName = workspace?.scopeUnit?.name?.trim() || 'Local station';
+  const stationName = demonstrationLabel(workspace?.scopeUnit?.name?.trim()) || 'Local station';
 
   useEffect(() => {
     if (requestedDashboardId || bootstrapResult || workspace?.role !== 'STATION_OPERATIONS'
