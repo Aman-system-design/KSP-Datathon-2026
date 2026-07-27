@@ -153,14 +153,19 @@ export function createApiApplication({
             .sort((left, right) => Number(left.UnitID) - Number(right.UnitID))[0]
           : undefined;
         if (base.demoPersona && demoUnitType && !demoUnit) fail('FORBIDDEN_ACTION');
-        const demoScopeUnitId = demoUnit?.UnitID;
+        const normalizedUnits = units.map(unit => ({
+          ...unit,
+          UnitID: Number(unit.UnitID),
+          ParentUnit: unit.ParentUnit == null ? unit.ParentUnit : Number(unit.ParentUnit),
+        }));
+        const demoScopeUnitId = demoUnit ? Number(demoUnit.UnitID) : undefined;
         const scopeUnitId = demoScopeUnitId ?? base.scopeUnitId;
         return Object.freeze({
           ...base,
           scopeUnitId,
           organizationId: config.organizationId,
-          authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId, units }),
-          escalationUnitIds: buildEscalationUnitSet({ scopeUnitId, units }),
+          authorizedUnitIds: buildAuthorizedUnitSet({ scopeUnitId, units: normalizedUnits }),
+          escalationUnitIds: buildEscalationUnitSet({ scopeUnitId, units: normalizedUnits }),
           assignments,
         });
       };

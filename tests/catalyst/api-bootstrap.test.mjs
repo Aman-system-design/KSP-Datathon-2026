@@ -86,7 +86,13 @@ test('API composition serves the role workspace and governed report sources', as
 });
 
 test('assumed district leadership is scoped to an active district and can read district context', async () => {
-  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
+  const state = buildDemoState();
+  state.units = state.units.map(unit => ({
+    ...unit,
+    UnitID: String(unit.UnitID),
+    ParentUnit: unit.ParentUnit == null ? unit.ParentUnit : String(unit.ParentUnit),
+  }));
+  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' }, state });
   const headers = { 'X-Demo-Persona': 'DISTRICT_LEADERSHIP' };
 
   const workspace = await application({ method: 'GET', url: '/v1/workspace', headers, body: null });
