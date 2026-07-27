@@ -4,7 +4,7 @@ export function measureKey(measure) {
 
 export function cleanReportLabel(value, demonstration = false) {
   if (typeof value !== 'string') return value;
-  return demonstration ? value.replace(/^Synthetic\s+/iu, '').trim() : value;
+  return demonstration ? demonstrationLabel(value) : value;
 }
 
 function numericValue(value) {
@@ -23,3 +23,4 @@ export function adaptReportRows(rows = [], definition = {}, { demonstration = fa
 }
 
 export const reportPoints = adaptReportRows;
+import { demonstrationLabel } from '../../lib/display-text.js';
