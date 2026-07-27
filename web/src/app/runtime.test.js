@@ -33,3 +33,9 @@ test('governed app links preserve only an allowlisted persona and optionally the
     search: '?persona=NOT_ALLOWED&token=unsafe', hash: '#evidence',
   }, { preserveHash: true })).toEqual({ pathname: '/geospatial', search: '', hash: '#evidence' });
 });
+
+test('governed app links separate an explicit persona from the pathname during workspace transitions', () => {
+  expect(governedAppLocation('/?persona=COMMAND_CENTER', {
+    search: '?persona=STATION_OPERATIONS&token=unsafe',
+  })).toEqual({ pathname: '/', search: '?persona=COMMAND_CENTER' });
+});

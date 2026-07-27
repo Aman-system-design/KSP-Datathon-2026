@@ -188,7 +188,7 @@ export function Application({ api: providedApi }) {
   if (session.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity…" /></main>;
   if (!providedApi && (session.error?.status === 401 || session.error?.code === 'UNAUTHENTICATED' || !session.data)) return <SignInRequired auth={auth} />;
   if (session.error) return <main className="application-gate"><Failure error={session.error} /></main>;
-  return <AuthorizedApplication api={api} auth={auth} requestedPersona={demoPersona} />;
+  return <AuthorizedApplication key={demoPersona ?? 'workspace-selector'} api={api} auth={auth} requestedPersona={demoPersona} />;
 }
 
 export { AlertsPage, DashboardPage, Failure, GeospatialPage };

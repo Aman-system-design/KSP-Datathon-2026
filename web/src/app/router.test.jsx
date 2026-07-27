@@ -156,6 +156,30 @@ test('demo presenter chooses only from backend-authorized workspaces before ente
   expect(api.get).toHaveBeenCalledTimes(1);
 }, 10000);
 
+test('workspace switching resets bootstrap state before rendering the selected persona', async () => {
+  let resolveSelectedWorkspace;
+  const selectedWorkspace = new Promise(resolve => { resolveSelectedWorkspace = resolve; });
+  const api = { get: vi.fn(async path => {
+    if (path !== '/v1/workspace') throw new Error(`Unexpected request: ${path}`);
+    if (api.get.mock.calls.length === 1) return { data: {
+      role: 'DEMO_PRESENTER', scopeUnitId: 1, syntheticData: true, availableDashboards: [], alertSummary: { total: 0 },
+      personaSwitch: { allowed: true, personas: ['CRIME_ANALYST'] },
+    } };
+    return selectedWorkspace;
+  }) };
+
+  render(<MemoryRouter><Application api={api} /></MemoryRouter>);
+  expect(await screen.findByRole('heading', { name: 'Select workspace' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('radio', { name: 'Crime Analyst' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+  expect(await screen.findByRole('status', { name: 'Verifying Catalyst identity and authorized scope…' })).toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledTimes(2);
+
+  resolveSelectedWorkspace({ data: analystWorkspace });
+  expect(await screen.findByRole('button', { name: 'Open account menu' })).toHaveAttribute('title', 'Crime Analyst');
+});
+
 test('legacy command-centre URL redirects to the canonical command center workspace', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {

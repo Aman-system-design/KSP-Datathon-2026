@@ -21,12 +21,15 @@ export function personaSearch(search, persona) {
 }
 
 export function governedAppLocation(pathname, location = {}, { preserveHash = false } = {}) {
-  if (typeof pathname !== 'string' || !pathname.startsWith('/') || pathname.startsWith('//')) {
+  const queryIndex = typeof pathname === 'string' ? pathname.indexOf('?') : -1;
+  const applicationPathname = queryIndex >= 0 ? pathname.slice(0, queryIndex) : pathname;
+  if (typeof applicationPathname !== 'string' || !applicationPathname.startsWith('/') || applicationPathname.startsWith('//')) {
     throw new TypeError('A relative application pathname is required');
   }
-  const persona = readDemoPersona(location.search ?? '');
+  const explicitPersona = queryIndex >= 0 ? readDemoPersona(pathname.slice(queryIndex)) : null;
+  const persona = explicitPersona ?? readDemoPersona(location.search ?? '');
   return Object.freeze({
-    pathname,
+    pathname: applicationPathname,
     search: persona ? `?persona=${encodeURIComponent(persona)}` : '',
     ...(preserveHash && typeof location.hash === 'string' && location.hash ? { hash: location.hash } : {}),
   });
