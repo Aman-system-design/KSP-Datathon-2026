@@ -26,7 +26,9 @@ test('leadership workspace renders the approved report-led state brief', () => {
   expect(screen.getByText('86')).toBeInTheDocument();
   expect(screen.getByText(/6 contributing cases/i)).toBeInTheDocument();
   expect(screen.queryByText('18 linked cases')).not.toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: /inspect evidence/i }).length).toBeGreaterThan(0);
+  const evidenceLinks = screen.getAllByRole('link', { name: /inspect evidence/i });
+  expect(evidenceLinks.length).toBeGreaterThan(0);
+  evidenceLinks.forEach(link => expect(link).toHaveAttribute('href', '/alerts'));
   expect(screen.getByText(/complete 31-district command matrix/i)).toBeInTheDocument();
   expect(screen.getByTestId('report-pie-chart')).toHaveAttribute('data-variant', 'doughnut');
   expect(screen.getByTestId('report-bar-chart')).toHaveAttribute('data-orientation', 'horizontal');
