@@ -14,6 +14,11 @@ const categoryPresentation = Object.freeze({
 
 const fallbackPresentation = Object.freeze({ icon: 'utilities', tone: 'blue' });
 const lifecycleStages = Object.freeze(['Data', 'Analyze', 'Explain', 'Alert', 'Deliver']);
+const legacyAiAssistance = Object.freeze({
+  patterns: Object.freeze({ label: 'Multi-signal pattern fusion', methodVersion: 'PF-1.0' }),
+  hotspots: Object.freeze({ label: 'DBSCAN', methodVersion: 'DBSCAN-1.0' }),
+  anomalies: Object.freeze({ label: 'Median + MAD', methodVersion: 'MAD-1.0' }),
+});
 const inFlightByApi = new WeakMap();
 
 function isRecord(value) {
@@ -74,11 +79,33 @@ function normalizeAlertPolicy(value) {
   return { enabled: value.enabled, fields: Object.fromEntries(entries.map(([name, bounds]) => [name, { kind: bounds.kind, min: bounds.min, max: bounds.max }])) };
 }
 
-function normalizeAiAssistance(value) {
+function normalizeLegacyAiAssistance(value, utilityKey) {
+  const expected = legacyAiAssistance[utilityKey];
+  const keys = ['label', 'methodVersion', 'explanation'];
+  if (!expected || !isPlainRecord(value) || !hasExactKeys(value, keys)
+    || value.label !== expected.label || value.methodVersion !== expected.methodVersion
+    || !boundedString(value.explanation, 1200)
+    || !/machine-generated .* signal/iu.test(value.explanation)
+    || !/human-governed delivery qualification/iu.test(value.explanation)
+    || !/human review is required/iu.test(value.explanation)) return null;
+  return {
+    method: value.label,
+    engineVersion: value.methodVersion,
+    explanation: value.explanation.trim(),
+    governance: {
+      machineGeneratedSignal: true,
+      humanGovernedDelivery: true,
+      humanReviewRequired: true,
+    },
+  };
+}
+
+function normalizeAiAssistance(value, utilityKey) {
   const assistanceKeys = ['method', 'engineVersion', 'explanation', 'governance'];
   const governanceKeys = ['machineGeneratedSignal', 'humanGovernedDelivery', 'humanReviewRequired'];
-  if (!isPlainRecord(value) || !hasExactKeys(value, assistanceKeys)
-    || !boundedString(value.method, 80)
+  if (!isPlainRecord(value)) return null;
+  if (!hasExactKeys(value, assistanceKeys)) return normalizeLegacyAiAssistance(value, utilityKey);
+  if (!boundedString(value.method, 80)
     || !boundedString(value.engineVersion, 32)
     || !boundedString(value.explanation, 1200)
     || !isPlainRecord(value.governance) || !hasExactKeys(value.governance, governanceKeys)
@@ -96,7 +123,7 @@ function normalizeUtilityDefinition(value, requestedKey) {
   const limitations = normalizeStringList(value.limitations);
   const alertPolicy = normalizeAlertPolicy(value.alertPolicy);
   const aiAssistance = value.availability === 'AVAILABLE'
-    ? normalizeAiAssistance(value.aiAssistance)
+    ? normalizeAiAssistance(value.aiAssistance, value.key)
     : undefined;
   return outputs && limitations && alertPolicy && (value.availability !== 'AVAILABLE' || aiAssistance)
     ? { ...base, analyticalMethod: value.analyticalMethod, outputs, limitations, alertPolicy, ...(aiAssistance ? { aiAssistance } : {}) }
