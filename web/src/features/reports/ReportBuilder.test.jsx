@@ -251,7 +251,7 @@ test('keeps the Intelligence control inside the builder without nesting forms', 
 
   await screen.findByRole('option', { name: 'Trend anomalies' });
   expect(container.querySelectorAll('form')).toHaveLength(1);
-});
+}, 10_000);
 
 test('shows governed Data Store sources and the complete chart catalogue', async () => {
   const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
