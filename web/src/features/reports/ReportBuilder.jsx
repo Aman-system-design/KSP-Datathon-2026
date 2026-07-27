@@ -5,6 +5,7 @@ import { ConfigureStep, DataStep, fieldLabel, StyleStep, TypeStep } from './Repo
 import { ReportIntelligenceBar } from './ReportIntelligenceBar.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
 import { ReportMapAuthoring } from './ReportMapAuthoring.jsx';
+import { chartCompatibility, REPORT_VISUALIZATIONS } from './report-visualization-catalog.js';
 
 const LazyEmbeddedMapView = lazy(() => import('../geospatial/EmbeddedMapView.jsx'));
 const LazyGeospatialStudio = lazy(() => import('../geospatial/GeospatialStudio.jsx'));
@@ -73,6 +74,7 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView,
   const source = useMemo(() => sources.find(item => item.key === sourceKey), [sources, sourceKey]);
   const dimensions = Object.entries(source?.fields ?? {}).filter(([, value]) => value.dimension);
   const measures = Object.entries(source?.fields ?? {}).flatMap(([field, value]) => (value.aggregates ?? []).map(aggregate => [`${field}:${aggregate}`, `${fieldLabel(field)} · ${fieldLabel(aggregate)}`]));
+  const choices = REPORT_VISUALIZATIONS.map(item => ({ ...item, ...chartCompatibility({ source, type: item.type }) }));
   const canAdvance = step !== 0 || Boolean(name.trim() && sourceKey);
   const canRun = Boolean(name.trim() && sourceKey && (visualization !== 'map' || mapViewId));
 
@@ -116,7 +118,7 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView,
   const activeStep = step === 0
     ? <DataStep description={description} name={name} onDescription={value => invalidate(() => setDescription(value))} onName={value => invalidate(() => setName(value))} onSource={changeSource} sourceKey={sourceKey} sources={sources} />
     : step === 1
-      ? <TypeStep onVisualization={changeVisualization} visualization={visualization} visualizations={source?.visualizations ?? ['table']} />
+      ? <TypeStep choices={choices} onVisualization={changeVisualization} visualization={visualization} />
       : step === 2
         ? <ConfigureStep dimension={dimension} dimensions={dimensions} filter={filter} limit={limit} mapViewId={mapViewId} mapViews={mapViews} measure={measure} measures={measures} onCreateMapView={() => setMapComposerOpen(true)} onDimension={value => invalidate(() => setDimension(value))} onFilter={value => invalidate(() => setFilter(value))} onLimit={value => invalidate(() => setLimit(value))} onMapView={value => invalidate(() => setMapViewId(value))} onMeasure={value => invalidate(() => setMeasure(value))} onSortDirection={value => invalidate(() => setSortDirection(value))} sortDirection={sortDirection} source={source} visualization={visualization} />
         : step === 3

@@ -252,3 +252,17 @@ test('keeps the Intelligence control inside the builder without nesting forms', 
   await screen.findByRole('option', { name: 'Trend anomalies' });
   expect(container.querySelectorAll('form')).toHaveLength(1);
 });
+
+test('shows governed Data Store sources and the complete chart catalogue', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  expect(screen.getByText('Approved Data Store source · viewer scoped')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Chart discovery' } });
+  next();
+
+  for (const label of ['Table', 'KPI Number', 'Bar', 'Line', 'Pie', 'Funnel', 'Karnataka Map']) {
+    expect(screen.getByRole('radio', { name: new RegExp(label, 'i') })).toBeInTheDocument();
+  }
+});
