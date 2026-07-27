@@ -4,7 +4,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { readDemoPersona } from '../../app/runtime.js';
 import { RECOMMENDED_COMMAND_REPORTS } from './state-intelligence-template.js';
 
-export function CommandCenterAddReportDrawer({ api, open = false, onAdd = () => {}, onClose = () => {} }) {
+export function CommandCenterAddReportDrawer({
+  api, open = false, onAdd = () => {}, onClose = () => {}, reportPredicate = () => true,
+  recommendedReports = RECOMMENDED_COMMAND_REPORTS, returnTo = 'command-center',
+}) {
   const location = useLocation();
   const [reports, setReports] = useState([]);
   const [query, setQuery] = useState('');
@@ -20,13 +23,16 @@ export function CommandCenterAddReportDrawer({ api, open = false, onAdd = () => 
     }).catch(() => { if (active) setStatus('Reports are unavailable.'); });
     return () => { active = false; };
   }, [api, open]);
-  const filtered = useMemo(() => reports.filter(report => report.name?.toLowerCase().includes(query.toLowerCase())), [reports, query]);
-  const recommended = useMemo(() => RECOMMENDED_COMMAND_REPORTS
+  const filtered = useMemo(() => reports
+    .filter(reportPredicate)
+    .filter(report => report.name?.toLowerCase().includes(query.toLowerCase())), [reports, query, reportPredicate]);
+  const recommended = useMemo(() => recommendedReports
+    .filter(reportPredicate)
     .filter(definition => !reports.some(report => report.name === definition.name))
-    .filter(definition => definition.name.toLowerCase().includes(query.toLowerCase())), [reports, query]);
+    .filter(definition => definition.name.toLowerCase().includes(query.toLowerCase())), [recommendedReports, reportPredicate, reports, query]);
   if (!open) return null;
   const reportParams = new URLSearchParams({ persona: readDemoPersona(location.search) ?? 'COMMAND_CENTER' });
-  reportParams.set('returnTo', 'command-center');
+  reportParams.set('returnTo', returnTo);
   const addReport = async report => {
     if (report.id) { onAdd(report); return; }
     setStatus(`Creating ${report.name}…`);
