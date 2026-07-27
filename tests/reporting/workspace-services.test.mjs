@@ -208,6 +208,28 @@ test('station report-source catalog exposes only station cases and alerts', asyn
   assert.deepEqual(result.data.map(source => source.key), ['alerts', 'stationCases']);
 });
 
+test('station alert reports execute through the authorized alert service and return a truthful zero', async () => {
+  const repository = new MemoryIntelligenceRepository(buildDemoState());
+  repository.listAlerts = async () => [];
+  const services = createWorkspaceServices({
+    repository, readServices: {}, now: () => '2026-07-21T00:00:00Z',
+    idFactory: prefix => `${prefix}-1`,
+  });
+  const station = {
+    ...analyst, actualUserId: 'CAT-STATION', role: 'STATION_OPERATIONS', actualRole: 'STATION_OPERATIONS',
+    scopeUnitId: 1001, authorizedUnitIds: new Set([1001]), actions: ['READ_ALERT'],
+  };
+  const report = await services.createReport({ access: station, body: {
+    name: 'Active Alerts', sourceKey: 'alerts', dimensions: [],
+    measures: [{ field: 'recordCount', aggregate: 'sum' }], filters: [], sort: [],
+    visualization: { type: 'number' }, limit: 1,
+  } });
+
+  const result = await services.executeReport({ access: station, params: { reportId: report.data.id } });
+
+  assert.deepEqual(result.data.result.data.items, [{ recordCount_sum: 0 }]);
+});
+
 test('station-owned bootstrap resources stay private and do not replace the station role default', async () => {
   let id = 0;
   const repository = new MemoryIntelligenceRepository(buildDemoState());

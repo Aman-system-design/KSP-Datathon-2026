@@ -10,9 +10,15 @@ const header = (headers, name) => Object.entries(headers ?? {})
   .find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1];
 
 export function createWorkspaceServices({ repository, readServices, mapViewService, caseService, now, idFactory }) {
-  const reports = createReportService({ repository, readServices, mapViewService, now, idFactory: () => idFactory('REPORT') });
-  const dashboards = createDashboardService({ repository, now, idFactory: () => idFactory('DASH') });
   const alerts = createAlertServices({ repository });
+  const reportReadServices = Object.freeze({
+    ...readServices,
+    listAlerts: input => alerts.listAlerts(input),
+  });
+  const reports = createReportService({
+    repository, readServices: reportReadServices, mapViewService, now, idFactory: () => idFactory('REPORT'),
+  });
+  const dashboards = createDashboardService({ repository, now, idFactory: () => idFactory('DASH') });
 
   const services = {
     async listStationCases({ access, query }) {
