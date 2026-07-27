@@ -1,9 +1,10 @@
-const measure = Object.freeze([{ field: 'RecordCount', aggregate: 'sum' }]);
-const report = (name, description, dimensions, type, overrides = {}) => Object.freeze({
-  name, description, sourceKey: 'catalog.caseMaster', dimensions, measures: measure,
-  filters: [], sort: [{ field: type === 'line' ? dimensions[0] : 'RecordCount_sum', direction: type === 'line' ? 'asc' : 'desc' }],
-  visualization: { type, ...(type === 'map' ? { overlay: 'hotspots' } : {}) }, limit: type === 'table' ? 100 : 24,
-  ...overrides,
+const report = ({ name, description, sourceKey, dimension, measure, aggregate = 'sum', type = 'bar', limit = 24 }) => Object.freeze({
+  name, description, sourceKey,
+  dimensions: Object.freeze(dimension ? [dimension] : []),
+  measures: Object.freeze([{ field: measure, aggregate }]),
+  filters: Object.freeze([]),
+  sort: Object.freeze([{ field: dimension ?? `${measure}_${aggregate}`, direction: dimension ? 'asc' : 'desc' }]),
+  visualization: Object.freeze({ type }), limit,
 });
 
 export const ANALYST_DASHBOARD_TEMPLATE = Object.freeze({
@@ -13,16 +14,16 @@ export const ANALYST_DASHBOARD_TEMPLATE = Object.freeze({
   pendingDescription: '[ACE:crime-analyst:v1:pending]',
   roles: Object.freeze(['CRIME_ANALYST']),
   reports: Object.freeze([
-    report('Analyst Incident Pattern', 'Viewer-scoped incident demand by Karnataka civil hour.', ['IncidentHour'], 'line'),
-    report('Analyst Hotspot Evidence', 'Geographic FIR concentration for analytical review.', ['DistrictCode'], 'map'),
-    report('Analyst Major Offence Comparison', 'Comparison across major crime heads.', ['CrimeMajorHeadName'], 'bar', { limit: 12 }),
-    report('Analyst Monthly Change Signal', 'Monthly movement requiring human interpretation.', ['IncidentMonth'], 'line'),
-    report('Analyst Case Status Evidence', 'Case-status evidence distribution without automated conclusions.', ['CaseStatusLabel'], 'pie', { limit: 8 }),
-    report('Analyst Evidence Table', 'District, station and offence evidence for governed investigation.', ['DistrictName', 'PoliceStationName', 'CrimeMajorHeadName'], 'table', { limit: 100 }),
+    report({ name: 'Analyst Pattern Case Evidence', description: 'Evidence-linked case volume by governed pattern method.', sourceKey: 'patterns', dimension: 'patternType', measure: 'caseCount' }),
+    report({ name: 'Analyst Hotspot Confidence', description: 'Average hotspot confidence by viewer-authorized unit.', sourceKey: 'hotspots', dimension: 'unitId', measure: 'severity', aggregate: 'avg' }),
+    report({ name: 'Analyst Observed Anomalies', description: 'Observed anomaly volume by governed signal type.', sourceKey: 'anomalies', dimension: 'signalType', measure: 'observed', type: 'line' }),
+    report({ name: 'Analyst Area Risk Evidence', description: 'Explainable area-risk score by governed area type.', sourceKey: 'areaRisk', dimension: 'areaType', measure: 'score', aggregate: 'avg' }),
+    report({ name: 'Analyst Alert Evidence', description: 'Visible intelligence alerts by accountable lifecycle state.', sourceKey: 'alerts', dimension: 'state', measure: 'recordCount' }),
+    report({ name: 'Analyst Command Metrics', description: 'Viewer-scoped brief metrics supporting analytical review.', sourceKey: 'brief', dimension: 'metric', measure: 'value', type: 'table' }),
   ]),
   layout: Object.freeze([
-    { column: 1, row: 1, width: 6, height: 4 }, { column: 7, row: 1, width: 6, height: 6 },
-    { column: 1, row: 5, width: 6, height: 4 }, { column: 1, row: 9, width: 6, height: 4 },
-    { column: 7, row: 7, width: 6, height: 6 }, { column: 1, row: 13, width: 12, height: 5 },
+    { column: 1, row: 1, width: 6, height: 4 }, { column: 7, row: 1, width: 6, height: 4 },
+    { column: 1, row: 5, width: 6, height: 4 }, { column: 7, row: 5, width: 6, height: 4 },
+    { column: 1, row: 9, width: 6, height: 4 }, { column: 7, row: 9, width: 6, height: 4 },
   ]),
 });

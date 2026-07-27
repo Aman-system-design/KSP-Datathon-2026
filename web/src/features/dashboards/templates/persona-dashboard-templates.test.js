@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
+import { normalizeReportDefinition } from '../../../../../src/backend/reporting/report-definition.mjs';
+import { REPORT_SOURCES } from '../../../../../src/backend/reporting/semantic-sources.mjs';
 import { PERSONA_DASHBOARD_TEMPLATES } from './persona-dashboard-templates.js';
 
 describe('persona dashboard templates', () => {
@@ -20,14 +22,12 @@ describe('persona dashboard templates', () => {
 
   test('uses only governed fields exposed by each semantic source', () => {
     const [district, analyst, station] = PERSONA_DASHBOARD_TEMPLATES;
-    const catalogueFields = new Set([
-      'DistrictCode', 'DistrictName', 'PoliceStationName', 'IncidentMonth', 'RegisteredMonth',
-      'CrimeMajorHeadName', 'CrimeMinorHeadName', 'IncidentHour', 'CaseStatusLabel', 'RecordCount',
-    ]);
-    for (const report of [...district.reports, ...analyst.reports]) {
-      expect(report.sourceKey).toBe('catalog.caseMaster');
-      for (const field of report.dimensions) expect(catalogueFields.has(field)).toBe(true);
-      for (const measure of report.measures) expect(catalogueFields.has(measure.field)).toBe(true);
+    expect(district.reports).toHaveLength(6);
+    expect(analyst.reports).toHaveLength(6);
+    for (const template of PERSONA_DASHBOARD_TEMPLATES) {
+      for (const report of template.reports) {
+        expect(() => normalizeReportDefinition(report, REPORT_SOURCES[report.sourceKey])).not.toThrow();
+      }
     }
     expect(new Set(station.reports.map(report => report.sourceKey))).toEqual(new Set(['stationCases', 'alerts']));
   });

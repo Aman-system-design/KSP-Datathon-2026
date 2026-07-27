@@ -1,9 +1,10 @@
-const measure = Object.freeze([{ field: 'RecordCount', aggregate: 'sum' }]);
-const report = (name, description, dimensions, type, overrides = {}) => Object.freeze({
-  name, description, sourceKey: 'catalog.caseMaster', dimensions, measures: measure,
-  filters: [], sort: [{ field: type === 'line' ? dimensions[0] : 'RecordCount_sum', direction: type === 'line' ? 'asc' : 'desc' }],
-  visualization: { type, ...(type === 'map' ? { overlay: 'hotspots' } : {}) }, limit: type === 'map' ? 31 : 24,
-  ...overrides,
+const report = ({ name, description, sourceKey, dimension, measure, aggregate = 'sum', type = 'bar', limit = 24 }) => Object.freeze({
+  name, description, sourceKey,
+  dimensions: Object.freeze(dimension ? [dimension] : []),
+  measures: Object.freeze([{ field: measure, aggregate }]),
+  filters: Object.freeze([]),
+  sort: Object.freeze([{ field: dimension ?? `${measure}_${aggregate}`, direction: dimension ? 'asc' : 'desc' }]),
+  visualization: Object.freeze({ type }), limit,
 });
 
 export const DISTRICT_DASHBOARD_TEMPLATE = Object.freeze({
@@ -13,12 +14,12 @@ export const DISTRICT_DASHBOARD_TEMPLATE = Object.freeze({
   pendingDescription: '[ACE:district-intelligence:v1:pending]',
   roles: Object.freeze(['DISTRICT_LEADERSHIP']),
   reports: Object.freeze([
-    report('District Monthly FIR Trend', 'Monthly FIR movement in the viewer-authorized district scope.', ['IncidentMonth'], 'line'),
-    report('District Station Workload', 'Police-station FIR concentration in the viewer-authorized district.', ['PoliceStationName'], 'bar', { limit: 12 }),
-    report('District Crime Category Mix', 'Major crime-category mix for the authorized district.', ['CrimeMajorHeadName'], 'pie', { limit: 8 }),
-    report('District Case Lifecycle', 'Investigation lifecycle distribution in the authorized district.', ['CaseStatusLabel'], 'funnel', { limit: 8 }),
-    report('District Hotspot Evidence', 'Governed geographic FIR concentration for district review.', ['DistrictCode'], 'map'),
-    report('District Investigation Backlog', 'Case-status workload requiring district leadership review.', ['CaseStatusLabel'], 'bar', { limit: 8 }),
+    report({ name: 'District Command Brief', description: 'Viewer-scoped command metrics for the authorized district.', sourceKey: 'brief', dimension: 'metric', measure: 'value' }),
+    report({ name: 'District Pattern Evidence', description: 'Evidence-linked pattern workload by governed method.', sourceKey: 'patterns', dimension: 'patternType', measure: 'caseCount' }),
+    report({ name: 'District Hotspot Workload', description: 'Hotspot case magnitude by authorized unit.', sourceKey: 'hotspots', dimension: 'unitId', measure: 'caseCount' }),
+    report({ name: 'District Anomaly Signals', description: 'Observed anomaly volume by governed signal type.', sourceKey: 'anomalies', dimension: 'signalType', measure: 'observed', type: 'line' }),
+    report({ name: 'District Context Indicators', description: 'Aggregate district context indicators for human interpretation.', sourceKey: 'districtContext', dimension: 'indicator', measure: 'value' }),
+    report({ name: 'District Alert Lifecycle', description: 'Visible intelligence alerts by accountable lifecycle state.', sourceKey: 'alerts', dimension: 'state', measure: 'recordCount' }),
   ]),
   layout: Object.freeze([
     { column: 1, row: 1, width: 7, height: 5 }, { column: 8, row: 1, width: 5, height: 5 },
