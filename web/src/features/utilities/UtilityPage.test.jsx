@@ -302,6 +302,12 @@ test('keeps AI assistance and evaluation narrative typography at 12px', () => {
   expect(policyCss).toMatch(/\.utilities-policy-result p\s*\{[^}]*font-size:\s*12px/);
 });
 
+test('keeps the alert setup explanation compact and responsive', () => {
+  expect(policyCss).toMatch(/\.utilities-alert-setup-overview\s*\{[^}]*border-left:\s*3px solid #2468b4/s);
+  expect(policyCss).toMatch(/\.utilities-alert-setup-overview ol\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s);
+  expect(policyCss).toMatch(/@media \(max-width: 760px\)[\s\S]*\.utilities-alert-setup-overview ol\s*\{[^}]*grid-template-columns:\s*1fr/s);
+});
+
 test('creates one bounded policy and keeps its idempotency key for a retry until the draft changes', async () => {
   const failure = Object.assign(new Error('failed'), { code: 'INTERNAL_ERROR' });
   const api = {
