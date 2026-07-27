@@ -52,6 +52,7 @@ export function stationPresentation(item) {
     ...item,
     definition: {
       ...item.definition,
+      visualization: type === 'bar' ? { ...(item.definition?.visualization ?? {}), variant: 'vertical' } : item.definition?.visualization,
       style: {
         ...item.definition?.style,
         legend: type === 'pie' ? 'right' : 'none',
@@ -222,8 +223,8 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
           activeTab={controller.activeTab}
           editing={controller.editing}
           onStage={controller.stageItems}
+          onRemove={controller.removeReport}
           onSelect={select}
-          allowRemove
           showPreviewMeta={false}
           getPlacementClassName={stationPlacementClass}
         />}
