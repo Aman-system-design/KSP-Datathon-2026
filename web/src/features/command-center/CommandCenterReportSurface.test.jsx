@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
+
+afterEach(cleanup);
 
 test('renders returned governed rows without inventing a metric', () => {
   render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-1', reportId: 'R-1', title: 'District movement', status: 'ready', visualization: 'table', data: [{ district: 'Mysuru', case_count: 12 }] }} /></MemoryRouter>);
@@ -20,6 +22,9 @@ test('contains a failed report with a safe reference', () => {
 test('renders a governed number visualization from its report definition', () => {
   render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-3', reportId: 'R-3', title: 'Statewide FIR Volume', status: 'ready', syntheticData: true, definition: { name: 'Statewide FIR Volume', description: 'Synthetic submission dataset', dimensions: [], measures: [{ field: 'RecordCount', aggregate: 'sum' }], visualization: { type: 'number' }, style: {} }, data: [{ RecordCount_sum: 4900 }] }} /></MemoryRouter>);
   expect(screen.getByTestId('report-number')).toHaveTextContent('4,900');
+  expect(screen.getAllByText('Demonstration data')).toHaveLength(2);
+  expect(screen.queryByText('Submission synthetic data')).not.toBeInTheDocument();
+  expect(screen.queryByText('Synthetic submission dataset')).not.toBeInTheDocument();
 });
 
 test('exposes explicit edit and remove actions only in dashboard edit mode', () => {

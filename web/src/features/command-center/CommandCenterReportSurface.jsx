@@ -43,6 +43,6 @@ export function CommandCenterReportSurface({ item, editing = false, onRemove = (
         : definition
           ? <ReportPreview appearance="light" density="dashboard" definition={definition} preview={item.data ?? []} mapMetadata={item.mapMetadata} provenance={item.syntheticData ? 'Demonstration data' : ''} showMeta={showPreviewMeta} onSelect={typeof onSelect === 'function' ? selection => onSelect(item, normalizedSelection(item, selection)) : undefined} hasRun />
           : <ResultTable rows={item.data ?? []} />}</div>
-    <footer>{item.syntheticData ? <span>Submission synthetic data</span> : item.freshness ? <span>{item.freshness}</span> : <span>Viewer-scoped result</span>}<Link to={reportLocation}>Open report</Link></footer>
+    <footer>{item.syntheticData ? <span>Demonstration data</span> : item.freshness ? <span>{item.freshness}</span> : <span>Viewer-scoped result</span>}<Link to={reportLocation}>Open report</Link></footer>
   </article>;
 }

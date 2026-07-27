@@ -253,7 +253,7 @@ function EvaluationAction({ api, rule, location }) {
     {state.result ? <div className="utilities-policy-result" role="status">
       <span>{state.result.evaluated} evaluated · {state.result.matched} matched · {state.result.suppressed} suppressed</span>
       <p>Published model findings were assessed against governed scope and evaluation-window rules. {state.result.matched} findings matched the human-governed delivery qualification, while {state.result.suppressed} were suppressed. Human review is required before action.</p>
-      {state.result.syntheticData ? <small className="utilities-policy-provenance">Synthetic demonstration data</small> : null}
+      {state.result.syntheticData ? <small className="utilities-policy-provenance">Demonstration data</small> : null}
       {state.result.alertIds[0] ? <Link to={governedAppLocation(`/alerts/${encodeURIComponent(state.result.alertIds[0])}`, location)}>Open alert</Link> : null}
     </div> : null}
   </div>;

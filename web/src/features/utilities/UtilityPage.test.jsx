@@ -451,7 +451,8 @@ test('runs a saved policy and links the first created alert without exposing its
   expect(result).toHaveTextContent(/published model findings were assessed against governed scope and evaluation-window rules/i);
   expect(result).toHaveTextContent(/2 findings matched the human-governed delivery qualification, while 10 were suppressed/i);
   expect(result).toHaveTextContent(/human review is required before action/i);
-  expect(result).toHaveTextContent('Synthetic demonstration data');
+  expect(result).toHaveTextContent('Demonstration data');
+  expect(result).not.toHaveTextContent('Synthetic demonstration data');
   expect(result).not.toHaveTextContent(/confidence/i);
   expect(screen.getByRole('link', { name: 'Open alert' })).toHaveAttribute('href', '/alerts/ALT-PRIVATE?persona=CRIME_ANALYST');
   expect(screen.queryByText('ALT-PRIVATE')).not.toBeInTheDocument();

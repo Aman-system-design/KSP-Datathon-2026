@@ -65,6 +65,11 @@ export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], defi
   const inferredMeasure = separator > 0 ? { field: inferredOutput.slice(0, separator), aggregate: inferredOutput.slice(separator + 1) } : null;
   const resolved = definition ?? { dimensions: inferredDimension ? [inferredDimension] : [], measures: inferredMeasure ? [inferredMeasure] : [], visualization: { type: visualization ?? 'table' }, style: {} };
   const demonstration = provenance === 'SYNTHETIC' || provenance === 'Demonstration data' || preview.some(row => row?.IsSynthetic === true || row?.isSynthetic === true);
+  const displayDefinition = demonstration ? {
+    ...resolved,
+    name: cleanReportLabel(resolved.name, true),
+    description: cleanReportLabel(resolved.description, true),
+  } : resolved;
   const displayRows = preview.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, cleanReportLabel(value, demonstration)])));
   const points = adaptReportRows(preview, resolved, { demonstration }); const theme = reportTheme(resolved.style, appearance); const unavailable = unavailableReason(resolved, preview);
   let content;
@@ -75,6 +80,6 @@ export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], defi
     ? <div className="empty-state report-empty-state"><strong>No matching records</strong><span>Change the source, filters, or grouping and run again.</span>{showMeta ? <small>The query completed within the current viewer&apos;s authorised scope.</small> : null}</div>
     : <div className="empty-state report-empty-state"><strong>Preview your governed report</strong><span>Configure the definition, then Run without saving.</span>{showMeta ? <small>Results always use the current viewer&apos;s authorised scope.</small> : null}</div>;
   else if (unavailable) content = <div className="error-state" role="alert"><strong>Visualization unavailable</strong><span>{unavailable}</span></div>;
-  else content = <Visual definition={resolved} points={points} rows={displayRows} selectionRows={preview} mapMetadata={mapMetadata ?? preview.mapMetadata} onSelect={onSelect} MapComponent={MapComponent} density={density} />;
-  return <section className="report-preview-canvas" aria-label="Report preview" data-appearance={appearance} data-density={density} style={theme}>{showMeta ? <Heading definition={resolved} demonstration={demonstration} provenance={provenance} /> : null}{content}</section>;
+  else content = <Visual definition={displayDefinition} points={points} rows={displayRows} selectionRows={preview} mapMetadata={mapMetadata ?? preview.mapMetadata} onSelect={onSelect} MapComponent={MapComponent} density={density} />;
+  return <section className="report-preview-canvas" aria-label="Report preview" data-appearance={appearance} data-density={density} style={theme}>{showMeta ? <Heading definition={displayDefinition} demonstration={demonstration} provenance={provenance} /> : null}{content}</section>;
 }
