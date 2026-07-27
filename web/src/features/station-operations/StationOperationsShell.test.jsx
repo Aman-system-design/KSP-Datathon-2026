@@ -273,6 +273,7 @@ test('falls back to a safe station label and contains isolated report failures',
   render(<MemoryRouter><StationOperationsShell api={api} workspace={{ ...workspace, scopeUnit: undefined }} /></MemoryRouter>);
   expect(await screen.findByText('Local station')).toBeInTheDocument();
   expect(await screen.findByRole('alert')).toHaveTextContent('Report unavailable');
+  expect(screen.getByRole('heading', { name: 'Case Ageing' }).closest('.command-center-dashboard-placement')).toHaveClass('station-placement--ageing');
   expect(screen.getByText('Open Cases')).toBeInTheDocument();
   expect(screen.queryByText('private detail')).not.toBeInTheDocument();
 });
