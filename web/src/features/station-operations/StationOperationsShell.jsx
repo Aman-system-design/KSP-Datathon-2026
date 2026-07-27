@@ -46,6 +46,23 @@ function filtered(item, filter) {
   return { ...item, data: item.data.filter(row => String(row[filter.field]) === String(filter.value)) };
 }
 
+export function stationPresentation(item) {
+  const type = item.definition?.visualization?.type;
+  return {
+    ...item,
+    definition: {
+      ...item.definition,
+      style: {
+        ...item.definition?.style,
+        legend: type === 'pie' ? 'right' : 'none',
+        palette: 'ksp',
+        tableDensity: 'compact',
+        valueLabels: type !== 'table',
+      },
+    },
+  };
+}
+
 const isStationReport = report => STATION_REPORT_SOURCES.has(report?.definition?.sourceKey);
 const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
   || (dashboard?.relationship === 'OWNED' && dashboard?.name === 'Station Operations');
@@ -103,7 +120,7 @@ export function StationOperationsShell({ api, workspace, onOpenCase, requestedDa
   });
   const dashboard = useMemo(() => transformItems(
     controller.dashboard,
-    item => filtered(periodized(item, periodDays), stationFilter),
+    item => stationPresentation(filtered(periodized(item, periodDays), stationFilter)),
   ), [controller.dashboard, periodDays, stationFilter]);
   const stationName = workspace?.scopeUnit?.name?.trim() || 'Local station';
 

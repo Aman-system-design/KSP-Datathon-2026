@@ -2,13 +2,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { StationOperationsShell, stationPlacementClass } from './StationOperationsShell.jsx';
+import { StationOperationsShell, stationPlacementClass, stationPresentation } from './StationOperationsShell.jsx';
 
 afterEach(cleanup);
 
 test('places the lifecycle funnel beside case ageing', () => {
   expect(stationPlacementClass({ definition: { sourceKey: 'stationCases', dimensions: ['status'], visualization: { type: 'funnel' } } }))
     .toBe('station-placement--detail station-placement--lifecycle');
+});
+
+test('applies the restrained KSP presentation without changing report semantics', () => {
+  const item = { definition: { sourceKey: 'stationCases', visualization: { type: 'pie' }, style: {} } };
+  expect(stationPresentation(item).definition.style).toEqual({
+    legend: 'right', palette: 'ksp', tableDensity: 'compact', valueLabels: true,
+  });
+  expect(stationPresentation(item).definition.sourceKey).toBe('stationCases');
 });
 
 const reportDefinitions = {
