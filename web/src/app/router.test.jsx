@@ -250,6 +250,22 @@ test('station dashboard detail route remains inside the station operations shell
   expect(screen.queryByRole('heading', { name: /Dashboard library/i })).not.toBeInTheDocument();
 });
 
+test.each(['CRIME_ANALYST', 'STATION_OPERATIONS'])('%s opens the shared dashboard library', async role => {
+  const api = { get: vi.fn(async path => {
+    if (path === '/v1/workspace') return { data: {
+      role, scopeUnitId: 1001, scopeUnit: { name: 'Central Police Station', type: 'Police station' },
+      availableDashboards: [{ id: 'D-1', name: 'Operational view', relationship: 'OWNED' }],
+      availableReports: [], alertSummary: { total: 0 },
+    } };
+    throw new Error(`Unexpected request: ${path}`);
+  }), post: vi.fn(), put: vi.fn(), delete: vi.fn() };
+
+  render(<MemoryRouter initialEntries={[`/dashboards?persona=${role}`]}><Application api={api} /></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Dashboard Library' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Operational view' })).toBeVisible();
+});
+
 test('station case detail route remains in ACE and loads the governed case projection', async () => {
   const api = { get: vi.fn(async path => {
     if (path === '/v1/workspace') return { data: {

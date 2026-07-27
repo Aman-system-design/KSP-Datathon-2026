@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
-import { ArrowRight, LayoutDashboard, Plus, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, LayoutDashboard, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
 
+import { DashboardDeleteDialog } from '../dashboards/DashboardDeleteDialog.jsx';
 import { dashboardSections } from './command-center-dashboard-model.js';
 
 const labels = Object.freeze({ owned: 'Owned by you', shared: 'Shared with you', system: 'System dashboards' });
@@ -10,7 +11,14 @@ export function CommandCenterDashboardLibrary({ api, dashboards = [], createMode
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
-  const filtered = useMemo(() => dashboards.filter(item => item.name?.toLowerCase().includes(query.trim().toLowerCase())), [dashboards, query]);
+  const [visibleDashboards, setVisibleDashboards] = useState(dashboards);
+  const [menuDashboardId, setMenuDashboardId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [notice, setNotice] = useState('');
+  useEffect(() => setVisibleDashboards(dashboards), [dashboards]);
+  const filtered = useMemo(() => visibleDashboards.filter(item => item.name?.toLowerCase().includes(query.trim().toLowerCase())), [visibleDashboards, query]);
   const sections = dashboardSections(filtered);
   const create = async event => {
     event.preventDefault();
@@ -24,6 +32,21 @@ export function CommandCenterDashboardLibrary({ api, dashboards = [], createMode
     } catch (failure) {
       setError(failure.message || 'Dashboard could not be created.');
       setCreating(false);
+    }
+  };
+  const removeDashboard = async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await api.delete(`/v1/dashboards/${pendingDelete.id}`);
+      setVisibleDashboards(current => current.filter(item => item.id !== pendingDelete.id));
+      setNotice(`${pendingDelete.name} was deleted. Reports remain available.`);
+      setPendingDelete(null);
+    } catch (failure) {
+      setDeleteError(failure.message || 'Dashboard could not be deleted.');
+    } finally {
+      setDeleting(false);
     }
   };
   return <main className="command-center-dashboard-library">
@@ -40,8 +63,10 @@ export function CommandCenterDashboardLibrary({ api, dashboards = [], createMode
       </div>
     </form> : <>
       <label className="command-center-dashboard-library__search"><Search aria-hidden="true" /><input type="search" aria-label="Search dashboard library" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search dashboards" /></label>
+      {notice ? <p className="command-center-dashboard-library__notice" role="status">{notice}</p> : null}
       {filtered.length === 0 ? <section className="command-center-dashboard-library__empty"><LayoutDashboard aria-hidden="true" /><h2>No dashboards yet</h2><p>{query ? 'No authorized dashboards match your search.' : 'Create your first intelligence workspace when you are ready.'}</p>{!query ? <button className="primary" type="button" onClick={onCreateMode}><Plus aria-hidden="true" />New dashboard</button> : null}</section>
-        : <div className="command-center-dashboard-library__sections">{Object.entries(labels).map(([key, label]) => sections[key]?.length ? <section key={key}><h2>{label}</h2><div>{sections[key].map(item => <article key={item.id}><div><span>{item.relationship === 'OWNED' ? 'Private workspace' : item.relationship === 'SHARED' ? 'Shared workspace' : 'Governed workspace'}</span><h3>{item.name}</h3><p>{item.description || 'Authorized operational intelligence dashboard'}</p></div><button type="button" aria-label={`Open ${item.name}`} onClick={() => onOpen(item.id)}>Open<ArrowRight aria-hidden="true" /></button></article>)}</div></section> : null)}</div>}
+        : <div className="command-center-dashboard-library__sections">{Object.entries(labels).map(([key, label]) => sections[key]?.length ? <section key={key}><h2>{label}</h2><div>{sections[key].map(item => <article className="command-center-dashboard-card" key={item.id}><div><span>{item.relationship === 'OWNED' ? 'Private workspace' : item.relationship === 'SHARED' ? 'Shared workspace' : 'Governed workspace'}</span><h3>{item.name}</h3><p>{item.description || 'Authorized operational intelligence dashboard'}</p></div><div className="command-center-dashboard-card__actions"><button type="button" aria-label={`Open ${item.name}`} onClick={() => onOpen(item.id)}>Open<ArrowRight aria-hidden="true" /></button><div><button type="button" aria-label={`More actions for ${item.name}`} aria-expanded={menuDashboardId === item.id} onClick={() => setMenuDashboardId(current => current === item.id ? null : item.id)}><MoreHorizontal aria-hidden="true" /></button>{menuDashboardId === item.id ? <div className="command-center-dashboard-card__menu" role="menu"><button role="menuitem" type="button" onClick={() => { setPendingDelete(item); setDeleteError(''); setMenuDashboardId(null); }}><Trash2 aria-hidden="true" />Delete dashboard</button></div> : null}</div></div></article>)}</div></section> : null)}</div>}
     </>}
+    <DashboardDeleteDialog dashboard={pendingDelete} deleting={deleting} error={deleteError} onCancel={() => { setPendingDelete(null); setDeleteError(''); }} onConfirm={removeDashboard} />
   </main>;
 }

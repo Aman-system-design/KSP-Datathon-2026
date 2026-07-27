@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 vi.mock('./useCommandCenterDashboard.js', () => ({
@@ -32,4 +32,18 @@ test('Escape exits presentation mode', () => {
   enterPresentation();
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(screen.queryByRole('button', { name: 'Exit presentation' })).not.toBeInTheDocument();
+});
+
+test('deletes the active Command Center dashboard from its global options menu', async () => {
+  const api = { delete: vi.fn(async () => ({ data: { deleted: true } })) };
+  const onDeleted = vi.fn();
+  render(<CommandCenterDashboardWorkspace api={api} workspace={{}} onDeleted={onDeleted} />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Dashboard options' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Delete dashboard' }));
+  const dialog = screen.getByRole('dialog', { name: 'Delete State overview?' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete dashboard' }));
+
+  await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/v1/dashboards/D-1'));
+  expect(onDeleted).toHaveBeenCalledOnce();
 });

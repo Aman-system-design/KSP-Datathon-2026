@@ -5,7 +5,7 @@ import { CommandCenterDashboardWorkspace } from './CommandCenterDashboardWorkspa
 import { CommandCenterDashboardLibrary } from './CommandCenterDashboardLibrary.jsx';
 import { COMMAND_CENTER_APPEARANCE_KEY, readCommandCenterAppearance, resolveCommandCenterAppearance } from './command-center-appearance.js';
 
-export function CommandCenterShell({ api, workspace, personas = [], view = 'canvas', createMode = false, requestedDashboardId = null, onPersonaSelect = () => {}, onAllWorkspaces = () => {}, onModuleNavigate = () => {}, onOpenAllDashboards = () => {}, onCreateDashboard = () => {}, onOpenDashboard = () => {}, onDashboardCreated = () => {}, onCancelCreate = () => {} }) {
+export function CommandCenterShell({ api, workspace, personas = [], view = 'canvas', createMode = false, requestedDashboardId = null, onPersonaSelect = () => {}, onAllWorkspaces = () => {}, onModuleNavigate = () => {}, onOpenAllDashboards = () => {}, onCreateDashboard = () => {}, onOpenDashboard = () => {}, onDashboardCreated = () => {}, onCancelCreate = () => {}, onDashboardDeleted = () => {} }) {
   const [selected, setSelected] = useState('home');
   const [appearance, setAppearance] = useState(readCommandCenterAppearance);
   const [openMenu, setOpenMenu] = useState(null);
@@ -27,7 +27,7 @@ export function CommandCenterShell({ api, workspace, personas = [], view = 'canv
     <CommandCenterRail selected={selected} onSelect={selectModule} onDashboardOpen={() => setDashboardsOpen(true)} />
     {api && workspace ? view === 'library'
       ? <CommandCenterDashboardLibrary api={api} dashboards={workspace.availableDashboards ?? []} createMode={createMode} onOpen={onOpenDashboard} onCreateMode={onCreateDashboard} onCreated={onDashboardCreated} onCancelCreate={onCancelCreate} />
-      : <CommandCenterDashboardWorkspace api={api} workspace={workspace} requestedDashboardId={requestedDashboardId} pickerOpen={dashboardsOpen} onPickerClose={() => setDashboardsOpen(false)} onOpenAll={onOpenAllDashboards} onCreate={onCreateDashboard} />
+      : <CommandCenterDashboardWorkspace api={api} workspace={workspace} requestedDashboardId={requestedDashboardId} pickerOpen={dashboardsOpen} onPickerClose={() => setDashboardsOpen(false)} onOpenAll={onOpenAllDashboards} onCreate={onCreateDashboard} onDeleted={onDashboardDeleted} />
       : <main className="command-center-canvas" data-testid="command-center-canvas" />}
   </div>;
 }

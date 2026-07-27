@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Check, Maximize2, MoreHorizontal, Pencil, Plus, Save, X } from 'lucide-react';
+import { Check, Maximize2, MoreHorizontal, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 
-export function CommandCenterWorkspaceToolbar({ dashboard, activeTab = 'overview', editing = false, saving = false, onTab = () => {}, onEdit = () => {}, onAdd = () => {}, onSave = () => {}, onCancel = () => {}, onPresent = () => {} }) {
+export function CommandCenterWorkspaceToolbar({ dashboard, activeTab = 'overview', editing = false, saving = false, onTab = () => {}, onEdit = () => {}, onAdd = () => {}, onSave = () => {}, onCancel = () => {}, onPresent = () => {}, onDelete = () => {} }) {
   const [menuOpen, setMenuOpen] = useState(false);
   if (!dashboard) return null;
   const tabs = dashboard.tabs ?? [];
@@ -22,6 +22,7 @@ export function CommandCenterWorkspaceToolbar({ dashboard, activeTab = 'overview
             <button role="menuitem" type="button" disabled={saving} onClick={closeAfter(onSave)}><Save aria-hidden="true" />{saving ? 'Saving…' : 'Save dashboard'}</button>
           </> : <button role="menuitem" type="button" onClick={closeAfter(onEdit)}><Pencil aria-hidden="true" />Edit dashboard</button>}
           <button role="menuitem" type="button" onClick={closeAfter(onPresent)}><Maximize2 aria-hidden="true" />Present dashboard</button>
+          <button role="menuitem" type="button" onClick={closeAfter(onDelete)}><Trash2 aria-hidden="true" />Delete dashboard</button>
         </div> : null}
       </div>
     </div>

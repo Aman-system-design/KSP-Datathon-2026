@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
@@ -36,4 +36,19 @@ test('dashboard page preserves governed map execution without exposing saved-vie
   render(<MemoryRouter><DashboardPage api={api} dashboardId="D-1" EmbeddedMapComponent={TestMap} /></MemoryRouter>);
 
   expect(await screen.findByText('Map MAP-1')).toBeInTheDocument();
+});
+
+test('deletes the open dashboard and returns through the governed callback', async () => {
+  const onDeleted = vi.fn();
+  const api = {
+    get: vi.fn(async () => ({ data: { id: 'D-1', name: 'District command', items: [] } })),
+    post: vi.fn(), delete: vi.fn(async () => ({ data: { deleted: true } })),
+  };
+  render(<MemoryRouter><DashboardPage api={api} dashboardId="D-1" onDeleted={onDeleted} /></MemoryRouter>);
+  await screen.findByRole('heading', { name: 'District command' });
+  fireEvent.click(screen.getByRole('button', { name: 'Dashboard options' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Delete dashboard' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete dashboard' }));
+  await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/v1/dashboards/D-1'));
+  expect(onDeleted).toHaveBeenCalledOnce();
 });

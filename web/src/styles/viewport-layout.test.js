@@ -47,4 +47,13 @@ describe('platform viewport layout contract', () => {
     expect(appCss).toMatch(/@media\s*\(max-width:\s*700px\)[^{]*{[\s\S]*\.state-leadership-dashboard__header\s*{[^}]*flex-direction:\s*column/s);
     expect(appCss).toMatch(/@media\s*\(max-width:\s*700px\)[^{]*{[\s\S]*\.state-leadership-dashboard\s*\.command-center-dashboard-placement\s*{[^}]*position:\s*relative/s);
   });
+
+  test('provides responsive dashboard deletion surfaces', () => {
+    expect(appCss).toMatch(/\.command-center-dashboard-card__actions/);
+    expect(appCss).toMatch(/\.command-center-dashboard-card__menu/);
+    expect(appCss).toMatch(/\.command-center-dashboard-delete-backdrop/);
+    expect(appCss).toMatch(/\.command-center-dashboard-delete-dialog/);
+    expect(appCss).toMatch(/\.command-center-dashboard-delete-dialog__danger/);
+    expect(appCss).toMatch(/@media\(max-width:720px\)[^{]*{[\s\S]*\.command-center-dashboard-delete-dialog/);
+  });
 });
