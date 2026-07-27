@@ -57,6 +57,15 @@ describe('platform viewport layout contract', () => {
     expect(appCss).toMatch(/@media\(max-width:720px\)[^{]*{[\s\S]*\.command-center-dashboard-delete-dialog/);
   });
 
+  test('fits report authoring and chart cards without nested horizontal scrolling', () => {
+    expect(appCss).toMatch(/\.report-builder-workspace\s*{[^}]*overflow:\s*hidden/s);
+    expect(appCss).toMatch(/\.report-builder-authoring\s*{[^}]*overflow-x:\s*hidden/s);
+    expect(appCss).toMatch(/\.report-type-picker\s*{[^}]*repeat\(auto-fit,\s*minmax\(120px,\s*1fr\)\)/s);
+    expect(appCss).toMatch(/\.report-builder-preview__empty\s*{[^}]*box-sizing:\s*border-box/s);
+    expect(appCss).toMatch(/@media \(max-width:\s*720px\)[\s\S]*\.report-builder-workspace\s*{[^}]*grid-template-columns:\s*1fr/s);
+    expect(appCss).toMatch(/@media \(max-width:\s*620px\)[\s\S]*\.report-builder-progress\s*{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s);
+  });
+
   test('keeps persona dashboards readable and stacked on narrow screens', () => {
     expect(appCss).toMatch(/\.persona-dashboard-workspace\s*{[^}]*min-width:\s*0/s);
     expect(appCss).toMatch(/\.persona-dashboard-workspace__header\s*{[^}]*display:\s*flex/s);

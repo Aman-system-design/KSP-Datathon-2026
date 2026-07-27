@@ -111,7 +111,7 @@ test('edits station case reports with typed boolean in filters', async () => {
 test('map reports use an authorized saved map view and render the governed execution', async () => {
   const api = {
     get: vi.fn(async path => {
-      if (path === '/v1/report-sources') return { data: [{ key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['table', 'map'] }] };
+      if (path === '/v1/report-sources') return { data: [{ key: 'hotspots', label: 'Crime hotspots', fields: { areaId: { type: 'string', dimension: true } }, visualizations: ['table', 'map'] }] };
       if (path === '/v1/geospatial/views') return { data: { items: [{ id: 'MAP-AUTH', name: 'Authorized hotspot posture', definition: { layers: [] } }] } };
       throw new Error(`Unexpected GET ${path}`);
     }),
@@ -125,7 +125,7 @@ test('map reports use an authorized saved map view and render the governed execu
   await screen.findByRole('option', { name: 'Crime hotspots' });
   fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Hotspot posture' } });
   next();
-  fireEvent.click(screen.getByRole('radio', { name: 'Map' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Karnataka Map' }));
   next();
   expect(await screen.findByRole('option', { name: 'Authorized hotspot posture' })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Saved map view'), { target: { value: 'MAP-AUTH' } });
@@ -140,7 +140,7 @@ test('map reports use an authorized saved map view and render the governed execu
 test('authors a reusable governed map inside the report workflow and selects the saved view', async () => {
   const api = {
     get: vi.fn(async path => {
-      if (path === '/v1/report-sources') return { data: [{ key: 'hotspots', label: 'Crime hotspots', fields: {}, visualizations: ['map'] }] };
+      if (path === '/v1/report-sources') return { data: [{ key: 'hotspots', label: 'Crime hotspots', fields: { areaId: { type: 'string', dimension: true } }, visualizations: ['map'] }] };
       if (path === '/v1/geospatial/views') return { data: { items: [] } };
       throw new Error(`Unexpected GET ${path}`);
     }),
@@ -216,4 +216,69 @@ test('station report builder presents only server-authorized station sources', a
   expect(screen.getByRole('option', { name: 'Station cases' })).toBeInTheDocument();
   expect(screen.queryByRole('option', { name: 'Trend anomalies' })).not.toBeInTheDocument();
   expect(screen.queryByRole('option', { name: /hotspot/i })).not.toBeInTheDocument();
+});
+
+test('keeps the report preview beside every authoring step', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  expect(screen.getByRole('region', { name: 'Report preview workspace' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Ask Intelligence')).toBeInTheDocument();
+  expect(screen.getByText('Run the report to generate its preview.')).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Hourly FIR pattern' } });
+  next();
+  expect(screen.getByRole('heading', { name: 'Select a visualization' })).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Report preview workspace' })).toBeInTheDocument();
+});
+
+test('using the deferred Intelligence bar never calls the report API', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  fireEvent.change(screen.getByLabelText('Ask Intelligence'), { target: { value: 'Show FIR count by hour' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Intelligence' }));
+
+  expect(api.post).not.toHaveBeenCalled();
+  expect(screen.getByRole('status')).toHaveTextContent('Your report was not changed');
+}, 10_000);
+
+test('keeps the Intelligence control inside the builder without nesting forms', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  const { container } = renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  expect(container.querySelectorAll('form')).toHaveLength(1);
+}, 10_000);
+
+test('shows governed Data Store sources and the complete chart catalogue', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  expect(screen.getByText('Approved Data Store source · viewer scoped')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Chart discovery' } });
+  next();
+
+  for (const label of ['Table', 'KPI Number', 'Bar', 'Line', 'Pie', 'Funnel', 'Karnataka Map']) {
+    expect(screen.getByRole('radio', { name: new RegExp(label, 'i') })).toBeInTheDocument();
+  }
+});
+
+test('does not save a chart rejected by the governed source contract', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Unsafe pie' } });
+  next();
+  fireEvent.click(screen.getByRole('radio', { name: /Pie/i }));
+
+  expect(screen.getByText('This governed source does not support Pie reports.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /^Next$/i })).toBeDisabled();
+  expect(api.post).not.toHaveBeenCalled();
 });

@@ -164,7 +164,6 @@ test.each([
 });
 
 test.each([
-  ['missing metadata', undefined],
   ['non-plain object', Object.assign(Object.create({ inherited: true }), patterns.aiAssistance)],
   ['extra unsafe key', { ...patterns.aiAssistance, internalPrompt: 'private' }],
   ['empty method', { ...patterns.aiAssistance, method: '' }],
@@ -173,6 +172,10 @@ test.each([
   ['missing governance', { ...patterns.aiAssistance, governance: undefined }],
   ['disabled human review', { ...patterns.aiAssistance, governance: { ...patterns.aiAssistance.governance, humanReviewRequired: false } }],
   ['extra governance key', { ...patterns.aiAssistance, governance: { ...patterns.aiAssistance.governance, autonomousAction: false } }],
+  ['unrecognized legacy metadata', {
+    label: 'Unknown model', methodVersion: 'UNKNOWN-1.0',
+    explanation: 'The model creates a machine-generated pattern signal. The alert policy is human-governed delivery qualification and human review is required.',
+  }],
 ])('rejects available utility AI assistance with %s', async (_case, aiAssistance) => {
   const api = { get: vi.fn(async () => ({ data: { ...patterns, aiAssistance } })) };
   renderRoute(api, '/utilities/patterns');
@@ -193,6 +196,37 @@ test('accepts revised server-owned AI assistance copy without a client copy allo
   const panel = await screen.findByRole('complementary', { name: 'AI-assisted detection' });
   expect(panel).toHaveTextContent('SEASONAL_MEDIAN_MAD');
   expect(panel).toHaveTextContent(explanation);
+});
+
+test('loads an older deployed utility without inventing missing AI assistance metadata', async () => {
+  const { aiAssistance: _missing, ...legacyUtility } = patterns;
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: legacyUtility }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/patterns');
+
+  await screen.findByRole('heading', { name: patterns.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  expect(screen.queryByRole('complementary', { name: 'AI-assisted detection' })).not.toBeInTheDocument();
+});
+
+test('accepts the legacy deployed AI assistance contract while the backend rolls forward', async () => {
+  const legacyAssistance = {
+    label: 'Multi-signal pattern fusion',
+    methodVersion: 'PF-1.0',
+    explanation: 'The model creates a machine-generated pattern signal by linking authorized case features across districts and assigning confidence to each link. The alert policy is human-governed delivery qualification, not a crime prediction or autonomous decision, and human review is required before action.',
+  };
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: { ...patterns, aiAssistance: legacyAssistance } }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/patterns');
+
+  await screen.findByRole('heading', { name: patterns.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  const panel = await screen.findByRole('complementary', { name: 'AI-assisted detection' });
+  expect(panel).toHaveTextContent('Multi-signal pattern fusion');
+  expect(panel).toHaveTextContent('PF-1.0');
+  expect(panel).toHaveTextContent(/human review is required/i);
 });
 
 test('keeps an invalid utility key inside a safe catalogue boundary', async () => {

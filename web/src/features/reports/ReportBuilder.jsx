@@ -2,8 +2,10 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Play, Save } from 'lucide-react';
 import { lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ConfigureStep, DataStep, fieldLabel, StyleStep, TypeStep } from './ReportBuilderFields.jsx';
+import { ReportIntelligenceBar } from './ReportIntelligenceBar.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
 import { ReportMapAuthoring } from './ReportMapAuthoring.jsx';
+import { chartCompatibility, REPORT_VISUALIZATIONS } from './report-visualization-catalog.js';
 
 const LazyEmbeddedMapView = lazy(() => import('../geospatial/EmbeddedMapView.jsx'));
 const LazyGeospatialStudio = lazy(() => import('../geospatial/GeospatialStudio.jsx'));
@@ -72,8 +74,10 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView,
   const source = useMemo(() => sources.find(item => item.key === sourceKey), [sources, sourceKey]);
   const dimensions = Object.entries(source?.fields ?? {}).filter(([, value]) => value.dimension);
   const measures = Object.entries(source?.fields ?? {}).flatMap(([field, value]) => (value.aggregates ?? []).map(aggregate => [`${field}:${aggregate}`, `${fieldLabel(field)} · ${fieldLabel(aggregate)}`]));
-  const canAdvance = step !== 0 || Boolean(name.trim() && sourceKey);
-  const canRun = Boolean(name.trim() && sourceKey && (visualization !== 'map' || mapViewId));
+  const compatibility = chartCompatibility({ source, type: visualization });
+  const choices = REPORT_VISUALIZATIONS.map(item => ({ ...item, ...chartCompatibility({ source, type: item.type }) }));
+  const canAdvance = step === 0 ? Boolean(name.trim() && sourceKey) : step === 1 ? compatibility.compatible : true;
+  const canRun = Boolean(name.trim() && sourceKey && compatibility.compatible && (visualization !== 'map' || mapViewId));
 
   function invalidate(update) { generation.current += 1; setPreview([]); setMapPreview(null); setStatus(''); update(); }
   function changeSource(key) { const next = sources.find(item => item.key === key); invalidate(() => { setSourceKey(key); setDimension(''); setMeasure(''); setFilter({ field: '', operator: 'eq', value: '' }); setSortDirection(''); setVisualization(next?.visualizations?.[0] ?? 'table'); setMapViewId(''); }); }
@@ -112,15 +116,32 @@ export function ReportBuilder({ api, EmbeddedMapComponent = LazyEmbeddedMapView,
     finally { setBusy(false); }
   }
 
+  const activeStep = step === 0
+    ? <DataStep description={description} name={name} onDescription={value => invalidate(() => setDescription(value))} onName={value => invalidate(() => setName(value))} onSource={changeSource} sourceKey={sourceKey} sources={sources} />
+    : step === 1
+      ? <TypeStep choices={choices} compatibilityReason={compatibility.reason} onVisualization={changeVisualization} visualization={visualization} />
+      : step === 2
+        ? <ConfigureStep dimension={dimension} dimensions={dimensions} filter={filter} limit={limit} mapViewId={mapViewId} mapViews={mapViews} measure={measure} measures={measures} onCreateMapView={() => setMapComposerOpen(true)} onDimension={value => invalidate(() => setDimension(value))} onFilter={value => invalidate(() => setFilter(value))} onLimit={value => invalidate(() => setLimit(value))} onMapView={value => invalidate(() => setMapViewId(value))} onMeasure={value => invalidate(() => setMeasure(value))} onSortDirection={value => invalidate(() => setSortDirection(value))} sortDirection={sortDirection} source={source} visualization={visualization} />
+        : step === 3
+          ? <StyleStep visualization={visualization} />
+          : <div className="report-stage report-review"><div><h2>Review and run</h2><p>{source?.label ?? 'Authorized source'} · {fieldLabel(visualization)} · Up to {limit} rows</p></div></div>;
+  const hasPreview = visualization === 'map'
+    ? Boolean(mapPreview)
+    : Array.isArray(preview) ? preview.length > 0 : Boolean(preview);
+
   return <section className="reports-app report-builder-app">
     <header className="report-editor-header"><Link to="/reports"><ArrowLeft size={17} />Reports</Link><div><input aria-label="Report title" onChange={event => invalidate(() => setName(event.target.value))} placeholder="Untitled report" value={name} /><span>{status || 'Not yet run'}</span></div><div><button className="secondary-button" disabled={busy || !canRun} onClick={() => save()} type="button"><Save size={15} />Save</button><button className="primary-button" disabled={busy || !canRun} onClick={() => save({ run: true })} type="button"><Play size={15} />Run</button></div></header>
     <nav className="report-builder-progress" aria-label="Report creation steps">{STEPS.map((label, index) => <button aria-current={step === index ? 'step' : undefined} className={step === index ? 'active' : ''} key={label} onClick={() => setStep(index)} type="button"><span>{index + 1}</span>{label}</button>)}</nav>
-    {mapComposerOpen ? <ReportMapAuthoring api={api} Composer={MapComposerComponent} sourceKey={sourceKey} onCancel={() => setMapComposerOpen(false)} onViewSaved={acceptMapView} /> : <form className="report-editor" onSubmit={event => event.preventDefault()}>
-      {step === 0 ? <DataStep description={description} name={name} onDescription={value => invalidate(() => setDescription(value))} onName={value => invalidate(() => setName(value))} onSource={changeSource} sourceKey={sourceKey} sources={sources} /> : null}
-      {step === 1 ? <TypeStep onVisualization={changeVisualization} visualization={visualization} visualizations={source?.visualizations ?? ['table']} /> : null}
-      {step === 2 ? <ConfigureStep dimension={dimension} dimensions={dimensions} filter={filter} limit={limit} mapViewId={mapViewId} mapViews={mapViews} measure={measure} measures={measures} onCreateMapView={() => setMapComposerOpen(true)} onDimension={value => invalidate(() => setDimension(value))} onFilter={value => invalidate(() => setFilter(value))} onLimit={value => invalidate(() => setLimit(value))} onMapView={value => invalidate(() => setMapViewId(value))} onMeasure={value => invalidate(() => setMeasure(value))} onSortDirection={value => invalidate(() => setSortDirection(value))} sortDirection={sortDirection} source={source} visualization={visualization} /> : null}
-      {step === 3 ? <StyleStep visualization={visualization} /> : null}
-      {step === 4 ? <div className="report-stage report-review"><div><h2>Review and run</h2><p>{source?.label ?? 'Authorized source'} · {fieldLabel(visualization)} · Up to {limit} rows</p></div><ReportPreview api={api} EmbeddedMapComponent={EmbeddedMapComponent} mapPreview={mapPreview} preview={preview} visualization={visualization} /></div> : null}
+    {mapComposerOpen ? <ReportMapAuthoring api={api} Composer={MapComposerComponent} sourceKey={sourceKey} onCancel={() => setMapComposerOpen(false)} onViewSaved={acceptMapView} /> : <form className="report-editor report-builder-workspace" onSubmit={event => event.preventDefault()}>
+      <section className="report-builder-authoring" aria-label={`${STEPS[step]} report settings`}>{activeStep}</section>
+      <section className="report-builder-preview" aria-label="Report preview workspace">
+        <ReportIntelligenceBar />
+        <div className="report-builder-preview__canvas">
+          {hasPreview
+            ? <ReportPreview api={api} EmbeddedMapComponent={EmbeddedMapComponent} mapPreview={mapPreview} preview={preview} visualization={visualization} />
+            : <div className="report-builder-preview__empty"><strong>Report preview</strong><span>Run the report to generate its preview.</span></div>}
+        </div>
+      </section>
     </form>}
     {!mapComposerOpen ? <footer className="report-editor-footer"><button className="secondary-button" disabled={step === 0} onClick={() => setStep(value => Math.max(0, value - 1))} type="button"><ChevronLeft size={15} />Back</button><span>Changes are saved only when you choose Save or Run.</span>{step < STEPS.length - 1 ? <button className="primary-button" disabled={!canAdvance} onClick={() => setStep(value => Math.min(STEPS.length - 1, value + 1))} type="button">Next<ChevronRight size={15} /></button> : <button className="primary-button" disabled={busy || !canRun} onClick={() => save({ run: true })} type="button"><Play size={15} />Run report</button>}</footer> : null}
   </section>;
