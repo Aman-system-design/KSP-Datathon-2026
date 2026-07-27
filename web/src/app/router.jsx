@@ -10,6 +10,7 @@ import { IntelligenceRunMonitor } from '../features/admin/IntelligenceRunMonitor
 import { AlertPage, AlertsPage } from '../features/alerts/AlertPages.jsx';
 import { DashboardLibrary, DashboardPage } from '../features/dashboards/DashboardPages.jsx';
 import { PersonaDashboardRoute } from '../features/dashboards/PersonaDashboardRoute.jsx';
+import { ProvisionedDashboardApplication } from '../features/dashboards/ProvisionedDashboardApplication.jsx';
 import { GeospatialPage } from '../features/geospatial/GeospatialPage.jsx';
 import { IntelligenceWorkspacePage } from '../features/intelligence/IntelligenceWorkspacePage.jsx';
 import { NetworkView } from '../features/intelligence/NetworkView.jsx';
@@ -103,8 +104,6 @@ export function IntelligenceRoute({ api, role }) {
 }
 
 function AuthorizedApplication({ api, auth, requestedPersona }) {
-  const location = useLocation();
-  const navigate = useNavigate();
   const state = useLoad(() => api.get('/v1/workspace').then(result => result.data), [api]);
   if (state.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity and authorized scope…" /></main>;
   if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
@@ -114,7 +113,23 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     console.error('workspace_contract_invalid', workspaceContractDiagnostic(state.data));
     return <main className="application-gate"><Failure error={{ code: 'WORKSPACE_CONTRACT_INVALID', requestId: 'CLIENT-WORKSPACE' }} /></main>;
   }
-  const workspace = state.data;
+  return <ProvisionedDashboardApplication api={api} workspace={state.data}>
+    {workspace => <AuthorizedWorkspaceApplication api={api} auth={auth} requestedPersona={requestedPersona} workspace={workspace} />}
+  </ProvisionedDashboardApplication>;
+}
+
+function AuthorizedWorkspaceApplication({ api, auth, requestedPersona, workspace }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const state = { data: workspace };
+  if (state.loading) return <main className="application-gate"><Busy branded label="Verifying Catalyst identity and authorized scope…" /></main>;
+  if (state.error?.status === 401 || state.error?.code === 'UNAUTHENTICATED') return <SignInRequired auth={auth} />;
+  if (state.error?.status === 403) return <AccessNotProvisioned requestId={state.error.requestId} onSignOut={() => auth.signOut()} />;
+  if (state.error) return <main className="application-gate"><Failure error={{ ...state.error, code: state.error.code ?? 'WORKSPACE_REQUEST_FAILED' }} /></main>;
+  if (!validWorkspace(state.data)) {
+    console.error('workspace_contract_invalid', workspaceContractDiagnostic(state.data));
+    return <main className="application-gate"><Failure error={{ code: 'WORKSPACE_CONTRACT_INVALID', requestId: 'CLIENT-WORKSPACE' }} /></main>;
+  }
   const commandCenterShellRoute = location.pathname === '/' || location.pathname === '/dashboards';
   if (requestedPersona === 'COMMAND_CENTER' && commandCenterShellRoute) {
     if (workspace.role !== 'COMMAND_CENTER') return <AccessNotProvisioned requestId="ROUTE-SCOPE" onSignOut={() => auth.signOut()} />;
