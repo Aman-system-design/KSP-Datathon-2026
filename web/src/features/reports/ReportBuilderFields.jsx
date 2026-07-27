@@ -19,9 +19,10 @@ export function DataStep({ name, onName, description, onDescription, sources, so
   </div>;
 }
 
-export function TypeStep({ choices, visualization, onVisualization }) {
+export function TypeStep({ choices, compatibilityReason, visualization, onVisualization }) {
   return <div className="report-stage"><h2>Select a visualization</h2><p>Choose the clearest way to communicate this result.</p>
     <div className="report-type-picker" role="radiogroup" aria-label="Visualization type">{choices.map(choice => { const Icon = ICONS[choice.type] ?? Table2; return <button aria-checked={choice.type === visualization} className={choice.type === visualization ? 'selected' : ''} key={choice.type} onClick={() => onVisualization(choice.type)} role="radio" type="button"><Icon size={22} /><span>{choice.label}</span></button>; })}</div>
+    {compatibilityReason ? <p className="report-compatibility-message" role="status">{compatibilityReason}</p> : null}
     <label className="sr-only">Visualization<select aria-label="Visualization" value={visualization} onChange={event => onVisualization(event.target.value)}>{choices.map(choice => <option key={choice.type} value={choice.type}>{choice.label}</option>)}</select></label>
   </div>;
 }
