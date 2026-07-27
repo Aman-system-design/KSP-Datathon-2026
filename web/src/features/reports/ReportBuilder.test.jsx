@@ -244,3 +244,11 @@ test('using the deferred Intelligence bar never calls the report API', async () 
   expect(api.post).not.toHaveBeenCalled();
   expect(screen.getByRole('status')).toHaveTextContent('Your report was not changed');
 }, 10_000);
+
+test('keeps the Intelligence control inside the builder without nesting forms', async () => {
+  const api = { get: vi.fn(async () => ({ data: [anomalySource] })), post: vi.fn() };
+  const { container } = renderNew(api);
+
+  await screen.findByRole('option', { name: 'Trend anomalies' });
+  expect(container.querySelectorAll('form')).toHaveLength(1);
+});
