@@ -10,7 +10,17 @@ function ResultTable({ rows }) {
   return <div className="command-center-report-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{row[column] ?? '—'}</td>)}</tr>)}</tbody></table></div>;
 }
 
-export function CommandCenterReportSurface({ item, editing = false, onRemove = () => {}, returnTo = '' }) {
+function normalizedSelection(item, selection) {
+  if (!selection || typeof selection !== 'object') return selection;
+  if (typeof selection.field === 'string' && Object.hasOwn(selection, 'value') && selection.row) return selection;
+  const row = selection.row ?? selection;
+  const field = item.definition?.dimensions?.[0];
+  return field ? { field, value: row?.[field], row } : selection;
+}
+
+export function CommandCenterReportSurface({
+  item, editing = false, onRemove = () => {}, onSelect, showPreviewMeta = true, returnTo = '',
+}) {
   const location = useLocation();
   const baseReportLocation = governedAppLocation(`/reports/${item.reportId}`, location);
   const reportParams = new URLSearchParams(baseReportLocation.search);
@@ -33,7 +43,7 @@ export function CommandCenterReportSurface({ item, editing = false, onRemove = (
       : item.mapExecution
         ? <div className="command-center-report-map-placeholder">Governed map output</div>
         : definition
-          ? <ReportPreview appearance="light" density="dashboard" definition={definition} preview={item.data ?? []} mapMetadata={item.mapMetadata} provenance={item.syntheticData ? 'Demonstration data' : ''} hasRun />
+          ? <ReportPreview appearance="light" density="dashboard" definition={definition} preview={item.data ?? []} mapMetadata={item.mapMetadata} provenance={item.syntheticData ? 'Demonstration data' : ''} showMeta={showPreviewMeta} hasRun onSelect={typeof onSelect === 'function' ? selection => onSelect(item, normalizedSelection(item, selection)) : undefined} />
           : <ResultTable rows={item.data ?? []} />}</div>
     <footer>{item.syntheticData ? <span>Submission synthetic data</span> : item.freshness ? <span>{item.freshness}</span> : <span>Viewer-scoped result</span>}<Link to={reportLocation}>Open report</Link></footer>
   </article>;
