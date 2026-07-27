@@ -10,7 +10,7 @@ const workspace = {
 
 test('prefers State Crime Intelligence over a stale Station Operations landing dashboard', async () => {
   const leadershipWorkspace = {
-    role: 'STATE_LEADERSHIP',
+    role: 'COMMAND_CENTER',
     landingDashboard: { id: 'D-STATION', name: 'Station Operations' },
     availableDashboards: [
       { id: 'D-STATION', name: 'Station Operations' },
