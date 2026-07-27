@@ -2,9 +2,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { StationOperationsShell, stationPlacementClass, stationPresentation } from './StationOperationsShell.jsx';
+import { isStationDashboard, StationOperationsShell, stationPlacementClass, stationPresentation } from './StationOperationsShell.jsx';
 
 afterEach(cleanup);
+
+test('recognizes the provisioned Police Station Dashboard and legacy station dashboards', () => {
+  expect(isStationDashboard({ name: 'Police Station Dashboard', description: '[ACE:station-operations:v1:complete]', relationship: 'OWNED' })).toBe(true);
+  expect(isStationDashboard({ name: 'Station Operations', relationship: 'OWNED' })).toBe(true);
+  expect(isStationDashboard({ name: 'State Crime Intelligence', relationship: 'OWNED' })).toBe(false);
+});
 
 test('places the lifecycle funnel beside case ageing', () => {
   expect(stationPlacementClass({ definition: { sourceKey: 'stationCases', dimensions: ['status'], visualization: { type: 'funnel' } } }))

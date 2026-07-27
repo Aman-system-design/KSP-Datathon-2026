@@ -6,7 +6,7 @@ import { governedAppLocation } from '../../app/runtime.js';
 import { CommandCenterAddReportDrawer } from '../command-center/CommandCenterAddReportDrawer.jsx';
 import { CommandCenterDashboardCanvas } from '../command-center/CommandCenterDashboardCanvas.jsx';
 import { useCommandCenterDashboard } from '../command-center/useCommandCenterDashboard.js';
-import { bootstrapStationOperationsDashboard } from './station-dashboard-template.js';
+import { bootstrapStationOperationsDashboard, STATION_BOOTSTRAP_MARKER } from './station-dashboard-template.js';
 import './station-operations.css';
 
 const PERIODS = [7, 30, 90];
@@ -65,8 +65,9 @@ export function stationPresentation(item) {
 }
 
 const isStationReport = report => STATION_REPORT_SOURCES.has(report?.definition?.sourceKey);
-const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
-  || (dashboard?.relationship === 'OWNED' && dashboard?.name === 'Station Operations');
+export const isStationDashboard = dashboard => dashboard?.defaultRole === 'STATION_OPERATIONS'
+  || (dashboard?.relationship === 'OWNED' && (dashboard?.name === 'Station Operations'
+    || dashboard?.name === 'Police Station Dashboard' || dashboard?.description === STATION_BOOTSTRAP_MARKER));
 export const stationPlacementClass = item => item.definition?.visualization?.type === 'number' ? 'station-placement--metric'
   : item.definition?.sourceKey === 'stationCases' && item.definition?.dimensions?.includes('ageingBucket')
     && item.definition?.visualization?.type === 'bar' ? 'station-placement--ageing'
