@@ -151,7 +151,7 @@ function PolicyForm({ utility, rule, api, scopeUnitId: defaultScopeUnitId, scope
         response = await api.idempotent('/v1/utility-alert-rules', body, idempotency.current.key);
       }
       idempotency.current = null;
-      setSuccess('Policy saved.');
+      setSuccess('Alert setup saved.');
       onSaved(response.data);
     } catch (saveError) {
       if (saveError?.code === 'VERSION_CONFLICT' && baseRule) {
@@ -175,7 +175,7 @@ function PolicyForm({ utility, rule, api, scopeUnitId: defaultScopeUnitId, scope
 
   return <form className="utilities-policy-form" onSubmit={submit}>
     <div className="utilities-policy-form__heading">
-      <div><h3>{baseRule ? 'Edit alert policy' : 'New alert policy'}</h3>{baseRule ? <small>Revision {baseRule.version}</small> : null}</div>
+      <div><h3>{baseRule ? 'Edit alert setup' : 'New alert setup'}</h3>{baseRule ? <small>Revision {baseRule.version}</small> : null}</div>
       <label className="utilities-policy-switch"><input type="checkbox" checked={draft.enabled} onChange={event => update('enabled', event.target.checked)} /> Enabled policy</label>
     </div>
     <div className="utilities-policy-fields">
@@ -194,7 +194,7 @@ function PolicyForm({ utility, rule, api, scopeUnitId: defaultScopeUnitId, scope
     {success ? <p className="utilities-policy-message utilities-policy-message--success" role="status">{success}</p> : null}
     <div className="utilities-policy-actions">
       <button type="button" className="utilities-policy-secondary" onClick={onCancel}>Cancel</button>
-      <button type="submit" disabled={!valid || saving}>{saving ? 'Saving…' : 'Save policy'}</button>
+      <button type="submit" disabled={!valid || saving}>{saving ? 'Saving…' : 'Save setup'}</button>
     </div>
   </form>;
 }
@@ -270,6 +270,18 @@ function AiAssistedDetection({ aiAssistance }) {
   </aside>;
 }
 
+function AlertSetupOverview() {
+  const steps = [
+    ['Monitor', 'Utility findings'],
+    ['Route', 'Relevant personas'],
+    ['Human action', 'Review and assign'],
+  ];
+  return <aside className="utilities-alert-setup-overview" aria-label="Alert setup flow">
+    <p>Set when this utility should create an alert and which operational personas should receive it. Analytical signals support monitoring; people review, assign and act on every alert.</p>
+    <ol>{steps.map(([name, detail]) => <li key={name}><span>{name}</span><strong>{detail}</strong></li>)}</ol>
+  </aside>;
+}
+
 function AlertPolicy({ utility, api, workspace, location }) {
   const [state, setState] = useState({ loading: utility.alertPolicy.enabled, error: null, rules: [] });
   const [editing, setEditing] = useState(null);
@@ -293,7 +305,7 @@ function AlertPolicy({ utility, api, workspace, location }) {
     <span>Area Attention is a visual review signal and does not create alerts in this MVP.</span>
   </div>;
   if (state.loading) return <p className="utilities-policy-loading" role="status">Loading alert policies…</p>;
-  if (state.error) return <p className="utilities-policy-message utilities-policy-message--error" role="alert">Alert policies could not be loaded.</p>;
+  if (state.error) return <p className="utilities-policy-message utilities-policy-message--error" role="alert">Alert setups could not be loaded.</p>;
 
   const saveRule = saved => {
     const normalized = normalizeRule(saved, utility);
@@ -303,7 +315,7 @@ function AlertPolicy({ utility, api, workspace, location }) {
     }
     setState(current => ({ ...current, rules: current.rules.some(item => item.id === normalized.id)
       ? current.rules.map(item => item.id === normalized.id ? normalized : item) : [...current.rules, normalized] }));
-    setEditing(null); setCreating(false); setNotice('Policy saved.');
+    setEditing(null); setCreating(false); setNotice('Alert setup saved.');
   };
 
   const reloadRule = async id => {
@@ -317,11 +329,11 @@ function AlertPolicy({ utility, api, workspace, location }) {
   if (creating || editing) return <PolicyForm utility={utility} rule={editing} api={api} scopeUnitId={scopeUnitId} scopeLabel={scopeLabel} reloadRule={reloadRule} onCancel={() => { setCreating(false); setEditing(null); }} onSaved={saveRule} />;
 
   return <div className="utilities-policy">
-    <div className="utilities-policy__heading"><div><h3>Alert policies</h3><p>Apply a bounded rule to this utility's published findings.</p></div>
-      {state.rules.length === 0 && canManage ? <button type="button" onClick={() => setCreating(true)}>Add alert policy</button> : null}
+    <div className="utilities-policy__heading"><div><h3>Alert setups</h3><p>Configure a bounded rule for this utility's published findings.</p></div>
+      {state.rules.length === 0 && canManage ? <button type="button" onClick={() => setCreating(true)}>Add alert setup</button> : null}
     </div>
     {notice ? <p className="utilities-policy-message utilities-policy-message--success" role="status">{notice}</p> : null}
-    {state.rules.length === 0 ? <p className="utilities-policy-empty">No alert policy is configured for this utility.</p> : <ul className="utilities-policy-list">
+    {state.rules.length === 0 ? <p className="utilities-policy-empty">No alert setup is configured for this utility.</p> : <ul className="utilities-policy-list">
       {state.rules.map(rule => <li key={rule.id}>
         <span className={`utilities-policy-state${rule.enabled ? '' : ' utilities-policy-state--off'}`}>{rule.enabled ? 'Enabled' : 'Paused'}</span>
         <div><strong>{scopeLabel}</strong><small><span>{ruleThresholdSummary(rule)}</span> · {rule.evaluationWindowDays} days · {formatToken(rule.severity)}</small></div>
@@ -373,14 +385,14 @@ export function UtilityPage({ api, workspace }) {
     </section>
     <nav className="utilities-detail-links" aria-label="Utility definition sections">
       <button id="input-logic-tab" type="button" aria-label="Input & Logic" aria-expanded={activePanel === 'input-logic'} aria-controls="input-logic" onClick={() => setActivePanel(current => current === 'input-logic' ? null : 'input-logic')}><Icon name="utilities" /><span><b>Input &amp; Logic</b><small>Inspect governed method</small></span></button>
-      <button id="alert-policy-tab" type="button" aria-label="Alert Policy" aria-expanded={activePanel === 'alert-policy'} aria-controls="alert-policy" onClick={() => setActivePanel(current => current === 'alert-policy' ? null : 'alert-policy')}><Icon name="alerts" /><span><b>Alert Policy</b><small>Inspect qualification rules</small></span></button>
+      <button id="alert-policy-tab" type="button" aria-label="Alerts (Setup)" aria-expanded={activePanel === 'alert-policy'} aria-controls="alert-policy" onClick={() => setActivePanel(current => current === 'alert-policy' ? null : 'alert-policy')}><Icon name="alerts" /><span><b>Alerts (Setup)</b><small>Configure monitoring and routing</small></span></button>
       <button id="outputs-tab" type="button" aria-label="Outputs" aria-expanded={activePanel === 'outputs'} aria-controls="outputs" onClick={() => setActivePanel(current => current === 'outputs' ? null : 'outputs')}><Icon name="dashboard" /><span><b>Outputs</b><small>Inspect delivery channels</small></span></button>
     </nav>
     {activePanel ? <div className="utilities-detail-sections">
       {activePanel === 'input-logic' ? <section id="input-logic" role="region" aria-labelledby="input-logic-tab"><h2>Input &amp; Logic</h2><p>{utility.stages?.[0]?.label}</p><strong>{utility.analyticalMethod}</strong>
         <ul>{(utility.limitations ?? []).map(item => <li key={item}>{formatToken(item)}</li>)}</ul>
       </section> : null}
-      {activePanel === 'alert-policy' ? <section id="alert-policy" role="region" aria-labelledby="alert-policy-tab"><h2>Alert Policy</h2>{utility.aiAssistance ? <AiAssistedDetection aiAssistance={utility.aiAssistance} /> : null}<AlertPolicy utility={utility} api={api} workspace={workspace} location={location} /></section> : null}
+      {activePanel === 'alert-policy' ? <section id="alert-policy" role="region" aria-labelledby="alert-policy-tab"><h2>Alerts (Setup)</h2><AlertSetupOverview />{utility.aiAssistance ? <AiAssistedDetection aiAssistance={utility.aiAssistance} /> : null}<AlertPolicy utility={utility} api={api} workspace={workspace} location={location} /></section> : null}
       {activePanel === 'outputs' ? <section id="outputs" role="region" aria-labelledby="outputs-tab"><h2>Outputs</h2><ul>{(utility.outputs ?? []).map(output => <li key={output}>{formatToken(output)}</li>)}</ul></section> : null}
     </div> : null}
   </article>;

@@ -115,7 +115,7 @@ test('renders the server-defined lifecycle before progressively revealing one se
   expect(within(lifecycle).getAllByRole('listitem')).toHaveLength(5);
   expect(within(lifecycle).getByText('Weighted area-attention scoring')).toBeInTheDocument();
   const inputButton = screen.getByRole('button', { name: 'Input & Logic' });
-  const alertButton = screen.getByRole('button', { name: 'Alert Policy' });
+  const alertButton = screen.getByRole('button', { name: 'Alerts (Setup)' });
   const outputsButton = screen.getByRole('button', { name: 'Outputs' });
   expect(inputButton).toHaveAttribute('aria-expanded', 'false');
   expect(alertButton).toHaveAttribute('aria-expanded', 'false');
@@ -127,17 +127,17 @@ test('renders the server-defined lifecycle before progressively revealing one se
   fireEvent.click(inputButton);
   expect(inputButton).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('region', { name: 'Input & Logic' })).toBeInTheDocument();
-  expect(screen.queryByRole('region', { name: 'Alert Policy' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Alerts (Setup)' })).not.toBeInTheDocument();
 
   fireEvent.click(alertButton);
   expect(alertButton).toHaveAttribute('aria-expanded', 'true');
   expect(inputButton).toHaveAttribute('aria-expanded', 'false');
   expect(screen.queryByRole('region', { name: 'Input & Logic' })).not.toBeInTheDocument();
-  expect(screen.getByRole('region', { name: 'Alert Policy' })).toHaveTextContent('Alert unavailable');
+  expect(screen.getByRole('region', { name: 'Alerts (Setup)' })).toHaveTextContent('Alert unavailable');
 
   fireEvent.click(outputsButton);
   expect(outputsButton).toHaveAttribute('aria-expanded', 'true');
-  expect(screen.queryByRole('region', { name: 'Alert Policy' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Alerts (Setup)' })).not.toBeInTheDocument();
   expect(screen.getByRole('region', { name: 'Outputs' })).toHaveTextContent('monitoring');
   fireEvent.click(outputsButton);
   expect(outputsButton).toHaveAttribute('aria-expanded', 'false');
@@ -146,6 +146,39 @@ test('renders the server-defined lifecycle before progressively revealing one se
   expect(screen.queryByText(/QuickML/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/accuracy|success rate/i)).not.toBeInTheDocument();
 });
+
+test('presents alert configuration as setup, routing and human action without automation claims', async () => {
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: patterns }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/patterns?persona=CRIME_ANALYST');
+
+  await screen.findByRole('heading', { name: patterns.name });
+  const setupButton = screen.getByRole('button', { name: 'Alerts (Setup)' });
+  expect(setupButton).toHaveTextContent('Configure monitoring and routing');
+  fireEvent.click(setupButton);
+
+  const section = screen.getByRole('region', { name: 'Alerts (Setup)' });
+  expect(within(section).getByText('Monitor')).toBeInTheDocument();
+  expect(within(section).getByText('Route')).toBeInTheDocument();
+  expect(within(section).getByText('Human action')).toBeInTheDocument();
+  expect(section).toHaveTextContent(/people review, assign and act on every alert/i);
+  expect(section).not.toHaveTextContent(/24\/7|continuous|real-time/i);
+});
+
+test.each(['COMMAND_CENTER', 'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'STATION_OPERATIONS', 'CRIME_ANALYST'])(
+  'shows Alerts (Setup) for the %s utility experience',
+  async persona => {
+    const api = { get: vi.fn(async () => ({ data: areaAttention })) };
+    renderRoute(api, `/utilities/area-attention?persona=${persona}`, { role: persona, scopeUnitId: 101 });
+
+    await screen.findByRole('heading', { name: areaAttention.name });
+    fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
+    const section = screen.getByRole('region', { name: 'Alerts (Setup)' });
+    expect(section).toHaveTextContent('Alert unavailable');
+    expect(section).toHaveTextContent('does not create alerts in this MVP');
+  },
+);
 
 test.each([
   ['key', null],
@@ -191,7 +224,7 @@ test('accepts revised server-owned AI assistance copy without a client copy allo
     : { data: { items: [] } }) };
   renderRoute(api, '/utilities/anomalies');
   await screen.findByRole('heading', { name: anomalies.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
 
   const panel = await screen.findByRole('complementary', { name: 'AI-assisted detection' });
   expect(panel).toHaveTextContent('SEASONAL_MEDIAN_MAD');
@@ -206,7 +239,7 @@ test('loads an older deployed utility without inventing missing AI assistance me
   renderRoute(api, '/utilities/patterns');
 
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   expect(screen.queryByRole('complementary', { name: 'AI-assisted detection' })).not.toBeInTheDocument();
 });
 
@@ -222,7 +255,7 @@ test('accepts the legacy deployed AI assistance contract while the backend rolls
   renderRoute(api, '/utilities/patterns');
 
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   const panel = await screen.findByRole('complementary', { name: 'AI-assisted detection' });
   expect(panel).toHaveTextContent('Multi-signal pattern fusion');
   expect(panel).toHaveTextContent('PF-1.0');
@@ -247,9 +280,9 @@ test('loads and lists alert policies only after the progressive section is opene
 
   await screen.findByRole('heading', { name: patterns.name });
   expect(api.get).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
 
-  expect(await screen.findByRole('heading', { name: 'Alert policies' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Alert setups' })).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledWith('/v1/utility-alert-rules?utilityKey=patterns');
   expect(screen.getByText('Assigned units and cases')).toBeInTheDocument();
   expect(screen.queryByText(/101/)).not.toBeInTheDocument();
@@ -268,7 +301,7 @@ test.each([
     : { data: { items: [] } }) };
   renderRoute(api, `/utilities/${utility.key}`);
   await screen.findByRole('heading', { name: utility.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
 
   const panels = await screen.findAllByRole('complementary', { name: 'AI-assisted detection' });
   expect(panels).toHaveLength(1);
@@ -283,6 +316,12 @@ test('keeps AI assistance and evaluation narrative typography at 12px', () => {
   expect(policyCss).toMatch(/\.utilities-policy-result p\s*\{[^}]*font-size:\s*12px/);
 });
 
+test('keeps the alert setup explanation compact and responsive', () => {
+  expect(policyCss).toMatch(/\.utilities-alert-setup-overview\s*\{[^}]*border-left:\s*3px solid #2468b4/s);
+  expect(policyCss).toMatch(/\.utilities-alert-setup-overview ol\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s);
+  expect(policyCss).toMatch(/@media \(max-width: 760px\)[\s\S]*\.utilities-alert-setup-overview ol\s*\{[^}]*grid-template-columns:\s*1fr/s);
+});
+
 test('creates one bounded policy and keeps its idempotency key for a retry until the draft changes', async () => {
   const failure = Object.assign(new Error('failed'), { code: 'INTERNAL_ERROR' });
   const api = {
@@ -292,22 +331,22 @@ test('creates one bounded policy and keeps its idempotency key for a retry until
   };
   renderRoute(api, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Add alert policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Add alert setup' }));
   expect(screen.getByText('Assigned units and cases')).toBeInTheDocument();
   expect(screen.getByLabelText('Command Centre')).toBeChecked();
   expect(screen.getByLabelText('Crime analyst')).toBeChecked();
   expect(screen.getByLabelText('District leadership')).not.toBeChecked();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save setup' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('could not be saved');
-  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save setup' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('could not be saved');
   expect(api.idempotent.mock.calls[0][2]).toBe(api.idempotent.mock.calls[1][2]);
 
   fireEvent.change(screen.getByLabelText('Confidence threshold'), { target: { value: '0.85' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Policy saved');
+  fireEvent.click(screen.getByRole('button', { name: 'Save setup' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Alert setup saved');
   expect(api.idempotent.mock.calls[2][2]).not.toBe(api.idempotent.mock.calls[1][2]);
   expect(api.idempotent.mock.calls[2][0]).toBe('/v1/utility-alert-rules');
   expect(api.idempotent.mock.calls[2][1]).toEqual(expect.objectContaining({
@@ -325,13 +364,13 @@ test('keeps existing policy recipients unchanged when saving an edit', async () 
   };
   renderRoute(api, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Edit policy' }));
 
   expect(screen.getByLabelText('Command Centre')).not.toBeChecked();
   expect(screen.getByLabelText('District leadership')).toBeChecked();
   expect(screen.getByLabelText('Crime analyst')).toBeChecked();
-  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save setup' }));
 
   expect(api.patch).toHaveBeenCalledWith('/v1/utility-alert-rules/URULE-PRIVATE', expect.objectContaining({
     recipientRoles: ['DISTRICT_LEADERSHIP', 'CRIME_ANALYST'],
@@ -352,10 +391,10 @@ test('reloads the latest visible revision after conflict while preserving local 
   };
   renderRoute(api, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Edit policy' }));
   fireEvent.click(screen.getByLabelText('Enabled policy'));
-  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save setup' }));
 
   expect(await screen.findByRole('alert')).toHaveTextContent('changed since you opened it');
   expect(screen.getByLabelText('Enabled policy')).not.toBeChecked();
@@ -363,7 +402,7 @@ test('reloads the latest visible revision after conflict while preserving local 
   expect(api.patch).toHaveBeenCalledWith('/v1/utility-alert-rules/URULE-PRIVATE', expect.objectContaining({
     expectedVersion: 3, enabled: false,
   }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save setup' }));
   expect(api.patch).toHaveBeenLastCalledWith('/v1/utility-alert-rules/URULE-PRIVATE', expect.objectContaining({
     expectedVersion: 4, enabled: false,
   }));
@@ -375,7 +414,7 @@ test('fails safely when an alert policy response contains a malformed rule', asy
     : { data: { items: [{ ...savedPatternRule, recipientRoles: 'CRIME_ANALYST' }] } }) };
   renderRoute(api, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded');
 });
 
@@ -383,12 +422,12 @@ test('preserves an integer threshold contract and rejects decimal hotspot counts
   const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/') ? { data: hotspots } : { data: { items: [] } }) };
   renderRoute(api, '/utilities/hotspots');
   await screen.findByRole('heading', { name: hotspots.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Add alert policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Add alert setup' }));
   const minimumCases = screen.getByLabelText('Minimum cases');
   expect(minimumCases).toHaveAttribute('step', '1');
   fireEvent.change(minimumCases, { target: { value: '2.5' } });
-  expect(screen.getByRole('button', { name: 'Save policy' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Save setup' })).toBeDisabled();
 });
 
 test('runs a saved policy and links the first created alert without exposing its identifier', async () => {
@@ -400,7 +439,7 @@ test('runs a saved policy and links the first created alert without exposing its
   };
   renderRoute(api, '/utilities/patterns?persona=CRIME_ANALYST');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   const run = await screen.findByRole('button', { name: 'Run evaluation' });
   fireEvent.click(run);
   expect(run).toBeDisabled();
@@ -426,7 +465,7 @@ test('shows a truthful zero-match result and disables evaluation for paused poli
   };
   renderRoute(api, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Run evaluation' }));
   const result = await screen.findByRole('status');
   expect(result).toHaveTextContent('8 evaluated · 0 matched · 8 suppressed');
@@ -439,7 +478,7 @@ test('shows a truthful zero-match result and disables evaluation for paused poli
     : { data: { items: [{ ...savedPatternRule, enabled: false }] } }) };
   renderRoute(pausedApi, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
 });
 
@@ -450,7 +489,7 @@ test('fails evaluation safely when its response is malformed', async () => {
   };
   renderRoute(api, '/utilities/patterns');
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Run evaluation' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Evaluation could not be completed');
   expect(screen.queryByText(/evaluated ·/i)).not.toBeInTheDocument();
@@ -463,7 +502,7 @@ test('lets station operations inspect policies without exposing management or ev
     : { data: { items: [savedPatternRule] } }) };
   renderRoute(api, '/utilities/patterns', stationWorkspace);
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
   expect(await screen.findByText('Authorized station')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Edit policy' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
@@ -474,18 +513,18 @@ test('lets station operations inspect policies without exposing management or ev
     : { data: { items: [] } }) };
   renderRoute(emptyApi, '/utilities/patterns', stationWorkspace);
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
-  expect(await screen.findByText('No alert policy is configured for this utility.')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Add alert policy' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
+  expect(await screen.findByText('No alert setup is configured for this utility.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add alert setup' })).not.toBeInTheDocument();
 });
 
 test('keeps Area Attention visual-only and explains why no alert editor is available', async () => {
   const api = { get: vi.fn(async () => ({ data: areaAttention })) };
   renderRoute(api);
   await screen.findByRole('heading', { name: areaAttention.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
 
   expect(screen.getByText(/does not create alerts/i)).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /add alert policy/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /add alert setup/i })).not.toBeInTheDocument();
   expect(api.get).toHaveBeenCalledTimes(1);
 });
