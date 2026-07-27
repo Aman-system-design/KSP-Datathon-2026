@@ -42,7 +42,7 @@ test('renders an editable district-scoped governed dashboard', async () => {
   fireEvent.click(screen.getByRole('menuitem', { name: 'Add chart' }));
 
   expect(await screen.findByRole('button', { name: 'Add District FIR trend' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Add Station case register' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Add Station case register' })).toBeVisible();
   expect(screen.getByRole('link', { name: 'Create new report' }))
     .toHaveAttribute('href', '/reports/new?persona=DISTRICT_LEADERSHIP&returnTo=dashboards');
 });

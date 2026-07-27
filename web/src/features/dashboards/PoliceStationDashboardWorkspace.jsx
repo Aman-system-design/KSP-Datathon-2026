@@ -11,6 +11,5 @@ export function PoliceStationDashboardWorkspace(props) {
     eyebrow={stationName}
     title="Police Station Dashboard"
     description="Station-scoped case workload, ageing, active alerts, lifecycle and incident patterns from governed reports."
-    reportPredicate={isPoliceStationReport}
   />;
 }

@@ -7,10 +7,10 @@ import { useCommandCenterDashboard } from '../command-center/useCommandCenterDas
 import { DashboardDeleteDialog } from './DashboardDeleteDialog.jsx';
 
 export function GovernedPersonaDashboardWorkspace({
-  api, workspace, dashboardId, title, description, eyebrow, reportPredicate, onDeleted = () => {},
+  api, workspace, dashboardId, title, description, eyebrow, onDeleted = () => {},
 }) {
   const controller = useCommandCenterDashboard({
-    api, workspace, requestedDashboardId: dashboardId, reportPredicate,
+    api, workspace, requestedDashboardId: dashboardId,
   });
   const [addOpen, setAddOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -63,7 +63,6 @@ export function GovernedPersonaDashboardWorkspace({
       open={addOpen && controller.editing}
       onAdd={report => { controller.addReport(report); setAddOpen(false); }}
       onClose={() => setAddOpen(false)}
-      reportPredicate={reportPredicate}
       returnTo="dashboards"
     />
     <DashboardDeleteDialog

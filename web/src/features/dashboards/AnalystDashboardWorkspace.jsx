@@ -13,6 +13,5 @@ export function AnalystDashboardWorkspace(props) {
     eyebrow="Crime analyst dashboard"
     title="Analyst Evidence Dashboard"
     description="Compare governed anomalies, patterns, hotspots and evidence. Analytical signals require human review and are not proof."
-    reportPredicate={isAnalystReport}
   />;
 }

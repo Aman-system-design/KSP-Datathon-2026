@@ -14,6 +14,5 @@ export function DistrictDashboardWorkspace(props) {
     eyebrow="District leadership dashboard"
     title={`${districtName} District Intelligence`}
     description="District trends, station concentration, crime mix, lifecycle and geospatial evidence within the authorized scope."
-    reportPredicate={isDistrictReport}
   />;
 }
