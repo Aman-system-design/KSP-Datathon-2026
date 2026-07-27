@@ -17,6 +17,7 @@ import { createStationCaseService } from '../cases/station-case-service.mjs';
 import { fail } from '../services/errors.mjs';
 
 const EXPECTED_PROJECT = '43492000000013049';
+const DEVELOPMENT_DEMO_DISTRICT_ROLE = 'DISTRICT_LEADERSHIP';
 const DEVELOPMENT_DEMO_STATION_ROLE = 'STATION_OPERATIONS';
 const utilityCatalogueServices = createUtilityServices();
 
@@ -145,12 +146,14 @@ export function createApiApplication({
           currentUser: user, profile: accessProfile, requestedPersona,
           environment: config.environment, policy,
         });
-        const demoStation = base.demoPersona && base.role === DEVELOPMENT_DEMO_STATION_ROLE
-          ? units.filter(row => Number(row.TypeID) === 3 && row.Active === true)
+        const demoUnitType = base.role === DEVELOPMENT_DEMO_DISTRICT_ROLE ? 2
+          : base.role === DEVELOPMENT_DEMO_STATION_ROLE ? 3 : undefined;
+        const demoUnit = base.demoPersona && demoUnitType
+          ? units.filter(row => Number(row.TypeID) === demoUnitType && row.Active === true)
             .sort((left, right) => Number(left.UnitID) - Number(right.UnitID))[0]
           : undefined;
-        if (base.demoPersona && base.role === DEVELOPMENT_DEMO_STATION_ROLE && !demoStation) fail('FORBIDDEN_ACTION');
-        const demoScopeUnitId = demoStation?.UnitID;
+        if (base.demoPersona && demoUnitType && !demoUnit) fail('FORBIDDEN_ACTION');
+        const demoScopeUnitId = demoUnit?.UnitID;
         const scopeUnitId = demoScopeUnitId ?? base.scopeUnitId;
         return Object.freeze({
           ...base,

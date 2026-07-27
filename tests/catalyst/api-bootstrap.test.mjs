@@ -85,6 +85,20 @@ test('API composition serves the role workspace and governed report sources', as
   assert.equal(sources.body.data.length, 8);
 });
 
+test('assumed district leadership is scoped to an active district and can read district context', async () => {
+  const { application } = harness({ currentUser: { user_id: 'CAT-DEMO', status: 'ACTIVE' } });
+  const headers = { 'X-Demo-Persona': 'DISTRICT_LEADERSHIP' };
+
+  const workspace = await application({ method: 'GET', url: '/v1/workspace', headers, body: null });
+  assert.equal(workspace.status, 200);
+  assert.equal(workspace.body.data.scopeUnitId, 101);
+  assert.equal(workspace.body.data.scopeUnit.type, 'District');
+
+  const context = await application({ method: 'GET', url: '/v1/district-context', headers, body: null });
+  assert.equal(context.status, 200);
+  assert.equal(context.body.data.items[0].unitId, 101);
+});
+
 test('API composition serves station-scoped case lists and hides unauthorized case detail', async () => {
   const state = buildDemoState();
   state.profiles.push({
