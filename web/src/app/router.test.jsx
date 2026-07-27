@@ -1,9 +1,9 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { lazy } from 'react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { AlertsPage, Application, commandCenterModuleLocation, Failure, GeospatialPage, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
+import { AlertsPage, Application, commandCenterModuleLocation, Failure, GeospatialPage, IntelligenceRoute, workspaceContractDiagnostic, workspaceDestinationLocation } from './router.jsx';
 
 test('failure state exposes a safe boundary code without requiring a server request id', () => {
   render(<Failure error={{ code: 'AUTH_SESSION_FAILED' }} />);
@@ -31,6 +31,28 @@ function LocationProbe() {
   const location = useLocation();
   return <output data-testid="location">{location.pathname}{location.search}{location.hash}</output>;
 }
+
+test('state leadership legacy intelligence route redirects to Home and preserves persona', async () => {
+  const api = { get: vi.fn() };
+  render(<MemoryRouter initialEntries={['/intelligence?persona=STATE_LEADERSHIP']}>
+    <Routes>
+      <Route path="/intelligence" element={<IntelligenceRoute api={api} role="STATE_LEADERSHIP" />} />
+      <Route path="/" element={<LocationProbe />} />
+    </Routes>
+  </MemoryRouter>);
+
+  expect(await screen.findByTestId('location')).toHaveTextContent('/?persona=STATE_LEADERSHIP');
+  expect(api.get).not.toHaveBeenCalled();
+});
+
+test('crime analyst retains the shared intelligence route', async () => {
+  const api = { get: vi.fn(async () => ({ data: { items: [] } })) };
+  render(<MemoryRouter initialEntries={['/intelligence?persona=CRIME_ANALYST']}>
+    <IntelligenceRoute api={api} role="CRIME_ANALYST" />
+  </MemoryRouter>);
+
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/v1/intelligence/brief'));
+});
 
 test('maps workspace chooser destinations without weakening persona validation', () => {
   expect(workspaceDestinationLocation({ type: 'persona', role: 'CRIME_ANALYST' }, '?release=1')).toEqual({

@@ -104,7 +104,7 @@ test('platform navigation preserves the governed persona but drops unrelated que
     <LocationProbe />
   </MemoryRouter>);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Intelligence' }));
-  expect(screen.getByTestId('location')).toHaveTextContent('/intelligence?persona=CRIME_ANALYST');
+  fireEvent.click(screen.getByRole('link', { name: 'Dashboards' }));
+  expect(screen.getByTestId('location')).toHaveTextContent('/dashboards?persona=CRIME_ANALYST');
   expect(screen.getByTestId('location')).not.toHaveTextContent('token');
 });

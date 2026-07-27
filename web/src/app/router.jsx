@@ -94,6 +94,14 @@ export function commandCenterModuleLocation(currentSearch = '', moduleId = 'home
   return Object.freeze({ pathname, search: personaSearch(currentSearch, 'COMMAND_CENTER') });
 }
 
+export function IntelligenceRoute({ api, role }) {
+  const location = useLocation();
+  if (role === 'STATE_LEADERSHIP') {
+    return <Navigate to={{ pathname: '/', search: location.search }} replace />;
+  }
+  return <IntelligenceWorkspacePage api={api} role={role} />;
+}
+
 function AuthorizedApplication({ api, auth, requestedPersona }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -142,7 +150,7 @@ function AuthorizedApplication({ api, auth, requestedPersona }) {
     <Route path="/" element={workspace.role === 'STATION_OPERATIONS'
       ? <Suspense fallback={<Busy label="Loading station operations…" />}><StationOperationsShell api={api} workspace={workspace} /></Suspense>
       : <HomePage api={api} workspace={workspace} />} />
-    <Route path="/intelligence" element={<IntelligenceWorkspacePage api={api} role={workspace.role} />} />
+    <Route path="/intelligence" element={<IntelligenceRoute api={api} role={workspace.role} />} />
     <Route path="/utilities" element={<UtilitiesPage api={api} />} />
     <Route path="/utilities/:utilityKey" element={<UtilityPage api={api} workspace={workspace} />} />
     <Route path="/geospatial" element={<GeospatialPage api={api} />} />

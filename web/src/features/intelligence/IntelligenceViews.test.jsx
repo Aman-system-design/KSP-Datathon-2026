@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -19,15 +19,24 @@ test('leadership workspace renders the approved report-led state brief', () => {
   expect(screen.getByRole('heading', { name: '24-hour crime occurrence curve' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Crime-mix divergence from state baseline' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Leadership intervention queue' })).toBeInTheDocument();
-  expect(screen.getByText('Category mix')).toBeInTheDocument();
+  expect(screen.getByLabelText('Total 100')).toBeInTheDocument();
   expect(screen.queryByText(/2,486\s+FIRs/i)).not.toBeInTheDocument();
   expect(screen.getByText(/expected baseline 11/i)).toBeInTheDocument();
   expect(screen.getByText(/area and time risk only/i)).toBeInTheDocument();
   expect(screen.getByText('86')).toBeInTheDocument();
   expect(screen.getByText(/6 contributing cases/i)).toBeInTheDocument();
   expect(screen.queryByText('18 linked cases')).not.toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: /inspect evidence/i }).length).toBeGreaterThan(0);
+  const evidenceLinks = screen.getAllByRole('link', { name: /inspect evidence/i });
+  expect(evidenceLinks.length).toBeGreaterThan(0);
+  evidenceLinks.forEach(link => expect(link).toHaveAttribute('href', '/alerts'));
   expect(screen.getByText(/complete 31-district command matrix/i)).toBeInTheDocument();
+  expect(screen.getByTestId('report-pie-chart')).toHaveAttribute('data-variant', 'doughnut');
+  expect(screen.getByTestId('report-bar-chart')).toHaveAttribute('data-orientation', 'horizontal');
+  expect(screen.getByTestId('report-line-chart')).toHaveAttribute('data-variant', 'area');
+  const theft = within(screen.getByTestId('report-legend')).getByRole('button', { name: /Theft & burglary/ });
+  fireEvent.click(theft);
+  expect(screen.getByRole('region', { name: 'Selected category' })).toHaveTextContent('28');
+  expect(screen.getAllByRole('link', { name: 'Edit report' })).toHaveLength(3);
 });
 
 test('leadership workspace never converts missing evidence into a zero score', () => {

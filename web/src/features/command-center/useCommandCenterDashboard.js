@@ -10,7 +10,7 @@ function executedItem(item, result) {
   if (result.status === 'rejected') return {
     ...item,
     status: 'error',
-    title: 'Report unavailable',
+    title: item.title ?? 'Report unavailable',
     errorCode: result.reason?.code ?? 'REPORT_EXECUTION_FAILED',
   };
   const payload = result.value?.data ?? {};
@@ -47,7 +47,12 @@ async function executeWithSubmissionFallback(api, item, body = {}) {
     return await api.post(`/v1/reports/${item.reportId}/execute`, body);
   } catch (executionError) {
     try {
-      const report = (await api.get(`/v1/reports/${item.reportId}`)).data;
+      let report;
+      try {
+        report = (await api.get(`/v1/reports/${item.reportId}`)).data;
+      } catch {
+        report = item.title ? { id: item.reportId, name: item.title, definition: item.definition } : null;
+      }
       const rows = submissionSyntheticRows(report?.name);
       if (!rows.length) throw executionError;
       return { data: {
@@ -60,13 +65,9 @@ async function executeWithSubmissionFallback(api, item, body = {}) {
   }
 }
 
-export function useCommandCenterDashboard({
-  api, workspace, requestedDashboardId = null, executionBody = EMPTY_EXECUTION_BODY,
-  reloadKey = null, reportPredicate = INCLUDE_ALL_REPORTS,
-}) {
-  const stateIntelligenceId = workspace?.role === 'STATE_LEADERSHIP'
-    ? workspace?.availableDashboards?.find(dashboard => dashboard.name === 'State Crime Intelligence')?.id
-    : null;
+export function useCommandCenterDashboard({ api, workspace, requestedDashboardId = null, executionBody = EMPTY_EXECUTION_BODY, reloadKey = null, reportPredicate = INCLUDE_ALL_REPORTS }) {
+  const stateIntelligenceId = workspace?.availableDashboards
+    ?.find(dashboard => dashboard.name === 'State Crime Intelligence')?.id;
   const initialId = requestedDashboardId ?? stateIntelligenceId ?? workspace?.landingDashboard?.id ?? workspace?.availableDashboards?.[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState(initialId);
   const [dashboard, setDashboard] = useState(null);
@@ -109,7 +110,7 @@ export function useCommandCenterDashboard({
   }, [api, executionBody, reportPredicate, workspace?.availableReports]);
 
   useEffect(() => { setSelectedId(initialId); }, [initialId]);
-  useEffect(() => { load(selectedId); }, [load, selectedId, reloadKey]);
+  useEffect(() => { load(selectedId); }, [load, reloadKey, selectedId]);
 
   const selectDashboard = id => { if (id && id !== selectedId) setSelectedId(id); };
   const beginEdit = () => { setItems(persistedItems); setEditing(true); };

@@ -4,19 +4,13 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BarChart3, Expand, GripHoriz
 import { placementStyle } from './command-center-dashboard-model.js';
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 
-export function CommandCenterDashboardCanvas({
-  dashboard, activeTab = 'overview', editing = false, onStage = () => {}, onRemove = () => {},
-  onSelect, allowRemove = false, showPreviewMeta = true, getPlacementClassName = () => '', returnTo = '',
-}) {
+export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {}, onRemove = () => {}, onSelect, showPreviewMeta = true, getPlacementClassName = () => '', returnTo = '' }) {
   const tab = dashboard?.tabs?.find(item => item.id === activeTab) ?? dashboard?.tabs?.[0];
   const items = Array.isArray(dashboard?.items)
     ? dashboard.items.filter(item => (item.tabId ?? 'overview') === (tab?.id ?? 'overview'))
     : tab?.items ?? [];
   if (!dashboard) return <main className="command-center-dashboard-canvas" data-testid="command-center-canvas"><div className="command-center-dashboard-empty"><strong>Intelligence Workspace</strong><span>Create or open a dashboard to compose your operational intelligence view.</span></div></main>;
   const stage = (target, changes) => onStage((dashboard.items ?? items).map(item => item.id === target.id ? { ...item, ...changes(item) } : item));
-  const removeItem = itemId => allowRemove
-    ? onStage((dashboard.items ?? items).filter(item => item.id !== itemId))
-    : onRemove(itemId);
   const startPointerEdit = (event, target, mode) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -58,6 +52,6 @@ export function CommandCenterDashboardCanvas({
   </div>;
   return <main className={`command-center-dashboard-canvas${editing ? ' is-editing' : ''}`} data-testid="command-center-canvas">
     {items.length === 0 ? <div className="command-center-dashboard-empty"><BarChart3 aria-hidden="true" /><strong>This dashboard has no reports yet.</strong><span>Add governed reports when you are ready. No sample intelligence is shown.</span><div><Link to="/reports">Open report library</Link><Link className="primary" to="/reports/new"><Plus aria-hidden="true" />Create report</Link></div></div>
-      : items.map(item => <div className={`command-center-dashboard-placement ${getPlacementClassName(item)}`.trim()} style={placementStyle(item)} key={item.id}>{editing ? <><button className="command-center-placement-drag" type="button" aria-label={`Drag ${item.title}`} onPointerDown={event => startPointerEdit(event, item, 'drag')}><GripHorizontal aria-hidden="true" /></button>{controls(item)}<button className="command-center-placement-resize" type="button" aria-label={`Resize ${item.title}`} onPointerDown={event => startPointerEdit(event, item, 'resize')} /></> : null}<CommandCenterReportSurface item={item} editing={editing} onRemove={removeItem} onSelect={onSelect} showPreviewMeta={showPreviewMeta} returnTo={returnTo} /></div>)}
+      : items.map(item => <div className={`command-center-dashboard-placement ${getPlacementClassName(item)}`.trim()} style={placementStyle(item)} key={item.id}>{editing ? <><button className="command-center-placement-drag" type="button" aria-label={`Drag ${item.title}`} onPointerDown={event => startPointerEdit(event, item, 'drag')}><GripHorizontal aria-hidden="true" /></button>{controls(item)}<button className="command-center-placement-resize" type="button" aria-label={`Resize ${item.title}`} onPointerDown={event => startPointerEdit(event, item, 'resize')} /></> : null}<CommandCenterReportSurface item={item} editing={editing} onRemove={onRemove} onSelect={onSelect} showPreviewMeta={showPreviewMeta} returnTo={returnTo} /></div>)}
   </main>;
 }

@@ -95,6 +95,7 @@
 .station-operations .report-preview-canvas[data-density="dashboard"] .report-pie-layout { gap: 18px; padding: 14px 22px; }
 .station-operations .report-preview-canvas[data-density="dashboard"] .report-line { padding: 30px 22px 11px; }
 .station-operations .report-preview-canvas[data-density="dashboard"] .report-funnel { gap: 10px; padding: 18px 28px; }
+.station-operations .report-preview-canvas[data-density="dashboard"] .report-funnel button { color: #fff; }
 .station-operations .report-preview-canvas[data-density="dashboard"] .report-chart-grid i,
 .station-operations .report-preview-canvas[data-density="dashboard"] .report-line__grid line { opacity: .58; }
 .station-operations .command-center-report th { background: #f8fafc; color: #50677f; }
