@@ -166,6 +166,20 @@ test('presents alert configuration as setup, routing and human action without au
   expect(section).not.toHaveTextContent(/24\/7|continuous|real-time/i);
 });
 
+test.each(['COMMAND_CENTER', 'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'STATION_OPERATIONS', 'CRIME_ANALYST'])(
+  'shows Alerts (Setup) for the %s utility experience',
+  async persona => {
+    const api = { get: vi.fn(async () => ({ data: areaAttention })) };
+    renderRoute(api, `/utilities/area-attention?persona=${persona}`, { role: persona, scopeUnitId: 101 });
+
+    await screen.findByRole('heading', { name: areaAttention.name });
+    fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
+    const section = screen.getByRole('region', { name: 'Alerts (Setup)' });
+    expect(section).toHaveTextContent('Alert unavailable');
+    expect(section).toHaveTextContent('does not create alerts in this MVP');
+  },
+);
+
 test.each([
   ['key', null],
   ['name', ''],
