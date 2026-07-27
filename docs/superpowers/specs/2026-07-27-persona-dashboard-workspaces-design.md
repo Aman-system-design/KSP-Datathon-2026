@@ -8,7 +8,7 @@ Extend the existing Dashboards area for District Leadership, Crime Analyst, and 
 
 - `DistrictLeadershipDashboard.jsx` remains the District Leadership homepage.
 - `CrimeAnalystDashboard.jsx` remains the Crime Analyst homepage.
-- `StationOperationsShell.jsx` remains the existing Police Station operational dashboard boundary for the `STATION_OPERATIONS` role.
+- `StationOperationsShell.jsx` remains the existing Police Station homepage and is not reused as the `/dashboards/:dashboardId` surface.
 - District Leadership and Crime Analyst currently open dashboards through the generic `DashboardPage` and `DashboardWorkspace` path.
 - Existing persona selection, authentication, authorization, home routing, report library, and Report Builder behavior remain unchanged.
 
@@ -16,7 +16,8 @@ Extend the existing Dashboards area for District Leadership, Crime Analyst, and 
 
 - Add `DistrictDashboardWorkspace.jsx` as a thin District Leadership dashboard composition.
 - Add `AnalystDashboardWorkspace.jsx` as a thin Crime Analyst dashboard composition.
-- Keep `StationOperationsShell.jsx` as the Police Station dashboard composition and preserve its station-specific behavior.
+- Add `PoliceStationDashboardWorkspace.jsx` as a new Police Station dashboard composition for the existing `STATION_OPERATIONS` role.
+- Keep `StationOperationsShell.jsx` unchanged as the Police Station homepage.
 - Reuse `CommandCenterDashboardCanvas`, `CommandCenterAddReportDrawer`, `useCommandCenterDashboard`, report renderers, and existing dashboard persistence contracts.
 - Keep persona-specific composition, labels, report filtering, and presentation in the corresponding persona file instead of placing all role behavior in one monolithic module.
 - Select the appropriate dashboard workspace at the existing `/dashboards/:dashboardId` route using the already-authorized workspace role.
@@ -33,7 +34,7 @@ The Analyst workspace prioritizes anomalies, temporal patterns, hotspot concentr
 
 ### Police Station
 
-The existing Station Operations workspace continues to prioritize case workload, ageing, active alerts, crime mix, lifecycle, incident-hour patterns, and the open-case register. Its period controls, station-scoped filtering, case navigation, private-dashboard cloning, and bootstrap behavior remain intact.
+The new Police Station dashboard workspace prioritizes case workload, ageing, active alerts, crime mix, lifecycle, incident-hour patterns, and the open-case register. It uses station-authorized saved reports and the shared dashboard editing flow. The existing Station Operations homepage retains its period controls, station-scoped filtering, case navigation, private-dashboard cloning, and bootstrap behavior without modification.
 
 ## Report and Dashboard Behavior
 
@@ -56,7 +57,7 @@ The existing Station Operations workspace continues to prioritize case workload,
 
 1. Existing authentication and workspace resolution determine the authorized persona and scope.
 2. Dashboard routes load only dashboards visible to that identity.
-3. The role-aware route selects District, Analyst, or Station composition.
+3. The role-aware route selects the new District, Analyst, or Police Station dashboard composition.
 4. The shared dashboard controller loads the selected dashboard and executes its report placements.
 5. Persona-specific predicates limit addable reports to authorized, relevant source families.
 6. Edit actions stage placement changes locally; Cancel restores persisted state and Save writes normalized placements through the existing endpoint.
@@ -69,18 +70,26 @@ The existing Station Operations workspace continues to prioritize case workload,
 - Keep successful report tiles visible when another execution fails.
 - Preserve staged layout changes after a save failure and display the failure inline.
 - Reject unavailable or unauthorized dashboard IDs without falling back to another persona's dashboard.
-- Preserve the existing Police Station setup and retry states.
+- Preserve the existing Police Station homepage setup and retry states outside the new dashboard-detail route.
 
 ## Verification
 
 - Route tests prove District Leadership and Crime Analyst use their specialized dashboard workspaces.
-- Route tests prove Police Station continues to use `StationOperationsShell`.
+- Route tests prove Police Station dashboard details use `PoliceStationDashboardWorkspace` while the persona homepage continues to use `StationOperationsShell`.
 - Regression tests prove State Leadership, Command Centre, Investigator, administrator, and auditor behavior is unchanged.
 - Component tests cover persona-specific labels and report-source filtering.
 - Interaction tests cover add report, remove, move, resize, cancel, save, report opening/editing, and dashboard deletion.
 - Failure tests cover isolated report execution errors, unavailable dashboards, and save failures.
 - Focused web tests and a production build verify the implementation.
 - Browser checks cover desktop and mobile layouts for all three personas and confirm the established Catalyst UI remains consistent.
+
+## Baseline Compatibility Prerequisite
+
+- Restore the shared dashboard canvas contract used by `StationOperationsShell`: selection callbacks, placement class hooks, preview metadata control, and optional removal behavior.
+- Preserve the modern Command Centre edit/open/remove controls while restoring those backward-compatible props.
+- Update the Persona Directory regression assertion from five to four visible personas because Regional Leadership was intentionally removed.
+- Update the App Shell geographic-scope assertion to the current safe fallback label when only `scopeUnitId` is available.
+- These repairs must pass their existing tests before any new persona dashboard production component is added.
 
 ## Out of Scope
 

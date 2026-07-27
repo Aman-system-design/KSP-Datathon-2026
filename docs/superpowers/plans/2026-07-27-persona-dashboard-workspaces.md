@@ -4,7 +4,7 @@
 
 **Goal:** Give District Leadership, Crime Analyst, and Police Station role-appropriate editable experiences inside the existing Dashboards area while preserving every existing persona homepage and governed report behavior.
 
-**Architecture:** Add two focused persona workspace components and one small role-aware route component. District and Analyst compose the existing dashboard controller, toolbar, canvas, report drawer, and deletion dialog; Station continues through `StationOperationsShell`. Extend the shared report drawer only enough to honor persona predicates and return context.
+**Architecture:** Add three focused persona workspace components and one small role-aware route component. District, Analyst, and Police Station compose the existing dashboard controller, toolbar, canvas, report drawer, and deletion dialog; `StationOperationsShell` remains the homepage only. Restore the shared dashboard compatibility contract first, then extend the report drawer only enough to honor persona predicates and return context.
 
 **Tech Stack:** React 19, React Router 7, Vitest, Testing Library, existing KSP ACE Catalyst UI CSS and governed reporting APIs.
 
@@ -14,14 +14,75 @@
 
 - Create `web/src/features/dashboards/DistrictDashboardWorkspace.jsx`: District-specific labels, report-source predicate, shared edit canvas composition.
 - Create `web/src/features/dashboards/AnalystDashboardWorkspace.jsx`: Analyst-specific labels, report-source predicate, shared edit canvas composition.
+- Create `web/src/features/dashboards/PoliceStationDashboardWorkspace.jsx`: Police Station labels, station-only report predicate, shared edit canvas composition.
 - Create `web/src/features/dashboards/PersonaDashboardRoute.jsx`: role-only selection among District, Analyst, Station, and the unchanged generic dashboard page.
 - Create `web/src/features/dashboards/PersonaDashboardRoute.test.jsx`: routing isolation and regression coverage.
 - Create `web/src/features/dashboards/DistrictDashboardWorkspace.test.jsx`: District behavior and authorized report picker coverage.
 - Create `web/src/features/dashboards/AnalystDashboardWorkspace.test.jsx`: Analyst behavior and authorized report picker coverage.
+- Create `web/src/features/dashboards/PoliceStationDashboardWorkspace.test.jsx`: Police Station behavior and station-only report picker coverage.
 - Modify `web/src/features/command-center/CommandCenterAddReportDrawer.jsx`: accept a report predicate and governed return target; keep defaults backward compatible.
 - Modify `web/src/features/command-center/CommandCenterAddReportDrawer.test.jsx`: predicate and persona-context tests.
 - Modify `web/src/app/router.jsx`: delegate only `/dashboards/:dashboardId` to the role-aware route.
 - Modify `web/src/styles/app.css`: minimal shared persona-dashboard shell styling using current tokens.
+
+### Task 0: Restore the clean regression baseline
+
+**Files:**
+- Modify: `web/src/features/command-center/CommandCenterDashboardCanvas.jsx`
+- Modify: `web/src/features/command-center/CommandCenterReportSurface.jsx`
+- Modify: `web/src/features/admin/PersonaDirectory.test.jsx`
+- Modify: `web/src/app/AppShell.test.jsx`
+- Test: `web/src/features/station-operations/StationOperationsShell.test.jsx`
+
+- [ ] **Step 1: Use the existing failures as the red tests**
+
+Run: `npm.cmd test -- --run src/features/station-operations/StationOperationsShell.test.jsx src/features/admin/PersonaDirectory.test.jsx src/app/AppShell.test.jsx`
+
+Expected: FAIL because the shared canvas no longer forwards station selection/presentation hooks and two assertions describe intentionally removed UI state.
+
+- [ ] **Step 2: Restore the shared canvas compatibility props**
+
+Extend the current signature without removing modern props:
+
+```jsx
+export function CommandCenterDashboardCanvas({
+  dashboard, activeTab = 'overview', editing = false, onStage = () => {},
+  onRemove = () => {}, onSelect, allowRemove = false, showPreviewMeta = true,
+  getPlacementClassName = () => '', returnTo = '',
+})
+```
+
+Apply `getPlacementClassName(item)` to each placement, pass `onSelect` and `showPreviewMeta` to `CommandCenterReportSurface`, and make remove available when either `allowRemove` or the modern edit surface requests it.
+
+- [ ] **Step 3: Restore report selection without removing modern controls**
+
+Restore `normalizedSelection` and extend the current surface signature:
+
+```jsx
+export function CommandCenterReportSurface({
+  item, editing = false, onRemove = () => {}, onSelect,
+  showPreviewMeta = true, returnTo = '',
+})
+```
+
+Pass `showMeta={showPreviewMeta}` and the normalized `onSelect` callback to `ReportPreview`. Keep the current Edit report, Remove report, visualization variants, governed return target, and footer behavior.
+
+- [ ] **Step 4: Correct the two stale regression assertions**
+
+Change Persona Directory's expected Open workspace link count from `5` to `4`, matching the approved Regional Leadership removal. Change App Shell's `Unit 101` expectation to `Analyst Workbench`, matching the safe navigation-label fallback when `scopeUnit.name` is absent.
+
+- [ ] **Step 5: Run the baseline regression set**
+
+Run: `npm.cmd test -- --run src/features/station-operations/StationOperationsShell.test.jsx src/features/admin/PersonaDirectory.test.jsx src/app/AppShell.test.jsx src/features/command-center/CommandCenterDashboardCanvas.test.jsx src/features/command-center/CommandCenterReportSurface.test.jsx`
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit the baseline repair**
+
+```powershell
+git add web/src/features/command-center/CommandCenterDashboardCanvas.jsx web/src/features/command-center/CommandCenterReportSurface.jsx web/src/features/admin/PersonaDirectory.test.jsx web/src/app/AppShell.test.jsx
+git commit -m "fix: restore shared dashboard compatibility"
+```
 
 ### Task 1: Make the shared report drawer persona-aware
 
@@ -197,7 +258,57 @@ git add web/src/features/dashboards/AnalystDashboardWorkspace.jsx web/src/featur
 git commit -m "feat: add analyst dashboard workspace"
 ```
 
-### Task 4: Route dashboards by existing persona
+### Task 4: Add the Police Station dashboard workspace
+
+**Files:**
+- Create: `web/src/features/dashboards/PoliceStationDashboardWorkspace.jsx`
+- Create: `web/src/features/dashboards/PoliceStationDashboardWorkspace.test.jsx`
+
+- [ ] **Step 1: Write a failing Police Station dashboard test**
+
+Render the new component directly with a `STATION_OPERATIONS` workspace and an authorized dashboard ID. Assert the station name, Police Station Dashboard heading, edit controls, and a report picker restricted to `stationCases` and `alerts`. Assert Station Operations homepage-only copy and period controls are absent.
+
+```jsx
+expect(await screen.findByRole('heading', { name: 'Police Station Dashboard' })).toBeVisible();
+expect(screen.getByText('Central Police Station')).toBeVisible();
+expect(screen.queryByRole('group', { name: 'Station reporting period' })).not.toBeInTheDocument();
+fireEvent.click(screen.getByRole('button', { name: 'Edit dashboard' }));
+fireEvent.click(screen.getByRole('button', { name: 'Add report' }));
+expect(await screen.findByRole('button', { name: 'Add Open case register' })).toBeVisible();
+expect(screen.queryByRole('button', { name: 'Add District FIR trend' })).not.toBeInTheDocument();
+```
+
+- [ ] **Step 2: Run the Police Station test and confirm failure**
+
+Run: `npm.cmd test -- --run src/features/dashboards/PoliceStationDashboardWorkspace.test.jsx`
+
+Expected: FAIL because the component does not exist.
+
+- [ ] **Step 3: Implement the Police Station composition**
+
+Use the same shared dashboard controller, toolbar, canvas, drawer, and deletion dialog as the other new workspaces. Keep station policy local:
+
+```jsx
+const POLICE_STATION_SOURCES = new Set(['stationCases', 'alerts']);
+export const isPoliceStationReport = report => POLICE_STATION_SOURCES.has(report?.definition?.sourceKey);
+```
+
+Use `workspace.scopeUnit.name || 'Local station'`, `requestedDashboardId={dashboardId}`, `reportPredicate={isPoliceStationReport}`, and `returnTo="dashboards"`. Do not import `StationOperationsShell`, its bootstrap template, period filtering, case-detail navigation, or homepage CSS.
+
+- [ ] **Step 4: Run Police Station and homepage regressions**
+
+Run: `npm.cmd test -- --run src/features/dashboards/PoliceStationDashboardWorkspace.test.jsx src/features/station-operations/StationOperationsShell.test.jsx`
+
+Expected: PASS.
+
+- [ ] **Step 5: Commit the Police Station dashboard**
+
+```powershell
+git add web/src/features/dashboards/PoliceStationDashboardWorkspace.jsx web/src/features/dashboards/PoliceStationDashboardWorkspace.test.jsx
+git commit -m "feat: add police station dashboard workspace"
+```
+
+### Task 5: Route dashboards by existing persona
 
 **Files:**
 - Create: `web/src/features/dashboards/PersonaDashboardRoute.jsx`
@@ -228,7 +339,7 @@ export function PersonaDashboardRoute({ api, workspace, dashboardId, onDeleted }
   const workspaceProps = { api, workspace, dashboardId, onDeleted };
   if (workspace.role === 'DISTRICT_LEADERSHIP') return <DistrictDashboardWorkspace {...workspaceProps} />;
   if (workspace.role === 'CRIME_ANALYST') return <AnalystDashboardWorkspace {...workspaceProps} />;
-  if (workspace.role === 'STATION_OPERATIONS') return <StationOperationsShell api={api} workspace={workspace} requestedDashboardId={dashboardId} />;
+  if (workspace.role === 'STATION_OPERATIONS') return <PoliceStationDashboardWorkspace {...workspaceProps} />;
   return <DashboardPage api={api} dashboardId={dashboardId} onDeleted={onDeleted} />;
 }
 ```
@@ -250,7 +361,7 @@ git add web/src/features/dashboards/PersonaDashboardRoute.jsx web/src/features/d
 git commit -m "feat: route dashboards to persona workspaces"
 ```
 
-### Task 5: Apply Catalyst-consistent responsive styling
+### Task 6: Apply Catalyst-consistent responsive styling
 
 **Files:**
 - Modify: `web/src/styles/app.css`
@@ -299,7 +410,7 @@ git add web/src/styles/app.css web/src/styles/viewport-layout.test.js
 git commit -m "style: align persona dashboards with catalyst ui"
 ```
 
-### Task 6: Full regression and browser verification
+### Task 7: Full regression and browser verification
 
 **Files:**
 - Modify only if verification exposes a defect in files already listed above.
