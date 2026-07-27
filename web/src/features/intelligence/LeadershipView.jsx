@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 
 import { governedAppLocation } from '../../app/runtime.js';
+import { ReportPreview } from '../reports/ReportPreview.jsx';
 
 const categories = [
   ['Theft & burglary', 28, 12], ['Assault & violence', 20, 4], ['Women safety', 15, -3],
@@ -18,13 +19,33 @@ const divergence = [
   ['Kalaburagi', 5, 19, -3, 14, 17], ['Mysuru', 11, 7, 6, -1, 2], ['Belagavi', 2, 13, -4, 18, 5],
 ];
 
+const categoryRows = categories.map(([category, share]) => ({ category, share_sum: share }));
+const districtRows = districts.map(([district, , cases]) => ({ district, cases_sum: cases }));
+const hourlyRows = [
+  ['00:00', 78], ['02:00', 72], ['04:00', 42], ['06:00', 28], ['08:00', 49], ['10:00', 37],
+  ['12:00', 54], ['14:00', 46], ['16:00', 58], ['18:00', 67], ['20:00', 73], ['22:00', 92],
+].map(([hour, incidents]) => ({ hour, incidents_sum: incidents }));
+
+const categoryDefinition = {
+  dimensions: ['category'], measures: [{ field: 'share', aggregate: 'sum' }],
+  visualization: { type: 'pie', variant: 'doughnut' }, style: { palette: 'dashboardPie', legend: 'right', valueLabels: true },
+};
+const districtDefinition = {
+  dimensions: ['district'], measures: [{ field: 'cases', aggregate: 'sum' }],
+  visualization: { type: 'bar', variant: 'horizontal' }, style: { palette: 'ksp', valueLabels: true },
+};
+const hourlyDefinition = {
+  dimensions: ['hour'], measures: [{ field: 'incidents', aggregate: 'sum' }],
+  visualization: { type: 'line', variant: 'area' }, style: { palette: 'ksp', valueLabels: false, legend: 'none' },
+};
+
 const available = value => value ?? 'Unavailable';
 const percent = value => Number.isFinite(value) ? `${Math.round(value * 100)}%` : 'Unavailable';
 const heat = value => Math.abs(value) >= 20 ? 'high' : Math.abs(value) >= 10 ? 'medium' : 'low';
 
-function Report({ title, meta, children, footer }) {
+function Report({ title, meta, children, footer, editTo }) {
   return <article className="leadership-report">
-    <header><div><h2>{title}</h2><span>{meta}</span></div><b>REPORT</b></header>
+    <header><div><h2>{title}</h2><span>{meta}</span></div><div className="leadership-report__actions"><b>REPORT</b>{editTo ? <Link to={editTo}>Edit report</Link> : null}</div></header>
     <div className="leadership-report__body">{children}</div>
     <footer>{footer}</footer>
   </article>;
@@ -32,6 +53,7 @@ function Report({ title, meta, children, footer }) {
 
 export function LeadershipView({ data = {} }) {
   const location = useLocation();
+  const newReportLocation = governedAppLocation('/reports/new', location);
   const anomaly = data.anomalies?.[0];
   const hotspot = data.hotspots?.[0];
   const riskValue = data.risk?.score;
@@ -46,16 +68,16 @@ export function LeadershipView({ data = {} }) {
     <div className="leadership-filters" aria-label="Dashboard filters"><button type="button">All Karnataka · 31 districts</button><button type="button">Last 30 days</button><button type="button">All crime categories</button><Link to={governedAppLocation('/dashboards', location)}>Manage dashboard</Link></div>
 
     <div className="leadership-report-grid">
-      <Report title="Crime category composition" meta="Donut report · statewide category distribution" footer="Governed incident analysis · category share">
-        <div className="category-composition"><div className="category-donut"><span>Category mix</span></div><div className="category-legend">{categories.map(([label, share, change], index) => <div key={label}><i data-index={index} /><span>{label}</span><strong>{share}%</strong><em className={change >= 0 ? 'increase' : 'decrease'}>{change > 0 ? '+' : ''}{change}%</em></div>)}</div></div>
+      <Report title="Crime category composition" meta="Donut report · statewide category distribution" footer="Governed incident analysis · category share" editTo={newReportLocation}>
+        <ReportPreview appearance="light" density="dashboard" definition={categoryDefinition} preview={categoryRows} hasRun showMeta={false} />
       </Report>
 
-      <Report title="District crime volume & movement" meta="Ranked bar report · highest-volume districts" footer="Top 10 shown · open full report for all districts">
-        <div className="district-volume">{districts.map(([name, width, value]) => <div key={name}><strong>{name}</strong><span><i style={{ width: `${width}%` }} /></span><b>{value}</b></div>)}</div>
+      <Report title="District crime volume & movement" meta="Ranked bar report · highest-volume districts" footer="Top 10 shown · open full report for all districts" editTo={newReportLocation}>
+        <ReportPreview appearance="light" density="dashboard" definition={districtDefinition} preview={districtRows} hasRun showMeta={false} />
       </Report>
 
-      <Report title="24-hour crime occurrence curve" meta="Area report · night-versus-day concentration" footer="Peak concentration · 22:00–03:00">
-        <div className="occurrence-curve" role="img" aria-label="Crime occurrence rises overnight and peaks near midnight"><span>Peak 22:00–03:00</span><svg viewBox="0 0 700 220" preserveAspectRatio="none"><path className="curve-fill" d="M0 194C35 82 70 70 105 100S150 187 185 172S220 124 255 156S310 185 345 141S400 170 435 128S490 150 530 109S585 88 620 98S670 54 700 25L700 220L0 220Z"/><path className="curve-line" d="M0 194C35 82 70 70 105 100S150 187 185 172S220 124 255 156S310 185 345 141S400 170 435 128S490 150 530 109S585 88 620 98S670 54 700 25"/></svg></div>
+      <Report title="24-hour crime occurrence curve" meta="Area report · night-versus-day concentration" footer="Peak concentration · 22:00–03:00" editTo={newReportLocation}>
+        <ReportPreview appearance="light" density="dashboard" definition={hourlyDefinition} preview={hourlyRows} hasRun showMeta={false} />
       </Report>
 
       <Report title="Crime-mix divergence from state baseline" meta="Heatmap report · unusual district concentrations" footer="Percentage-point variance from statewide category share">
