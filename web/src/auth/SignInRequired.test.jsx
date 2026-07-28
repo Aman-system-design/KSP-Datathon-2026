@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { SignInRequired } from './SignInRequired.jsx';
@@ -48,6 +48,9 @@ test('shows judge demo credentials without changing Catalyst sign in', async () 
   render(<SignInRequired auth={auth} />);
 
   expect(screen.getByRole('complementary', { name: 'Demo access credentials' })).toBeInTheDocument();
+  const demo = screen.getByRole('complementary', { name: 'Demo access credentials' });
+  expect(within(demo).getByText('Authentication managed by Catalyst')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toBeEmptyDOMElement();
   expect(screen.getByText('ksp.tech@zohomail.in')).toBeInTheDocument();
   expect(screen.getByText('Mail@2026')).toBeInTheDocument();
   expect(auth.mountSignIn).toHaveBeenCalledWith('catalystLogin', {
@@ -103,6 +106,25 @@ test('keeps the safe Catalyst height when iframe measurement is inaccessible', a
 
   const host = document.getElementById('catalystLogin');
   await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('360px'));
+});
+
+test('routes generated Catalyst account frames through the configured auth origin', async () => {
+  const auth = {
+    mountSignIn: vi.fn(async elementId => {
+      const frame = document.createElement('iframe');
+      frame.src = `${window.location.origin}/accounts/p/50043872568/signin?serviceurl=%2F`;
+      document.getElementById(elementId).append(frame);
+    }),
+  };
+
+  render(<SignInRequired auth={auth} />);
+
+  await waitFor(() => expect(document.querySelector('#catalystLogin iframe')).not.toBeNull());
+  const frame = document.querySelector('#catalystLogin iframe');
+  await waitFor(() => expect(frame.src).toBe(
+    'https://accounts.zohoportal.in/accounts/p/50043872568/signin?serviceurl=%2F',
+  ));
+  expect(auth.mountSignIn).toHaveBeenCalledOnce();
 });
 
 test('removes adaptive frame listeners when login unmounts', async () => {

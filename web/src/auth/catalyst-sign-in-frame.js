@@ -9,7 +9,8 @@ export function normalizeCatalystSignInUrl(source, {
     if (url.origin !== applicationOrigin || !url.pathname.startsWith('/accounts/')) return source;
     const destination = new URL(authOrigin);
     url.protocol = destination.protocol;
-    url.host = destination.host;
+    url.hostname = destination.hostname;
+    url.port = destination.port;
     return url.href;
   } catch {
     return source;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Copy, ShieldCheck } from 'lucide-react';
 import { usePlatformBrand } from '../branding/BrandProvider.jsx';
 import { applyCatalystFrameHeight } from './catalyst-frame-height.js';
+import { normalizeCatalystSignInFrame } from './catalyst-sign-in-frame.js';
 
 const DEMO_EMAIL = 'ksp.tech@zohomail.in';
 const DEMO_PASSWORD = 'Mail@2026';
@@ -58,6 +59,7 @@ export function SignInRequired({ auth }) {
       if (!frame) return;
       frame.title = `${brand.organizationName} secure sign in`;
       frame.scrolling = 'no';
+      normalizeCatalystSignInFrame(frame);
       bindFrame(frame);
     };
     const observer = new MutationObserver(normalizeFrame);
@@ -117,9 +119,9 @@ export function SignInRequired({ auth }) {
             </button>
           </div>
           <small>For evaluation use only.</small>
+          <p className="secure-login__copy-status" role="status" aria-live="polite">{copiedMessage}</p>
+          <p className="secure-login__managed"><ShieldCheck aria-hidden="true" />Authentication managed by Catalyst</p>
         </aside>
-        <p className="secure-login__copy-status" role="status" aria-live="polite">{copiedMessage}</p>
-        <p className="secure-login__managed"><ShieldCheck aria-hidden="true" />Authentication managed by Catalyst</p>
       </div>
     </section>
   </main>;
