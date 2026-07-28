@@ -33,12 +33,49 @@ test('keeps the unselected canvas addressable for workspace status', () => {
 
 test('places only reports belonging to the active tab', () => {
   const dashboard = { id: 'D-1', tabs: [
-    { id: 'overview', items: [{ id: 'I-1', reportId: 'R-1', title: 'Governed result', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 }] },
-    { id: 'other', items: [{ id: 'I-2', reportId: 'R-2', title: 'Other result', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 }] },
+    { id: 'overview', items: [{ id: 'I-1', reportId: 'R-1', title: 'Governed result', status: 'ready', data: [{ count: 1 }], column: 1, row: 1, width: 6, height: 3 }] },
+    { id: 'other', items: [{ id: 'I-2', reportId: 'R-2', title: 'Other result', status: 'ready', data: [{ count: 2 }], column: 1, row: 1, width: 6, height: 3 }] },
   ] };
   render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} activeTab="overview" /></MemoryRouter>);
   expect(screen.getByLabelText('Governed result')).toBeInTheDocument();
   expect(screen.queryByLabelText('Other result')).not.toBeInTheDocument();
+});
+
+test('hides successful zero-row reports while keeping non-empty zero values and failures', () => {
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [
+    { id: 'I-empty', reportId: 'R-empty', title: 'Empty evidence', status: 'ready', data: [], column: 1, row: 1, width: 4, height: 3 },
+    { id: 'I-zero', reportId: 'R-zero', title: 'Zero is evidence', status: 'ready', data: [{ count: 0 }], column: 5, row: 1, width: 4, height: 3 },
+    { id: 'I-error', reportId: 'R-error', title: 'Unavailable evidence', status: 'error', data: [], column: 9, row: 1, width: 4, height: 3 },
+  ] }] };
+
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} /></MemoryRouter>);
+
+  expect(screen.queryByLabelText('Empty evidence')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Zero is evidence')).toBeInTheDocument();
+  expect(screen.getByLabelText('Unavailable evidence')).toBeInTheDocument();
+});
+
+test('keeps successful empty reports addressable while editing', () => {
+  const report = { id: 'I-empty', reportId: 'R-empty', title: 'Empty evidence', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 };
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [report] }] };
+
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} editing /></MemoryRouter>);
+
+  expect(screen.getByLabelText('Empty evidence')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Drag Empty evidence' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Remove Empty evidence report' })).toBeInTheDocument();
+});
+
+test('summarizes a configured dashboard when every report has zero rows', () => {
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [
+    { id: 'I-empty', reportId: 'R-empty', title: 'Empty evidence', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 },
+  ] }] };
+
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} /></MemoryRouter>);
+
+  expect(screen.getByText('No reports currently have matching records.')).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Open report library' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Create report' })).not.toBeInTheDocument();
 });
 
 test('stages bounded keyboard movement and resizing while editing', () => {
