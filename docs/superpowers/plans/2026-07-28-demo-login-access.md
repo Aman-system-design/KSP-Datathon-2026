@@ -41,7 +41,8 @@ test('shows judge demo credentials without changing Catalyst sign in', async () 
   });
 });
 
-test('copies each demo credential and announces success', async () => {
+test('copies each demo credential and clears success feedback', async () => {
+  vi.useFakeTimers();
   const writeText = vi.fn(async () => {});
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
@@ -56,6 +57,10 @@ test('copies each demo credential and announces success', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Copy demo password' }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith('Mail@2026'));
   expect(screen.getByRole('status')).toHaveTextContent('Password copied');
+
+  await vi.advanceTimersByTimeAsync(1200);
+  expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  vi.useRealTimers();
 });
 ```
 
@@ -84,6 +89,12 @@ Add component state and handler:
 
 ```jsx
 const [copiedMessage, setCopiedMessage] = useState('');
+
+useEffect(() => {
+  if (!copiedMessage) return undefined;
+  const timer = window.setTimeout(() => setCopiedMessage(''), 1200);
+  return () => window.clearTimeout(timer);
+}, [copiedMessage]);
 
 const copyCredential = async (value, message) => {
   try {
