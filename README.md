@@ -69,7 +69,7 @@ Authorized police data
 | Persona | Default intelligence experience |
 |---|---|
 | **State Police Leadership** | Statewide trends, cross-boundary patterns and monitored outcomes |
-| **District / Regional Leadership** | Station context, attention queues, assignments and escalation |
+| **District Leadership** | Station context, attention queues, assignments and escalation |
 | **Command Centre** | Aggregate, read-only operational overview for coordination |
 | **Crime Analyst** | Synchronized maps, timelines, networks, evidence and structured conclusions |
 | **Station Operations** | Local signals, pending actions and station-level intelligence |
