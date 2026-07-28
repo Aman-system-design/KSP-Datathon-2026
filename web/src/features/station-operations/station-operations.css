@@ -75,7 +75,7 @@
   min-width: 0;
   padding: 0;
 }
-.station-operations > .command-center-dashboard-canvas:not(.is-editing) .station-placement--metric { grid-column: span 3; height: 128px !important; order: 1; }
+.station-operations > .command-center-dashboard-canvas:not(.is-editing) .station-placement--metric { grid-column: span 3; height: 148px !important; order: 1; }
 .station-operations > .command-center-dashboard-canvas:not(.is-editing) .station-placement--ageing { grid-column: span 6; height: 280px !important; order: 2; }
 .station-operations > .command-center-dashboard-canvas:not(.is-editing) .station-placement--detail { grid-column: span 6; height: 280px !important; order: 3; }
 .station-operations > .command-center-dashboard-canvas:not(.is-editing) .station-placement--lifecycle { order: 2; }
@@ -162,7 +162,7 @@
   .station-operations__actions { flex-wrap: wrap; }
   .station-operations > .command-center-dashboard-canvas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; min-height: 0; }
   .station-operations .command-center-dashboard-placement { position: relative; top: auto !important; left: auto !important; width: auto !important; min-width: 0; }
-  .station-operations .station-placement--metric { grid-column: span 1; height: 112px !important; order: 1; }
+  .station-operations .station-placement--metric { grid-column: span 1; height: 148px !important; order: 1; }
   .station-operations .station-placement--ageing { grid-column: span 2; height: 300px !important; order: 2; }
   .station-operations .station-placement--detail { grid-column: span 2; height: 300px !important; order: 3; }
   .station-operations .station-placement--lifecycle { order: 2; }
@@ -175,7 +175,7 @@
   .station-operations__status-row { padding-inline: 14px; }
   .station-operations > .command-center-dashboard-canvas { padding: 8px 9px 22px; background: #f6f8fb; }
   .station-operations > .command-center-dashboard-canvas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .station-operations .station-placement--metric { height: 104px !important; }
+  .station-operations .station-placement--metric { height: 144px !important; }
   .station-operations .station-placement--ageing,
   .station-operations .station-placement--register,
   .station-operations .station-placement--detail { grid-column: 1 / -1; height: 300px !important; }
@@ -194,7 +194,7 @@
   .station-edit-button { width: 100%; }
   .station-operations__status-row { align-items: flex-start; flex-direction: column; }
   .station-operations > .command-center-dashboard-canvas { grid-template-columns: 1fr; }
-  .station-operations .station-placement--metric { grid-column: 1; height: 100px !important; }
+  .station-operations .station-placement--metric { grid-column: 1; height: 140px !important; }
   .station-operations .station-placement--ageing,
   .station-operations .station-placement--detail { height: 280px !important; }
   .station-operations .station-placement--register { height: 340px !important; }

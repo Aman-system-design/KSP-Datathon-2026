@@ -17,7 +17,11 @@ test('station workspace defines compact responsive and reduced-motion contracts'
   expect(css).toMatch(/grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   expect(css).toMatch(/command-center-dashboard-canvas:not\(\.is-editing\)[^{]*\{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/s);
   expect(css).toMatch(/command-center-dashboard-canvas:not\(\.is-editing\)[\s\S]*station-placement--register[^}]*grid-column:\s*span\s*12/);
-  expect(css).toMatch(/station-placement--metric[^}]*height:\s*1(?:0|1|2)\dpx/s);
+  expect(css).toMatch(/station-placement--metric[^}]*height:\s*1(?:4|5)\dpx/s);
+  const metricHeights = [...css.matchAll(/station-placement--metric[^}]*height:\s*(\d+)px/gs)]
+    .map(match => Number(match[1]));
+  expect(metricHeights.length).toBeGreaterThanOrEqual(4);
+  expect(metricHeights.every(height => height >= 140)).toBe(true);
   expect(css).toMatch(/station-placement--ageing[^}]*grid-column:\s*span\s*6[^}]*order:\s*2/s);
   expect(css).toMatch(/station-placement--lifecycle[^}]*order:\s*2/s);
   expect(css).toMatch(/station-placement--detail[^}]*order:\s*3/s);
