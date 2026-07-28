@@ -141,13 +141,13 @@ test('keeps judge demo access compact inside the existing access column', () => 
   expect(css).toMatch(/\.secure-login__demo-row button\s*{[^}]*width:\s*26px/s);
 });
 
-test('reserves enough height for Catalyst password and OTP steps', () => {
+test('adapts height while retaining a safe fallback for Catalyst password and OTP steps', () => {
   const css = readFileSync('src/styles/app.css', 'utf8');
   const hostRule = css.match(/\.secure-login__catalyst\s*\{([^}]*)\}/)?.[1] ?? '';
   const frameRule = css.match(/\.secure-login__catalyst iframe\s*\{([^}]*)\}/)?.[1] ?? '';
 
-  expect(hostRule).toMatch(/height:\s*360px/);
-  expect(frameRule).toMatch(/height:\s*360px/);
+  expect(hostRule).toMatch(/height:\s*var\(--catalyst-frame-height,\s*360px\)/);
+  expect(frameRule).toMatch(/height:\s*var\(--catalyst-frame-height,\s*360px\)/);
 });
 
 test('uses a clean card edge instead of a decorative top strip', () => {
@@ -162,8 +162,9 @@ test('fits the secure shell inside the dynamic viewport', () => {
   const shellRule = css.match(/\.secure-login__shell\s*\{([^}]*)\}/)?.[1] ?? '';
 
   expect(shellRule).toMatch(/width:\s*min\(980px,\s*100%\)/);
-  expect(shellRule).toMatch(/height:\s*min\(700px,\s*calc\(100dvh\s*-\s*48px\)\)/);
+  expect(shellRule).toMatch(/height:\s*min\(680px,\s*calc\(100dvh\s*-\s*32px\)\)/);
   expect(shellRule).toMatch(/grid-template-columns:\s*360px\s+minmax\(0,\s*1fr\)/);
+  expect(css).not.toMatch(/@media \(min-width:\s*761px\) and \(max-height:\s*680px\)/);
 });
 
 test('keeps the embedded identity form at a deliberate enterprise width', () => {
