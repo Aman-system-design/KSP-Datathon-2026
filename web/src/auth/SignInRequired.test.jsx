@@ -91,9 +91,9 @@ test('adapts the Catalyst frame from the compact email step to a taller password
   const host = document.getElementById('catalystLogin');
   await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('282px'));
 
-  heights.value = 390;
+  heights.value = 330;
   host.querySelector('iframe').dispatchEvent(new Event('load'));
-  await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('402px'));
+  await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('342px'));
 });
 
 test('keeps the safe Catalyst height when iframe measurement is inaccessible', async () => {

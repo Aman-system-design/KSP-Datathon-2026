@@ -19,8 +19,8 @@ describe('Catalyst frame height', () => {
   });
 
   test('expands and clamps tall password or error states', () => {
-    expect(measureCatalystFrameHeight(frameWithHeight(390))).toBe(402);
-    expect(measureCatalystFrameHeight(frameWithHeight(900))).toBe(420);
+    expect(measureCatalystFrameHeight(frameWithHeight(330))).toBe(342);
+    expect(measureCatalystFrameHeight(frameWithHeight(900))).toBe(360);
   });
 
   test('returns the safe fallback when iframe access is unavailable', () => {
