@@ -77,6 +77,14 @@ test('uses the approved premium glass shell without changing the Catalyst surfac
   expect(catalystCss).toMatch(/#nextbtn[^}]*height:\s*48px/s);
 });
 
+test('keeps judge demo access compact inside the existing access column', () => {
+  const css = readFileSync('src/styles/app.css', 'utf8');
+
+  expect(css).toMatch(/\.secure-login__demo\s*{[^}]*border-radius:\s*12px/s);
+  expect(css).toMatch(/\.secure-login__demo-row\s*{[^}]*grid-template-columns:\s*60px\s+minmax\(0,\s*1fr\)\s+28px/s);
+  expect(css).toMatch(/\.secure-login__demo-row button\s*{[^}]*width:\s*26px/s);
+});
+
 test('reserves enough height for Catalyst password and OTP steps', () => {
   const css = readFileSync('src/styles/app.css', 'utf8');
   const hostRule = css.match(/\.secure-login__catalyst\s*\{([^}]*)\}/)?.[1] ?? '';

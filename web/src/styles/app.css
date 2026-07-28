@@ -108,6 +108,18 @@
 .secure-login__catalyst { width: 100%; height: 360px; overflow: hidden; }
 .secure-login__catalyst iframe { display: block !important; width: 100% !important; height: 360px !important; border: 0 !important; }
 .secure-login__error { margin: 10px 0 0; padding: 11px 13px; color: #8f1d24; background: rgb(255 244 244 / 88%); border: 1px solid #efc4c7; border-radius: 10px; font-size: 12px; }
+.secure-login__demo { margin-top: 14px; padding: 13px 14px; color: #10233d; background: #f4f9fe; border: 1px solid #b8d6ee; border-radius: 12px; }
+.secure-login__demo-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+.secure-login__demo-heading span { padding: 3px 6px; color: #125b94; background: #d8edff; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.secure-login__demo-row { min-height: 34px; display: grid; grid-template-columns: 60px minmax(0, 1fr) 28px; align-items: center; gap: 7px; border-top: 1px solid #dceaf6; font-size: 11px; }
+.secure-login__demo-row > span { color: #60748a; }
+.secure-login__demo-row code { overflow: hidden; color: #10233d; font-size: 11px; font-weight: 600; text-overflow: ellipsis; }
+.secure-login__demo-row button { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; color: #1769aa; background: #fff; border: 1px solid #bdd4e8; border-radius: 7px; cursor: pointer; transition: background 150ms ease, transform 150ms ease; }
+.secure-login__demo-row button:hover { background: #e7f3fd; }
+.secure-login__demo-row button:active { transform: scale(.94); }
+.secure-login__demo-row button svg { width: 12px; height: 12px; }
+.secure-login__demo small { color: #526a82; font-size: 10px; }
+.secure-login__copy-status { min-height: 16px; margin: 5px 0 0; color: #1769aa; font-size: 10px; text-align: center; }
 .secure-login__managed { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; padding-top: 16px; color: #6a7b8e; border-top: 1px solid rgb(196 209 222 / 58%); font-size: 12px; text-align: center; }.secure-login__managed svg { width: 14px; height: 14px; color: #1769aa; }
 @media (max-width: 760px) { .secure-login { height: auto; min-height: 100dvh; display: block; overflow-y: auto; padding: 12px; }.secure-login__shell { height: auto; max-height: none; min-height: 0; grid-template-columns: 1fr; border-radius: 18px; }.secure-login__identity { display: grid; grid-template-columns: 76px 1fr; gap: 17px; padding: 23px 24px; text-align: left; border-right: 0; border-bottom: 1px solid rgb(177 195 214 / 38%); }.secure-login__identity::before { top: 16px; right: 18px; left: auto; width: 34px; height: 3px; }.secure-login__identity img { width: 76px; height: 76px; margin: 0; }.secure-login__identity h1 { font-size: 19px; }.secure-login__identity p { margin-top: 5px; font-size: 11px; }.secure-login__access { width: min(380px, calc(100% - 40px)); max-height: none; padding: 24px 0 18px; overflow: visible; }.secure-login__access-header { margin-bottom: 4px; } }
 @media (max-width: 420px) { .secure-login { padding: 8px; }.secure-login__shell { border-radius: 16px; }.secure-login__identity { grid-template-columns: 64px 1fr; padding: 20px; }.secure-login__identity img { width: 64px; height: 64px; }.secure-login__access { width: calc(100% - 32px); } }
