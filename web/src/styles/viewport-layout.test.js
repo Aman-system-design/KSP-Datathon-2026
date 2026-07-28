@@ -32,10 +32,13 @@ describe('platform viewport layout contract', () => {
     expect(appCss).not.toMatch(/\.workspace-entry__list\s*{[^}]*grid-template-rows:\s*repeat\(2,minmax\(0,1fr\)\)/s);
   });
 
-  test('constrains authentication and keeps Catalyst recovery actions reachable', () => {
+  test('fits authentication without a nested scrollbar and keeps recovery actions reachable', () => {
     expect(appCss).toMatch(/\.secure-login\s*{[^}]*height:\s*100dvh/s);
     expect(appCss).toMatch(/\.secure-login__shell\s*{[^}]*max-height:\s*calc\(100dvh - 48px\)/s);
-    expect(appCss).toMatch(/\.secure-login__access\s*{[^}]*overflow-y:\s*auto/s);
+    expect(appCss).toMatch(/\.secure-login__access\s*{[^}]*overflow:\s*visible/s);
+    expect(appCss).not.toMatch(/\.secure-login__access\s*{[^}]*overflow-y:\s*auto/s);
+    expect(appCss).toMatch(/@media\s*\(min-width:\s*761px\)\s*and\s*\(max-height:\s*680px\)[^{]*{[\s\S]*\.secure-login\s*{[^}]*overflow-y:\s*auto/s);
+    expect(appCss).toMatch(/@media\s*\(min-width:\s*761px\)\s*and\s*\(max-height:\s*680px\)[^{]*{[\s\S]*\.secure-login__shell\s*{[^}]*max-height:\s*none/s);
     expect(catalystAuthCss).toMatch(/html,\s*body\s*{[^}]*height:\s*100%/s);
     expect(catalystAuthCss).toMatch(/body\s*{[^}]*overflow-y:\s*auto/s);
     expect(catalystAuthCss).not.toMatch(/(?:#forgotpassword|\.bluetext_action|\.fed_div)[^{]*{[^}]*display:\s*none/s);

@@ -106,7 +106,7 @@ test('fits the secure shell inside the dynamic viewport', () => {
   const shellRule = css.match(/\.secure-login__shell\s*\{([^}]*)\}/)?.[1] ?? '';
 
   expect(shellRule).toMatch(/width:\s*min\(980px,\s*100%\)/);
-  expect(shellRule).toMatch(/height:\s*min\(600px,\s*calc\(100dvh\s*-\s*48px\)\)/);
+  expect(shellRule).toMatch(/height:\s*min\(700px,\s*calc\(100dvh\s*-\s*48px\)\)/);
   expect(shellRule).toMatch(/grid-template-columns:\s*360px\s+minmax\(0,\s*1fr\)/);
 });
 
