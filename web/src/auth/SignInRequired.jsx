@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Copy, ShieldCheck } from 'lucide-react';
 import { usePlatformBrand } from '../branding/BrandProvider.jsx';
-import { applyCatalystFrameHeight } from './catalyst-frame-height.js';
+import { toCatalystHostedSignInUrl } from './catalyst-hosted-sign-in.js';
 
 const DEMO_EMAIL = 'ksp.tech@zohomail.in';
 const DEMO_PASSWORD = 'Mail@2026';
@@ -9,68 +9,45 @@ const DEMO_PASSWORD = 'Mail@2026';
 export function SignInRequired({ auth }) {
   const brand = usePlatformBrand();
   const [failed, setFailed] = useState(false);
+  const [hostedSignInUrl, setHostedSignInUrl] = useState('');
   const [copiedMessage, setCopiedMessage] = useState('');
 
   useEffect(() => {
     const host = document.getElementById('catalystLogin');
     if (!host || host.dataset.authMounted === 'true') return undefined;
     host.dataset.authMounted = 'true';
-    const frameCleanups = new Map();
+    let settled = false;
+    let discoveryTimeout;
 
-    const bindFrame = (frame) => {
-      if (frameCleanups.has(frame)) return;
-
-      const syncHeight = () => applyCatalystFrameHeight(host, frame);
-      let contentObserver;
-      let resizeObserver;
-
-      const observeContent = () => {
-        contentObserver?.disconnect();
-        resizeObserver?.disconnect();
-        syncHeight();
-
-        try {
-          const root = frame.contentDocument?.documentElement;
-          if (!root) return;
-
-          contentObserver = new MutationObserver(syncHeight);
-          contentObserver.observe(root, { childList: true, subtree: true, attributes: true });
-          if (typeof ResizeObserver === 'function') {
-            resizeObserver = new ResizeObserver(syncHeight);
-            resizeObserver.observe(root);
-          }
-        } catch {
-          syncHeight();
-        }
-      };
-
-      frame.addEventListener('load', observeContent);
-      observeContent();
-      frameCleanups.set(frame, () => {
-        frame.removeEventListener('load', observeContent);
-        contentObserver?.disconnect();
-        resizeObserver?.disconnect();
-      });
-    };
-
-    const normalizeFrame = () => {
+    const discoverHostedUrl = () => {
       const frame = host.querySelector('iframe');
-      if (!frame) return;
-      frame.title = `${brand.organizationName} secure sign in`;
-      frame.scrolling = 'no';
-      bindFrame(frame);
+      if (!frame) return false;
+
+      const hostedUrl = toCatalystHostedSignInUrl(frame.src);
+      frame.remove();
+      settled = true;
+      window.clearTimeout(discoveryTimeout);
+      if (!hostedUrl) {
+        setFailed(true);
+        return true;
+      }
+      setHostedSignInUrl(hostedUrl);
+      return true;
     };
-    const observer = new MutationObserver(normalizeFrame);
+
+    const observer = new MutationObserver(discoverHostedUrl);
     observer.observe(host, { childList: true, subtree: true });
+    discoveryTimeout = window.setTimeout(() => {
+      if (!settled) setFailed(true);
+    }, 5000);
     auth.mountSignIn('catalystLogin', {
       cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
-    }).then(normalizeFrame).catch(() => setFailed(true));
+    }).then(discoverHostedUrl).catch(() => setFailed(true));
     return () => {
       observer.disconnect();
-      frameCleanups.forEach(cleanupFrame => cleanupFrame());
-      frameCleanups.clear();
+      window.clearTimeout(discoveryTimeout);
     };
-  }, [auth, brand.organizationName]);
+  }, [auth]);
 
   useEffect(() => {
     if (!copiedMessage) return undefined;
@@ -98,7 +75,9 @@ export function SignInRequired({ auth }) {
         </div>
       </aside>
       <div className="secure-login__access">
-        <div id="catalystLogin" className="secure-login__catalyst" />
+        <div id="catalystLogin" className="secure-login__catalyst-discovery" aria-hidden="true" />
+        {!failed && !hostedSignInUrl && <p className="secure-login__auth-loading" role="status">Preparing secure sign in…</p>}
+        {hostedSignInUrl && <a className="secure-login__auth-link" href={hostedSignInUrl}>Continue to secure sign in</a>}
         {failed && <p className="secure-login__error" role="alert">Secure sign in could not be loaded. Refresh the page or contact the platform administrator.</p>}
         <aside className="secure-login__demo" aria-label="Demo access credentials">
           <div className="secure-login__demo-heading">
