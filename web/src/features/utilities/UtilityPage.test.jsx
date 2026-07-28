@@ -537,9 +537,9 @@ test('retired Regional Leadership cannot manage or evaluate alert policies', asy
     : { data: { items: [] } }) };
   renderRoute(api, '/utilities/patterns', { role: 'REGIONAL_LEADERSHIP', scopeUnitId: 101 });
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
-  expect(await screen.findByText('No alert policy is configured for this utility.')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Add alert policy' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
+  expect(await screen.findByText('No alert setup is configured for this utility.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add alert setup' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
 });
 
