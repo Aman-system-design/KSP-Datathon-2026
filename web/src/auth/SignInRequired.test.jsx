@@ -121,8 +121,9 @@ test('performs one fresh SDK mount and clears the error after a successful retry
   render(<SignInRequired auth={auth} />);
   await act(async () => vi.advanceTimersByTimeAsync(5000));
 
-  fireEvent.click(screen.getByRole('button', { name: 'Refresh sign in' }));
-  const frame = await waitFor(() => document.querySelector('#catalystLogin iframe'));
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Refresh sign in' })));
+  const frame = document.querySelector('#catalystLogin iframe');
+  expect(frame).not.toBeNull();
   fireEvent.load(frame);
 
   expect(auth.mountSignIn).toHaveBeenCalledTimes(2);

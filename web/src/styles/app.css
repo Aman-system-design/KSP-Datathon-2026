@@ -105,11 +105,12 @@
 .secure-login__access { width: min(380px, calc(100% - 56px)); max-height: 100%; align-self: center; justify-self: center; padding: 8px 0 4px; overflow: visible; }
 .secure-login__access-header { display: flex; align-items: center; justify-content: flex-start; gap: 9px; margin-bottom: 6px; color: #536a82; font-size: 12px; font-weight: 500; letter-spacing: .01em; }
 .secure-login__access-header svg { width: 16px; height: 16px; color: #1769aa; filter: drop-shadow(0 2px 4px rgb(23 105 170 / 15%)); }
-.secure-login__catalyst-discovery { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.secure-login__catalyst { width: 100%; height: var(--catalyst-frame-height, 360px); overflow: hidden; }
+.secure-login__catalyst iframe { display: block; width: 100%!important; height: var(--catalyst-frame-height, 360px)!important; border: 0!important; }
 .secure-login__auth-loading { min-height: 48px; display: grid; place-items: center; margin: 0; color: #60748a; font-size: 13px; }
-.secure-login__auth-link { min-height: 48px; display: grid; place-items: center; padding: 0 20px; color: #fff; background: linear-gradient(180deg, #2b83c4, #176eae); border: 1px solid #1769aa; border-radius: 12px; box-shadow: 0 8px 18px rgb(23 105 170 / 16%); font-size: 14px; font-weight: 700; text-align: center; text-decoration: none; }
-.secure-login__auth-link:hover { background: linear-gradient(180deg, #277bb8, #12639f); }
-.secure-login__auth-link:focus-visible { outline: 3px solid #58bff4; outline-offset: 3px; }
+.secure-login__auth-failure { display: grid; justify-items: center; gap: 12px; padding: 24px 0; }
+.secure-login__retry { min-height: 44px; padding: 0 22px; color: #0b5fa5; background: #fff; border: 1px solid #a9cbe8; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+.secure-login__retry:hover, .secure-login__retry:focus-visible { background: #edf6fd; }
 .secure-login__error { margin: 10px 0 0; padding: 11px 13px; color: #8f1d24; background: rgb(255 244 244 / 88%); border: 1px solid #efc4c7; border-radius: 10px; font-size: 12px; }
 .secure-login__demo { margin-top: 16px; padding: 13px 14px; color: #10233d; background: #f4f9fe; border: 1px solid #b8d6ee; border-radius: 12px; }
 .secure-login__demo-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
