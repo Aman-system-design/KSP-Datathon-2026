@@ -137,6 +137,8 @@ test('keeps judge demo access compact inside the existing access column', () => 
   const css = readFileSync('src/styles/app.css', 'utf8');
 
   expect(css).toMatch(/\.secure-login__demo\s*{[^}]*border-radius:\s*12px/s);
+  expect(css).toMatch(/\.secure-login__demo\s*{[^}]*margin-top:\s*-26px/s);
+  expect(css).toMatch(/@media \(max-width:\s*760px\)[^{]*{[\s\S]*\.secure-login__demo\s*{[^}]*margin-top:\s*14px/s);
   expect(css).toMatch(/\.secure-login__demo-row\s*{[^}]*grid-template-columns:\s*60px\s+minmax\(0,\s*1fr\)\s+28px/s);
   expect(css).toMatch(/\.secure-login__demo-row button\s*{[^}]*width:\s*26px/s);
 });
