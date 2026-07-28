@@ -496,6 +496,18 @@ test('fails evaluation safely when its response is malformed', async () => {
   expect(screen.queryByText(/evaluated ·/i)).not.toBeInTheDocument();
 });
 
+test('lets Command Centre add an alert policy when none is configured', async () => {
+  const commandCentreWorkspace = { role: 'COMMAND_CENTER', scopeUnitId: null };
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: patterns }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/patterns?persona=COMMAND_CENTER', commandCentreWorkspace);
+  await screen.findByRole('heading', { name: patterns.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+
+  expect(await screen.findByRole('button', { name: 'Add alert policy' })).toBeInTheDocument();
+});
+
 test('lets station operations inspect policies without exposing management or evaluation actions', async () => {
   const stationWorkspace = { role: 'STATION_OPERATIONS', scopeUnitId: 101 };
   const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')

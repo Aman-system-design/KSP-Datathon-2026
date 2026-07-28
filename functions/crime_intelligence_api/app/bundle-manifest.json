@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "c9a2df4e18b46efbb47aea931b12b025242e3d923fb83353d140afda5b10cc53",
-      "bytes": 2439
+      "sha256": "53491f3d01f35b486f7c40dacee86cfd9289c37e9125cd438ecb15e7a800a7fd",
+      "bytes": 2488
     },
     {
       "path": "schema/catalyst/pdf-semantic-contract.json",
@@ -25,8 +25,8 @@
     },
     {
       "path": "src/backend/catalyst/api-bootstrap.mjs",
-      "sha256": "230bec10983a4451bab74abf0e193ddb0e733392c77b9862eb37a5cf8e5c38f4",
-      "bytes": 10129
+      "sha256": "96185380e39a9a8ab360cbf8436658019de20c118a9048ad0a609faebb6e3d91",
+      "bytes": 10149
     },
     {
       "path": "src/backend/catalyst/job-scheduling-adapter.mjs",
@@ -180,8 +180,8 @@
     },
     {
       "path": "src/backend/services/read-services.mjs",
-      "sha256": "0a45aa59b0700d356ac94c9aa18b12dd1fd5592a50f38280c7caa0aed6a53e4a",
-      "bytes": 4893
+      "sha256": "3ba7623d8e012712edb4c026cc18d76c911a0055720f660e8f58f76f0303d614",
+      "bytes": 4894
     },
     {
       "path": "src/backend/services/result-provenance.mjs",

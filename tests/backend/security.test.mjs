@@ -92,7 +92,7 @@ test('Command Center is a Development-only synthetic persona with an exact read 
   const expectedActions = [
     'READ_BRIEF', 'READ_PATTERN', 'READ_HOTSPOT', 'READ_ANOMALY', 'READ_AREA_RISK',
     'READ_NETWORK', 'READ_DISTRICT_CONTEXT', 'READ_ALERT', 'READ_INTELLIGENCE_RUNS',
-    'READ_UTILITY',
+    'READ_UTILITY', 'MANAGE_UTILITY_RULE', 'RUN_UTILITY_EVALUATION',
   ];
   const access = resolveAccess({
     currentUser: user, profile: presenter, requestedPersona: 'COMMAND_CENTER',
@@ -103,6 +103,8 @@ test('Command Center is a Development-only synthetic persona with an exact read 
   assert.equal(Object.keys(policy.roles).filter(role => role === 'COMMAND_CENTER').length, 1);
   assert.equal(new Set(policy.roles.COMMAND_CENTER).size, policy.roles.COMMAND_CENTER.length);
   assert.deepEqual(access.actions, expectedActions);
+  assert.ok(access.actions.includes('MANAGE_UTILITY_RULE'));
+  assert.ok(access.actions.includes('RUN_UTILITY_EVALUATION'));
   assert.equal(access.role, 'COMMAND_CENTER');
   assert.equal(access.actualRole, 'DEMO_PRESENTER');
   assert.equal(access.demoPersona, true);

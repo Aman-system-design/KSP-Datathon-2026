@@ -31,7 +31,7 @@ const thresholdLabels = Object.freeze({
 const severityOptions = Object.freeze(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 const recipientValues = new Set(recipientOptions.map(([value]) => value));
 const ruleManagerRoles = new Set([
-  'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'PLATFORM_ADMIN',
+  'COMMAND_CENTER', 'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'PLATFORM_ADMIN',
 ]);
 
 function isRecord(value) {

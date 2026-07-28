@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "c9a2df4e18b46efbb47aea931b12b025242e3d923fb83353d140afda5b10cc53",
-      "bytes": 2439
+      "sha256": "53491f3d01f35b486f7c40dacee86cfd9289c37e9125cd438ecb15e7a800a7fd",
+      "bytes": 2488
     },
     {
       "path": "data/synthetic-demo-input.json",
