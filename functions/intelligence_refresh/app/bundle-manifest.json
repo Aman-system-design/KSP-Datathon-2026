@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "config/access-policy.json",
-      "sha256": "53491f3d01f35b486f7c40dacee86cfd9289c37e9125cd438ecb15e7a800a7fd",
-      "bytes": 2488
+      "sha256": "490436637cac62ad09e18e99dd1620fc637a05ba77a1c20e3c620104cc8771e2",
+      "bytes": 2099
     },
     {
       "path": "data/synthetic-demo-input.json",
@@ -95,8 +95,8 @@
     },
     {
       "path": "src/backend/utilities/rule-contract.mjs",
-      "sha256": "e83dbabf75891a1f47ae6e723b858382e8eb55cee4c486a00fee51defb32671e",
-      "bytes": 4768
+      "sha256": "e7147356e72cae6c3f593456846919b6bb21ff03832ae57b74c202f85c41cb16",
+      "bytes": 4745
     },
     {
       "path": "src/backend/utilities/utility-evaluator.mjs",
