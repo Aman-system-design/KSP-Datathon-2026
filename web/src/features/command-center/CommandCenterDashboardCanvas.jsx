@@ -4,6 +4,10 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BarChart3, Expand, GripHoriz
 import { placementStyle } from './command-center-dashboard-model.js';
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 
+export const isSuccessfulEmptyReport = item => item?.status === 'ready'
+  && Array.isArray(item.data)
+  && item.data.length === 0;
+
 export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview', editing = false, onStage = () => {}, onRemove = () => {}, onSelect, showPreviewMeta = true, getPlacementClassName = () => '', returnTo = '' }) {
   const tab = dashboard?.tabs?.find(item => item.id === activeTab) ?? dashboard?.tabs?.[0];
   const items = Array.isArray(dashboard?.items)

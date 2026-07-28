@@ -2,9 +2,20 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { CommandCenterDashboardCanvas } from './CommandCenterDashboardCanvas.jsx';
+import { CommandCenterDashboardCanvas, isSuccessfulEmptyReport } from './CommandCenterDashboardCanvas.jsx';
 
 afterEach(cleanup);
+
+test.each([
+  [{ status: 'ready', data: [] }, true],
+  [{ status: 'ready', data: [{ count: 0 }] }, false],
+  [{ status: 'error', data: [] }, false],
+  [{ status: 'loading', data: [] }, false],
+  [{ status: 'ready' }, false],
+  [{ status: 'ready', data: null }, false],
+])('classifies only an exact successful zero-row report as empty', (item, expected) => {
+  expect(isSuccessfulEmptyReport(item)).toBe(expected);
+});
 
 test('renders an honest empty dashboard with creation paths', () => {
   render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={{ id: 'D-1', tabs: [{ id: 'overview', items: [] }] }} activeTab="overview" /></MemoryRouter>);
