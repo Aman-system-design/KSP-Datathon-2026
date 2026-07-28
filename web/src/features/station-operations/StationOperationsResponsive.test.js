@@ -22,6 +22,8 @@ test('station workspace defines compact responsive and reduced-motion contracts'
     .map(match => Number(match[1]));
   expect(metricHeights.length).toBeGreaterThanOrEqual(4);
   expect(metricHeights.every(height => height >= 140)).toBe(true);
+  expect(css).toMatch(/station-placement--metric[^}]*report-number strong[^}]*font-size:\s*32px/s);
+  expect(css).toMatch(/station-placement--metric[^}]*report-number span[^}]*overflow:\s*visible/s);
   expect(css).toMatch(/station-placement--ageing[^}]*grid-column:\s*span\s*6[^}]*order:\s*2/s);
   expect(css).toMatch(/station-placement--lifecycle[^}]*order:\s*2/s);
   expect(css).toMatch(/station-placement--detail[^}]*order:\s*3/s);

@@ -87,10 +87,11 @@
 .station-operations .command-center-report h2 { color: #193552; font-size: 12px; font-weight: 650; letter-spacing: 0; }
 .station-operations .station-placement--metric .command-center-report { grid-template-rows: 40px minmax(0, 1fr) 22px; }
 .station-operations .station-placement--metric .command-center-report h2 { line-height: 1.2; text-overflow: clip; white-space: normal; }
+.station-operations .station-placement--metric .report-number strong { font-size: 32px; }
 .station-operations .station-placement--metric .report-number span {
   max-width: 92%;
   margin-inline: auto;
-  overflow: hidden;
+  overflow: visible;
   font-size: 9px;
   font-weight: 650;
   letter-spacing: normal;
