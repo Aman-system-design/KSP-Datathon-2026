@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Copy, ShieldCheck } from 'lucide-react';
 import { usePlatformBrand } from '../branding/BrandProvider.jsx';
+import { applyCatalystFrameHeight } from './catalyst-frame-height.js';
 
 const DEMO_EMAIL = 'ksp.tech@zohomail.in';
 const DEMO_PASSWORD = 'Mail@2026';
@@ -14,18 +15,61 @@ export function SignInRequired({ auth }) {
     const host = document.getElementById('catalystLogin');
     if (!host || host.dataset.authMounted === 'true') return undefined;
     host.dataset.authMounted = 'true';
+    const frameCleanups = new Map();
+
+    const bindFrame = (frame) => {
+      if (frameCleanups.has(frame)) return;
+
+      const syncHeight = () => applyCatalystFrameHeight(host, frame);
+      let contentObserver;
+      let resizeObserver;
+
+      const observeContent = () => {
+        contentObserver?.disconnect();
+        resizeObserver?.disconnect();
+        syncHeight();
+
+        try {
+          const root = frame.contentDocument?.documentElement;
+          if (!root) return;
+
+          contentObserver = new MutationObserver(syncHeight);
+          contentObserver.observe(root, { childList: true, subtree: true, attributes: true });
+          if (typeof ResizeObserver === 'function') {
+            resizeObserver = new ResizeObserver(syncHeight);
+            resizeObserver.observe(root);
+          }
+        } catch {
+          syncHeight();
+        }
+      };
+
+      frame.addEventListener('load', observeContent);
+      observeContent();
+      frameCleanups.set(frame, () => {
+        frame.removeEventListener('load', observeContent);
+        contentObserver?.disconnect();
+        resizeObserver?.disconnect();
+      });
+    };
+
     const normalizeFrame = () => {
       const frame = host.querySelector('iframe');
       if (!frame) return;
       frame.title = `${brand.organizationName} secure sign in`;
       frame.scrolling = 'no';
+      bindFrame(frame);
     };
     const observer = new MutationObserver(normalizeFrame);
     observer.observe(host, { childList: true, subtree: true });
     auth.mountSignIn('catalystLogin', {
       cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
     }).then(normalizeFrame).catch(() => setFailed(true));
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      frameCleanups.forEach(cleanupFrame => cleanupFrame());
+      frameCleanups.clear();
+    };
   }, [auth, brand.organizationName]);
 
   useEffect(() => {

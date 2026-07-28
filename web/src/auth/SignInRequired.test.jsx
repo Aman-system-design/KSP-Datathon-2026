@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { SignInRequired } from './SignInRequired.jsx';
@@ -8,6 +8,19 @@ import { SignInRequired } from './SignInRequired.jsx';
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+const frameAuth = (contentDocument) => ({
+  mountSignIn: vi.fn(async (elementId) => {
+    const frame = document.createElement('iframe');
+    Object.defineProperty(frame, 'contentDocument', {
+      configurable: true,
+      get: typeof contentDocument === 'function' ? contentDocument : () => contentDocument,
+    });
+    document.getElementById(elementId).append(frame);
+    frame.dispatchEvent(new Event('load'));
+  }),
 });
 
 test('renders embedded Catalyst sign in on the application root', async () => {
@@ -63,6 +76,49 @@ test('copies each demo credential and clears success feedback', async () => {
   await act(async () => vi.advanceTimersByTimeAsync(1200));
   expect(screen.getByRole('status')).toBeEmptyDOMElement();
   vi.useRealTimers();
+});
+
+test('adapts the Catalyst frame from the compact email step to a taller password step', async () => {
+  const heights = { value: 270 };
+  const contentDocument = {
+    body: { get scrollHeight() { return heights.value - 4; } },
+    documentElement: { get scrollHeight() { return heights.value; } },
+  };
+  const auth = frameAuth(contentDocument);
+
+  render(<SignInRequired auth={auth} />);
+
+  const host = document.getElementById('catalystLogin');
+  await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('282px'));
+
+  heights.value = 390;
+  host.querySelector('iframe').dispatchEvent(new Event('load'));
+  await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('402px'));
+});
+
+test('keeps the safe Catalyst height when iframe measurement is inaccessible', async () => {
+  const auth = frameAuth(() => { throw new DOMException('Blocked'); });
+
+  render(<SignInRequired auth={auth} />);
+
+  const host = document.getElementById('catalystLogin');
+  await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('360px'));
+});
+
+test('removes adaptive frame listeners when login unmounts', async () => {
+  const auth = frameAuth({
+    body: { scrollHeight: 266 },
+    documentElement: { scrollHeight: 270 },
+  });
+
+  const view = render(<SignInRequired auth={auth} />);
+  const host = document.getElementById('catalystLogin');
+  await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('282px'));
+  const frame = host.querySelector('iframe');
+  const removeEventListener = vi.spyOn(frame, 'removeEventListener');
+  view.unmount();
+
+  expect(removeEventListener).toHaveBeenCalledWith('load', expect.any(Function));
 });
 
 test('uses the approved premium glass shell without changing the Catalyst surface', () => {
