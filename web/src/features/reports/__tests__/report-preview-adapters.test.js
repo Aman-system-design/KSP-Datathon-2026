@@ -16,9 +16,9 @@ test('does not guess a numeric value when a measure is not declared', () => {
     .toEqual([{ label: 'Mysuru', value: null, row: expect.any(Object) }]);
 });
 
-test('only removes a Synthetic prefix for explicitly demonstration data', () => {
+test('removes a Synthetic prefix at the frontend display boundary', () => {
   const rows = [{ category: 'Synthetic Biology Fraud', cases_count: 3 }];
   const definition = { dimensions: ['category'], measures: [{ field: 'cases', aggregate: 'count' }] };
-  expect(adaptReportRows(rows, definition)[0].label).toBe('Synthetic Biology Fraud');
+  expect(adaptReportRows(rows, definition)[0].label).toBe('Biology Fraud');
   expect(adaptReportRows(rows, definition, { demonstration: true })[0].label).toBe('Biology Fraud');
 });

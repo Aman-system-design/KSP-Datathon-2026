@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { BarChart3, Pencil, Trash2 } from 'lucide-react';
 
 import { governedAppLocation } from '../../app/runtime.js';
+import { demonstrationLabel } from '../../lib/display-text.js';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 
 function normalizedSelection(item, selection) {
@@ -15,7 +16,7 @@ function normalizedSelection(item, selection) {
 function ResultTable({ rows }) {
   const columns = [...new Set(rows.flatMap(row => Object.keys(row)))];
   if (!rows.length) return <div className="command-center-report-empty">No matching data in the authorized scope.</div>;
-  return <div className="command-center-report-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{row[column] ?? '—'}</td>)}</tr>)}</tbody></table></div>;
+  return <div className="command-center-report-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{demonstrationLabel(row[column] ?? '—')}</td>)}</tr>)}</tbody></table></div>;
 }
 
 export function CommandCenterReportSurface({ item, editing = false, onRemove = () => {}, onSelect, showPreviewMeta = true, returnTo = '' }) {

@@ -65,13 +65,13 @@ export function ReportPreview({ api, mapPreview, mapMetadata, preview = [], defi
   const inferredMeasure = separator > 0 ? { field: inferredOutput.slice(0, separator), aggregate: inferredOutput.slice(separator + 1) } : null;
   const resolved = definition ?? { dimensions: inferredDimension ? [inferredDimension] : [], measures: inferredMeasure ? [inferredMeasure] : [], visualization: { type: visualization ?? 'table' }, style: {} };
   const demonstration = provenance === 'SYNTHETIC' || provenance === 'Demonstration data' || preview.some(row => row?.IsSynthetic === true || row?.isSynthetic === true);
-  const displayDefinition = demonstration ? {
+  const displayDefinition = {
     ...resolved,
     name: cleanReportLabel(resolved.name, true),
     description: cleanReportLabel(resolved.description, true),
-  } : resolved;
-  const displayRows = preview.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, cleanReportLabel(value, demonstration)])));
-  const points = adaptReportRows(preview, resolved, { demonstration }); const theme = reportTheme(resolved.style, appearance); const unavailable = unavailableReason(resolved, preview);
+  };
+  const displayRows = preview.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, cleanReportLabel(value, true)])));
+  const points = adaptReportRows(preview, resolved, { demonstration: true }); const theme = reportTheme(resolved.style, appearance); const unavailable = unavailableReason(resolved, preview);
   let content;
   if (loading) content = <div className="loading-state" role="status">Running governed report…</div>;
   else if (error) content = <div className="error-state" role="alert">{error}</div>;

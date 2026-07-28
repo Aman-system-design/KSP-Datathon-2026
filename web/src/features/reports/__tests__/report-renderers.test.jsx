@@ -169,9 +169,10 @@ test('removes the visible Synthetic prefix while preserving demonstration proven
   expect(screen.getByText('Demonstration data')).toBeInTheDocument();
 });
 
-test('preserves legitimate production labels that begin with Synthetic', () => {
+test('removes the Synthetic prefix at the frontend display boundary without inventing provenance', () => {
   render(<ReportPreview preview={[{ category: 'Synthetic Biology Fraud', cases_sum: 2 }]} definition={{ ...definition, dimensions: ['category'] }} />);
-  expect(screen.getByText('Synthetic Biology Fraud')).toBeInTheDocument();
+  expect(screen.getByText('Biology Fraud')).toBeInTheDocument();
+  expect(screen.queryByText('Synthetic Biology Fraud')).not.toBeInTheDocument();
   expect(screen.queryByText('Demonstration data')).not.toBeInTheDocument();
 });
 

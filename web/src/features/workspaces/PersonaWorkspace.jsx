@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 
 import { governedAppLocation } from '../../app/runtime.js';
+import { demonstrationLabel } from '../../lib/display-text.js';
 import { DataState, StatusBadge, WorkspaceHeader } from '../../components/PlatformPrimitives.jsx';
 import { LeadershipView } from '../intelligence/LeadershipView.jsx';
 import { DistrictLeadershipDashboard } from './DistrictLeadershipDashboard.jsx';
@@ -43,7 +44,7 @@ function AnalystWorkspace({ data }) {
       <section className="panel"><div className="panel-heading"><div><span className="eyebrow">Prioritized queue</span><h2>System signals</h2></div></div><SignalQueue anomalies={data.anomalies} /></section>
       <section className="panel analysis-canvas"><div className="panel-heading"><div><span className="eyebrow">Synchronized analysis</span><h2>Evidence views</h2></div></div>
         <nav aria-label="Analytical views"><Link to={governedAppLocation('/geospatial', location)}>Map</Link><Link to={governedAppLocation('/intelligence', location)}>Timeline</Link><Link to={governedAppLocation('/networks', location)}>Network</Link><Link to={governedAppLocation('/alerts', location)}>Cases</Link></nav>
-        <div className="analysis-summary"><strong>{data.brief?.executiveSummary ?? 'No current brief is available.'}</strong><p>Model output remains immutable. Similarity and correlation are investigative signals, not proof.</p></div>
+        <div className="analysis-summary"><strong>{demonstrationLabel(data.brief?.executiveSummary) ?? 'No current brief is available.'}</strong><p>Model output remains immutable. Similarity and correlation are investigative signals, not proof.</p></div>
       </section>
       <aside className="panel evidence-context"><div className="panel-heading"><div><span className="eyebrow">Evidence and limits</span><h2>Review context</h2></div></div>
         <dl><dt>Area-risk limitation</dt><dd>{data.risk?.limitation ?? 'No area-risk result is available.'}</dd><dt>Review state</dt><dd>Awaiting authorized human conclusion</dd></dl>

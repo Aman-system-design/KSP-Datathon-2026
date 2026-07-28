@@ -7,9 +7,10 @@ import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 afterEach(cleanup);
 
 test('renders returned governed rows without inventing a metric', () => {
-  render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-1', reportId: 'R-1', title: 'District movement', status: 'ready', visualization: 'table', data: [{ district: 'Mysuru', case_count: 12 }] }} /></MemoryRouter>);
+  render(<MemoryRouter><CommandCenterReportSurface item={{ id: 'I-1', reportId: 'R-1', title: 'District movement', status: 'ready', visualization: 'table', data: [{ district: 'Synthetic Mysuru', case_count: 12 }] }} /></MemoryRouter>);
   expect(screen.getByRole('heading', { name: 'District movement' })).toBeInTheDocument();
   expect(screen.getByRole('table')).toHaveTextContent('Mysuru');
+  expect(screen.getByRole('table')).not.toHaveTextContent('Synthetic Mysuru');
   expect(screen.getByRole('table')).toHaveTextContent('12');
   expect(screen.queryByText('Governed report')).not.toBeInTheDocument();
 });

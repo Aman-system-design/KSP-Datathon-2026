@@ -4,7 +4,7 @@ export function measureKey(measure) {
 
 export function cleanReportLabel(value, demonstration = false) {
   if (typeof value !== 'string') return value;
-  return demonstration ? demonstrationLabel(value) : value;
+  return demonstrationLabel(value);
 }
 
 function numericValue(value) {

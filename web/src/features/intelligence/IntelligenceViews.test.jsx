@@ -8,12 +8,14 @@ afterEach(cleanup);
 
 test('leadership workspace renders the approved report-led state brief', () => {
   render(<MemoryRouter><LeadershipView data={{
-    brief: { patternCount: 1, executiveSummary: 'One evidence-linked pattern requires human review.' },
+    brief: { patternCount: 1, executiveSummary: 'Synthetic decision brief requires human review.' },
     anomalies: [{ id: 'A-1', label: 'Vehicle theft', observed: 27, expected: 11, confidence: 0.91 }],
     hotspots: [{ id: 'H-1', area: 'Central corridor', caseCount: 6, severity: 0.82 }],
     risk: { score: 86, components: { recency: 0.7, anomaly: 0.8 }, limitation: 'Area and time risk only.' },
   }} /></MemoryRouter>);
   expect(screen.getByRole('heading', { name: 'State Intelligence Brief' })).toBeInTheDocument();
+  expect(screen.getByText('decision brief requires human review.')).toBeInTheDocument();
+  expect(screen.queryByText(/Synthetic decision brief/iu)).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Crime category composition' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'District crime volume & movement' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: '24-hour crime occurrence curve' })).toBeInTheDocument();

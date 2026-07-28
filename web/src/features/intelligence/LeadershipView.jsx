@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 
 import { governedAppLocation } from '../../app/runtime.js';
+import { demonstrationLabel } from '../../lib/display-text.js';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 
 const categories = [
@@ -61,7 +62,7 @@ export function LeadershipView({ data = {} }) {
 
   return <section className="feature-page role-home leadership-brief">
     <header className="role-home__header">
-      <div><span className="role-kicker">Statewide decision intelligence</span><h1>State Intelligence Brief</h1><p>{data.brief?.executiveSummary ?? 'No current statewide brief is available for this authorized scope.'}</p></div>
+      <div><span className="role-kicker">Statewide decision intelligence</span><h1>State Intelligence Brief</h1><p>{demonstrationLabel(data.brief?.executiveSummary) ?? 'No current statewide brief is available for this authorized scope.'}</p></div>
       <div className="data-as-of"><i /><span>Data as of</span><strong>Latest verified run</strong></div>
     </header>
 

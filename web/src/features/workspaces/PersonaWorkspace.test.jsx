@@ -7,7 +7,7 @@ import { PersonaWorkspace } from './PersonaWorkspace.jsx';
 afterEach(cleanup);
 
 const data = {
-  brief: { executiveSummary: 'One evidence-linked cross-district pattern requires human review.' },
+  brief: { executiveSummary: 'Synthetic decision brief requires human review.' },
   anomalies: [{ id: 'A-1', label: 'Vehicle theft change', observed: 27, expected: 11, confidence: 0.91 }],
   hotspots: [{ id: 'H-1', area: 'Central corridor', caseCount: 6, severity: 0.82 }],
   risk: { score: 0.76, limitation: 'Area and time risk only; not an individual prediction.' },
