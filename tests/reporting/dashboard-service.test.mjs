@@ -82,6 +82,10 @@ test('only administrator permission sets a role default', async () => {
     service.setRoleDefault({ access: access('ADMIN', 'PLATFORM_ADMIN', ['MANAGE_GLOBAL_CONTENT']), dashboardId: dashboard.id, role: 'MADE_UP_ROLE' }),
     { code: 'INVALID_REQUEST' },
   );
+  await assert.rejects(
+    service.setRoleDefault({ access: access('ADMIN', 'PLATFORM_ADMIN', ['MANAGE_GLOBAL_CONTENT']), dashboardId: dashboard.id, role: 'REGIONAL_LEADERSHIP' }),
+    { code: 'INVALID_REQUEST' },
+  );
 });
 
 test('visible dashboards expose a safe owned shared or system relationship', async () => {

@@ -1,7 +1,7 @@
 import { deny } from './identity.mjs';
 
 const localEvidenceRoles = new Set([
-  'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS',
+  'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS',
 ]);
 
 function activeGrant(access, pattern, row) {
@@ -18,7 +18,12 @@ const canSeeEvidence = (access, pattern, row) => (
   || activeGrant(access, pattern, row)
 );
 
+const rejectRetiredRole = access => {
+  if (access?.role === 'REGIONAL_LEADERSHIP') deny('NOT_FOUND');
+};
+
 export function projectPattern({ pattern, access }) {
+  rejectRetiredRole(access);
   const { evidence = [], evidenceCaseIds, pairEvidence = [], unitSummaries = [], ...safePattern } = pattern;
   const visibleEvidence = evidence.filter(row => canSeeEvidence(access, pattern, row));
   const visibleUnitIds = new Set([
@@ -49,6 +54,7 @@ export function projectPattern({ pattern, access }) {
 }
 
 export function projectNetwork({ network, access }) {
+  rejectRetiredRole(access);
   const assignmentAllows = edge => access.role === 'CRIME_ANALYST'
     && (access.assignments ?? []).some(assignment => assignment.active === true
       && assignment.evidenceAccessLevel === 'CASE_EVIDENCE'

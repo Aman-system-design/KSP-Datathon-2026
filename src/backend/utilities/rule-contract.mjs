@@ -7,7 +7,7 @@ const inputKeys = Object.freeze([
 const patchKeys = new Set(inputKeys.filter(key => key !== 'utilityKey'));
 const severities = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 const recipientRoleOrder = Object.freeze([
-  'COMMAND_CENTER', 'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST',
+  'COMMAND_CENTER', 'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST',
 ]);
 const recipientRoles = new Set(recipientRoleOrder);
 const supportedUtilities = new Set(['patterns', 'hotspots', 'anomalies']);

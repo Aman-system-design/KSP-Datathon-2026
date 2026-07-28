@@ -28,6 +28,14 @@ test('identity resolution fails closed and ignores caller role fields', () => {
   assert.equal(errorCode(() => resolveAccess({ currentUser: { ...user, status: 'DISABLED' }, profile, environment: 'Development', policy })), 'UNAUTHENTICATED');
   assert.equal(errorCode(() => resolveAccess({ currentUser: user, profile: null, environment: 'Development', policy })), 'INACTIVE_ACCESS_PROFILE');
   assert.equal(errorCode(() => resolveAccess({ currentUser: user, profile: { ...profile, Active: false }, environment: 'Development', policy })), 'INACTIVE_ACCESS_PROFILE');
+  assert.equal(policy.personaAllowlist.includes('REGIONAL_LEADERSHIP'), false);
+  assert.equal(Object.hasOwn(policy.roles, 'REGIONAL_LEADERSHIP'), false);
+  assert.equal(errorCode(() => resolveAccess({
+    currentUser: user,
+    profile: { ...profile, DefaultRole: 'REGIONAL_LEADERSHIP' },
+    environment: 'Development',
+    policy,
+  })), 'INACTIVE_ACCESS_PROFILE');
 
   const access = resolveAccess({ currentUser: user, profile, environment: 'Development', policy });
   assert.equal(access.role, 'DISTRICT_LEADERSHIP');
@@ -40,7 +48,7 @@ test('identity resolution fails closed and ignores caller role fields', () => {
 });
 
 test('map-view policy grants ownership actions without broad management to operational roles', () => {
-  for (const role of ['REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']) {
+  for (const role of ['DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']) {
     assert.ok(policy.roles[role].includes('CREATE_MAP_VIEW'), role);
     assert.ok(policy.roles[role].includes('EDIT_OWN_MAP_VIEW'), role);
     assert.equal(policy.roles[role].includes('MANAGE_MAP_VIEWS'), false, role);
@@ -51,7 +59,7 @@ test('map-view policy grants ownership actions without broad management to opera
 
 test('case reads are restricted to operational, analyst, and leadership roles', () => {
   for (const role of [
-    'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP',
+    'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP',
     'CRIME_ANALYST', 'STATION_OPERATIONS',
   ]) {
     assert.ok(policy.roles[role].includes('READ_CASE'), role);
@@ -194,6 +202,17 @@ test('assigned analyst receives only explicitly granted cross-unit case evidence
 });
 
 test('patterns and network nodes outside scope use not-found semantics', () => {
+  assert.equal(errorCode(() => projectPattern({
+    pattern,
+    access: { role: 'REGIONAL_LEADERSHIP', authorizedUnitIds: new Set([101]) },
+  })), 'NOT_FOUND');
+  assert.equal(errorCode(() => projectNetwork({
+    network: {
+      node: { id: 'PERSON-1', unitId: 101 },
+      edges: [{ type: 'CASE_HAS_ACCUSED', from: 'CASE-1', to: 'PERSON-1', unitId: 101, sourceCaseId: 'CASE-1' }],
+    },
+    access: { role: 'REGIONAL_LEADERSHIP', authorizedUnitIds: new Set([101]) },
+  })), 'NOT_FOUND');
   assert.equal(errorCode(() => projectPattern({
     pattern,
     access: { role: 'DISTRICT_LEADERSHIP', authorizedUnitIds: new Set([999]) },

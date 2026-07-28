@@ -64,6 +64,7 @@ test('rejects invalid scope, enums, duplicate roles, and malformed values', () =
     { ...base, scopeUnitId: 0 },
     { ...base, scopeUnitId: 999 },
     { ...base, enabled: 1 },
+    { ...base, recipientRoles: ['REGIONAL_LEADERSHIP'] },
     { ...base, severity: 'URGENT' },
     { ...base, recipientRoles: [] },
     { ...base, recipientRoles: ['CRIME_ANALYST', 'CRIME_ANALYST'] },

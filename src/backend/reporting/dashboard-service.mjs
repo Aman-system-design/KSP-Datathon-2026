@@ -7,7 +7,7 @@ import { isReportSourceAllowed } from './report-source-policy.mjs';
 const hasAction = (access, action) => access?.actions?.includes(action);
 const owns = (row, access) => row.ownerUserId === access?.actualUserId;
 const defaultRoles = new Set([
-  'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP',
+  'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP',
   'CRIME_ANALYST', 'STATION_OPERATIONS', 'DEMO_PRESENTER', 'PLATFORM_ADMIN', 'AUDITOR',
 ]);
 const STATION_DASHBOARD_NAME = 'Station Operations';
