@@ -125,6 +125,14 @@ test('unit hierarchy authorizes descendants and rejects siblings and invalid gra
   const authorized = buildAuthorizedUnitSet({ scopeUnitId: 101, units });
   assert.deepEqual([...authorized].sort((a, b) => a - b), [101, 1001]);
   assert.equal(authorized.has(102), false);
+
+  const catalystUnits = units.map(unit => ({
+    ...unit,
+    UnitID: String(unit.UnitID),
+    ParentUnit: unit.ParentUnit === null ? null : String(unit.ParentUnit),
+  }));
+  const normalized = buildAuthorizedUnitSet({ scopeUnitId: 101, units: catalystUnits });
+  assert.deepEqual([...normalized].sort((a, b) => a - b), [101, 1001]);
   assert.deepEqual([...buildEscalationUnitSet({ scopeUnitId: 1001, units })], [101, 1]);
   assert.deepEqual([...buildEscalationUnitSet({ scopeUnitId: 1, units })], []);
 

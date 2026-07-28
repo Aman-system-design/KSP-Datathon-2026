@@ -160,8 +160,8 @@
     },
     {
       "path": "src/backend/security/scope.mjs",
-      "sha256": "8524cc2e8ad2059d73af641090ee949256843f357cb6c39f76afe01ce20c1a96",
-      "bytes": 1784
+      "sha256": "960ff0ecf60af1a40588b11a5fc47578885be80ca78bd8ccb9b05df7d83b6c2d",
+      "bytes": 2621
     },
     {
       "path": "src/backend/services/alert-services.mjs",

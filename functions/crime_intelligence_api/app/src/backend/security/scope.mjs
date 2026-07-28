@@ -1,14 +1,26 @@
 import { deny } from './identity.mjs';
 
+const unitId = value => {
+  const normalized = Number(value);
+  if (!Number.isSafeInteger(normalized) || normalized < 1) deny('INVALID_UNIT_HIERARCHY');
+  return normalized;
+};
+
 export function buildAuthorizedUnitSet({ scopeUnitId, units }) {
   if (!Array.isArray(units) || units.length === 0) deny('INVALID_UNIT_HIERARCHY');
+  const normalizedScopeUnitId = unitId(scopeUnitId);
+  const normalizedUnits = units.map(unit => ({
+    ...unit,
+    UnitID: unitId(unit.UnitID),
+    ParentUnit: unit.ParentUnit === null || unit.ParentUnit === undefined ? null : unitId(unit.ParentUnit),
+  }));
   const byId = new Map();
-  for (const unit of units) {
+  for (const unit of normalizedUnits) {
     if (byId.has(unit.UnitID)) deny('INVALID_UNIT_HIERARCHY');
     byId.set(unit.UnitID, unit);
   }
-  if (!byId.has(scopeUnitId)) deny('INVALID_UNIT_HIERARCHY');
-  for (const unit of units) {
+  if (!byId.has(normalizedScopeUnitId)) deny('INVALID_UNIT_HIERARCHY');
+  for (const unit of normalizedUnits) {
     if (unit.ParentUnit !== null && unit.ParentUnit !== undefined && !byId.has(unit.ParentUnit)) {
       deny('INVALID_UNIT_HIERARCHY');
     }
@@ -27,11 +39,11 @@ export function buildAuthorizedUnitSet({ scopeUnitId, units }) {
   };
   for (const unitId of byId.keys()) visit(unitId);
 
-  const authorized = new Set([scopeUnitId]);
+  const authorized = new Set([normalizedScopeUnitId]);
   let added = true;
   while (added) {
     added = false;
-    for (const unit of units) {
+    for (const unit of normalizedUnits) {
       if (authorized.has(unit.ParentUnit) && !authorized.has(unit.UnitID)) {
         authorized.add(unit.UnitID);
         added = true;
@@ -42,10 +54,15 @@ export function buildAuthorizedUnitSet({ scopeUnitId, units }) {
 }
 
 export function buildEscalationUnitSet({ scopeUnitId, units }) {
-  buildAuthorizedUnitSet({ scopeUnitId, units });
-  const byId = new Map(units.map(unit => [unit.UnitID, unit]));
+  const normalizedScopeUnitId = unitId(scopeUnitId);
+  buildAuthorizedUnitSet({ scopeUnitId: normalizedScopeUnitId, units });
+  const byId = new Map(units.map(unit => {
+    const normalizedUnitId = unitId(unit.UnitID);
+    const parentUnit = unit.ParentUnit === null || unit.ParentUnit === undefined ? null : unitId(unit.ParentUnit);
+    return [normalizedUnitId, { ...unit, UnitID: normalizedUnitId, ParentUnit: parentUnit }];
+  }));
   const result = new Set();
-  let parent = byId.get(scopeUnitId).ParentUnit;
+  let parent = byId.get(normalizedScopeUnitId).ParentUnit;
   while (parent !== null && parent !== undefined) {
     result.add(parent);
     parent = byId.get(parent).ParentUnit;
