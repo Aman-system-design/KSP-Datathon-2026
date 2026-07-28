@@ -78,6 +78,34 @@ test('summarizes a configured dashboard when every report has zero rows', () => 
   expect(screen.queryByRole('link', { name: 'Create report' })).not.toBeInTheDocument();
 });
 
+test('fills a hidden report gap with the next visible report', () => {
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [
+    { id: 'left', reportId: 'R-left', title: 'Left report', status: 'ready', data: [{ count: 1 }], column: 1, row: 1, width: 7, height: 5 },
+    { id: 'empty', reportId: 'R-empty', title: 'Empty report', status: 'ready', data: [], column: 8, row: 1, width: 5, height: 5 },
+    { id: 'lower', reportId: 'R-lower', title: 'Lower report', status: 'ready', data: [{ count: 0 }], column: 1, row: 6, width: 5, height: 5 },
+  ] }] };
+
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} /></MemoryRouter>);
+
+  const placement = screen.getByLabelText('Lower report').closest('.command-center-dashboard-placement');
+  expect(screen.queryByLabelText('Empty report')).not.toBeInTheDocument();
+  expect(placement).toHaveStyle({ left: `${(7 / 12) * 100}%`, top: '0px', width: `${(5 / 12) * 100}%`, height: '480px' });
+});
+
+test('keeps saved report coordinates while editing instead of compacting', () => {
+  const dashboard = { id: 'D-1', tabs: [{ id: 'overview', items: [
+    { id: 'left', reportId: 'R-left', title: 'Left report', status: 'ready', data: [{ count: 1 }], column: 1, row: 1, width: 7, height: 5 },
+    { id: 'empty', reportId: 'R-empty', title: 'Empty report', status: 'ready', data: [], column: 8, row: 1, width: 5, height: 5 },
+    { id: 'lower', reportId: 'R-lower', title: 'Lower report', status: 'ready', data: [{ count: 0 }], column: 1, row: 6, width: 5, height: 5 },
+  ] }] };
+
+  render(<MemoryRouter><CommandCenterDashboardCanvas dashboard={dashboard} editing /></MemoryRouter>);
+
+  const placement = screen.getByLabelText('Lower report').closest('.command-center-dashboard-placement');
+  expect(screen.getByLabelText('Empty report')).toBeInTheDocument();
+  expect(placement).toHaveStyle({ left: '0%', top: '480px', width: `${(5 / 12) * 100}%`, height: '480px' });
+});
+
 test('stages bounded keyboard movement and resizing while editing', () => {
   const onStage = vi.fn();
   const report = { id: 'I-1', reportId: 'R-1', title: 'Governed result', status: 'ready', data: [], column: 1, row: 1, width: 6, height: 3 };

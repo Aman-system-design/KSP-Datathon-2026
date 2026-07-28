@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BarChart3, Expand, GripHorizontal, Plus, Shrink } from 'lucide-react';
 
-import { placementStyle } from './command-center-dashboard-model.js';
+import { compactDashboardItems, placementStyle } from './command-center-dashboard-model.js';
 import { CommandCenterReportSurface } from './CommandCenterReportSurface.jsx';
 
 export const isSuccessfulEmptyReport = item => item?.status === 'ready'
@@ -13,7 +13,8 @@ export function CommandCenterDashboardCanvas({ dashboard, activeTab = 'overview'
   const items = Array.isArray(dashboard?.items)
     ? dashboard.items.filter(item => (item.tabId ?? 'overview') === (tab?.id ?? 'overview'))
     : tab?.items ?? [];
-  const displayItems = editing ? items : items.filter(item => !isSuccessfulEmptyReport(item));
+  const visibleItems = editing ? items : items.filter(item => !isSuccessfulEmptyReport(item));
+  const displayItems = editing ? visibleItems : compactDashboardItems(visibleItems);
   if (!dashboard) return <main className="command-center-dashboard-canvas" data-testid="command-center-canvas"><div className="command-center-dashboard-empty"><strong>Intelligence Workspace</strong><span>Create or open a dashboard to compose your operational intelligence view.</span></div></main>;
   const stage = (target, changes) => onStage((dashboard.items ?? items).map(item => item.id === target.id ? { ...item, ...changes(item) } : item));
   const startPointerEdit = (event, target, mode) => {
