@@ -16,10 +16,12 @@ export function SignInRequired({ auth }) {
     const host = document.getElementById('catalystLogin');
     if (!host || host.dataset.authMounted === 'true') return undefined;
     host.dataset.authMounted = 'true';
+    let active = true;
     let settled = false;
     let discoveryTimeout;
 
     const discoverHostedUrl = () => {
+      if (!active) return false;
       const frame = host.querySelector('iframe');
       if (!frame) return false;
 
@@ -38,14 +40,18 @@ export function SignInRequired({ auth }) {
     const observer = new MutationObserver(discoverHostedUrl);
     observer.observe(host, { childList: true, subtree: true });
     discoveryTimeout = window.setTimeout(() => {
-      if (!settled) setFailed(true);
+      if (active && !settled) setFailed(true);
     }, 5000);
     auth.mountSignIn('catalystLogin', {
       cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
-    }).then(discoverHostedUrl).catch(() => setFailed(true));
+    }).then(discoverHostedUrl).catch(() => {
+      if (active) setFailed(true);
+    });
     return () => {
+      active = false;
       observer.disconnect();
       window.clearTimeout(discoveryTimeout);
+      delete host.dataset.authMounted;
     };
   }, [auth]);
 

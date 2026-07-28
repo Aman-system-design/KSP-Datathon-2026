@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { StrictMode } from 'react';
 
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -108,6 +109,15 @@ test('reports a bounded error when Catalyst does not create a sign-in URL', asyn
   render(<SignInRequired auth={{ mountSignIn: vi.fn(async () => {}) }} />);
 
   expect(screen.getByText('Preparing secure sign in…')).toBeInTheDocument();
+  await act(async () => vi.advanceTimersByTimeAsync(5000));
+  expect(screen.getByRole('alert')).toHaveTextContent('Secure sign in could not be loaded');
+});
+
+test('keeps URL discovery active through the React Strict Mode effect replay', async () => {
+  vi.useFakeTimers();
+
+  render(<StrictMode><SignInRequired auth={{ mountSignIn: vi.fn(async () => {}) }} /></StrictMode>);
+
   await act(async () => vi.advanceTimersByTimeAsync(5000));
   expect(screen.getByRole('alert')).toHaveTextContent('Secure sign in could not be loaded');
 });
