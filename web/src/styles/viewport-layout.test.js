@@ -46,7 +46,7 @@ describe('platform viewport layout contract', () => {
   test('keeps the premium Catalyst attribution compact and separate', () => {
     expect(appCss).toMatch(/\.secure-login__managed\s*{[^}]*justify-content:\s*center[^}]*padding-top:\s*8px/s);
     expect(appCss).toMatch(/\.secure-login__managed svg\s*{[^}]*color:\s*#b88719/s);
-    expect(appCss).toMatch(/\.secure-login__access\s*{[^}]*padding:\s*12px 0 8px/s);
+    expect(appCss).toMatch(/\.secure-login__access\s*{[^}]*padding:\s*8px 0 4px/s);
   });
 
   test('keeps the State Leadership dashboard contained and responsive', () => {
