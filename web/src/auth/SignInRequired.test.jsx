@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { StrictMode } from 'react';
 
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { SignInRequired } from './SignInRequired.jsx';
@@ -12,7 +12,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const hostedAuth = source => ({
+const embeddedAuth = source => ({
   mountSignIn: vi.fn(async elementId => {
     const frame = document.createElement('iframe');
     frame.src = source;
@@ -82,35 +82,53 @@ test('copies each demo credential and clears success feedback', async () => {
   vi.useRealTimers();
 });
 
-test('offers the official Catalyst hosted sign in without displaying its iframe', async () => {
-  const source = `${window.location.origin}/accounts/p/70-50043872568/signin?service_url=%2F__catalyst%2Fauth%2Fsignin-redirect&css_url=%2Fauth%2Fcatalyst-sign-in-v4.css`;
-  const auth = hostedAuth(source);
+test('keeps the Catalyst sign-in iframe embedded and sizes it after load', async () => {
+  const source = `${window.location.origin}/accounts/p/70/signin`;
+  const auth = embeddedAuth(source);
 
   render(<SignInRequired auth={auth} />);
 
-  const link = await screen.findByRole('link', { name: 'Continue to secure sign in' });
-  expect(link).toHaveAttribute('href', source.replace(window.location.origin, 'https://accounts.zohoportal.in'));
-  expect(link).not.toHaveAttribute('target');
-  expect(document.querySelector('#catalystLogin iframe')).toBeNull();
-  expect(auth.mountSignIn).toHaveBeenCalledWith('catalystLogin', {
-    cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
-  });
-});
-
-test('keeps the sign-in action unavailable when the SDK emits an unsafe URL', async () => {
-  render(<SignInRequired auth={hostedAuth('https://evil.example/accounts/p/70/signin')} />);
-
-  expect(await screen.findByRole('alert')).toHaveTextContent('Secure sign in could not be loaded');
+  const frame = await waitFor(() => document.querySelector('#catalystLogin iframe'));
+  fireEvent.load(frame);
+  expect(frame).toHaveAttribute('src', source);
+  expect(frame).toHaveAttribute('title', 'Karnataka State Police secure sign in');
+  expect(frame).toHaveAttribute('scrolling', 'no');
+  expect(document.getElementById('catalystLogin')).toHaveStyle('--catalyst-frame-height: 360px');
   expect(screen.queryByRole('link', { name: 'Continue to secure sign in' })).not.toBeInTheDocument();
 });
 
-test('reports a bounded error when Catalyst does not create a sign-in URL', async () => {
+test('shows a bounded same-page retry when Catalyst creates no iframe', async () => {
   vi.useFakeTimers();
   render(<SignInRequired auth={{ mountSignIn: vi.fn(async () => {}) }} />);
 
   expect(screen.getByText('Preparing secure sign in…')).toBeInTheDocument();
   await act(async () => vi.advanceTimersByTimeAsync(5000));
   expect(screen.getByRole('alert')).toHaveTextContent('Secure sign in could not be loaded');
+  expect(screen.getByRole('button', { name: 'Refresh sign in' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /secure sign in/i })).not.toBeInTheDocument();
+});
+
+test('performs one fresh SDK mount and clears the error after a successful retry', async () => {
+  vi.useFakeTimers();
+  const auth = {
+    mountSignIn: vi.fn(async elementId => {
+      if (auth.mountSignIn.mock.calls.length !== 2) return;
+      const frame = document.createElement('iframe');
+      frame.src = `${window.location.origin}/accounts/p/70/signin`;
+      document.getElementById(elementId).append(frame);
+    }),
+  };
+  render(<SignInRequired auth={auth} />);
+  await act(async () => vi.advanceTimersByTimeAsync(5000));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh sign in' }));
+  const frame = await waitFor(() => document.querySelector('#catalystLogin iframe'));
+  fireEvent.load(frame);
+
+  expect(auth.mountSignIn).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Refresh sign in' })).not.toBeInTheDocument();
+  expect(frame).toBeInTheDocument();
 });
 
 test('keeps URL discovery active through the React Strict Mode effect replay', async () => {
@@ -161,11 +179,12 @@ test('fits the secure shell inside the dynamic viewport', () => {
   expect(css).not.toMatch(/@media \(min-width:\s*761px\) and \(max-height:\s*680px\)/);
 });
 
-test('keeps URL discovery hidden and the hosted action inside the premium access column', () => {
+test('keeps the embedded form and retry inside the premium access column', () => {
   const css = readFileSync('src/styles/app.css', 'utf8');
 
-  expect(css).toMatch(/\.secure-login__catalyst-discovery\s*{[^}]*position:\s*absolute[^}]*width:\s*1px[^}]*height:\s*1px[^}]*overflow:\s*hidden/s);
-  expect(css).toMatch(/\.secure-login__auth-link\s*{[^}]*min-height:\s*48px[^}]*display:\s*grid[^}]*border-radius:\s*12px/s);
+  expect(css).toMatch(/\.secure-login__catalyst\s*{[^}]*height:\s*var\(--catalyst-frame-height,\s*360px\)[^}]*overflow:\s*hidden/s);
+  expect(css).toMatch(/\.secure-login__catalyst iframe\s*{[^}]*width:\s*100%!important[^}]*border:\s*0!important/s);
+  expect(css).toMatch(/\.secure-login__retry\s*{[^}]*min-height:\s*44px[^}]*border-radius:\s*12px/s);
   expect(css).toMatch(/\.secure-login__managed\s*{[^}]*border-top:/s);
 });
 
