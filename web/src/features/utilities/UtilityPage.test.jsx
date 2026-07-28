@@ -503,9 +503,9 @@ test('lets Command Centre add an alert policy when none is configured', async ()
     : { data: { items: [] } }) };
   renderRoute(api, '/utilities/patterns?persona=COMMAND_CENTER', commandCentreWorkspace);
   await screen.findByRole('heading', { name: patterns.name });
-  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Alerts (Setup)' }));
 
-  expect(await screen.findByRole('button', { name: 'Add alert policy' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Add alert setup' })).toBeInTheDocument();
 });
 
 test('lets station operations inspect policies without exposing management or evaluation actions', async () => {
