@@ -118,8 +118,8 @@ export function SignInRequired({ auth }) {
           </div>
           <small>For evaluation use only.</small>
           <p className="secure-login__copy-status" role="status" aria-live="polite">{copiedMessage}</p>
-          <p className="secure-login__managed"><ShieldCheck aria-hidden="true" />Authentication managed by Catalyst</p>
         </aside>
+        <p className="secure-login__managed"><ShieldCheck aria-hidden="true" />Authentication managed by Catalyst</p>
       </div>
     </section>
   </main>;

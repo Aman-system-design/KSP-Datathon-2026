@@ -49,7 +49,8 @@ test('shows judge demo credentials without changing Catalyst sign in', async () 
 
   expect(screen.getByRole('complementary', { name: 'Demo access credentials' })).toBeInTheDocument();
   const demo = screen.getByRole('complementary', { name: 'Demo access credentials' });
-  expect(within(demo).getByText('Authentication managed by Catalyst')).toBeInTheDocument();
+  expect(within(demo).queryByText('Authentication managed by Catalyst')).not.toBeInTheDocument();
+  expect(screen.getByText('Authentication managed by Catalyst')).toBeInTheDocument();
   expect(screen.getByRole('status')).toBeEmptyDOMElement();
   expect(screen.getByText('ksp.tech@zohomail.in')).toBeInTheDocument();
   expect(screen.getByText('Mail@2026')).toBeInTheDocument();

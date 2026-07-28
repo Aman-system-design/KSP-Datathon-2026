@@ -43,6 +43,11 @@ describe('platform viewport layout contract', () => {
     expect(catalystAuthCss).not.toMatch(/(?:#forgotpassword|\.bluetext_action|\.fed_div)[^{]*{[^}]*display:\s*none/s);
   });
 
+  test('keeps the premium Catalyst attribution compact and separate', () => {
+    expect(appCss).toMatch(/\.secure-login__managed\s*{[^}]*justify-content:\s*center[^}]*padding-top:\s*8px/s);
+    expect(appCss).toMatch(/\.secure-login__managed svg\s*{[^}]*color:\s*#b88719/s);
+  });
+
   test('keeps the State Leadership dashboard contained and responsive', () => {
     expect(appCss).toMatch(/\.state-leadership-dashboard\s*{[^}]*min-height:\s*0/s);
     expect(appCss).toMatch(/\.state-leadership-dashboard\s*>\s*\.command-center-dashboard-canvas\s*{[^}]*min-height:/s);
