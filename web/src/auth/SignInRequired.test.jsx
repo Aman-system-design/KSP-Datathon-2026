@@ -128,7 +128,7 @@ test('keeps judge demo access compact inside the existing access column', () => 
   const css = readFileSync('src/styles/app.css', 'utf8');
 
   expect(css).toMatch(/\.secure-login__demo\s*{[^}]*border-radius:\s*12px/s);
-  expect(css).toMatch(/\.secure-login__demo\s*{[^}]*margin-top:\s*-26px/s);
+  expect(css).toMatch(/\.secure-login__demo\s*{[^}]*margin-top:\s*16px/s);
   expect(css).toMatch(/@media \(max-width:\s*760px\)[^{]*{[\s\S]*\.secure-login__demo\s*{[^}]*margin-top:\s*14px/s);
   expect(css).toMatch(/\.secure-login__demo-row\s*{[^}]*grid-template-columns:\s*60px\s+minmax\(0,\s*1fr\)\s+28px/s);
   expect(css).toMatch(/\.secure-login__demo-row button\s*{[^}]*width:\s*26px/s);
@@ -149,6 +149,14 @@ test('fits the secure shell inside the dynamic viewport', () => {
   expect(shellRule).toMatch(/height:\s*min\(680px,\s*calc\(100dvh\s*-\s*32px\)\)/);
   expect(shellRule).toMatch(/grid-template-columns:\s*360px\s+minmax\(0,\s*1fr\)/);
   expect(css).not.toMatch(/@media \(min-width:\s*761px\) and \(max-height:\s*680px\)/);
+});
+
+test('keeps URL discovery hidden and the hosted action inside the premium access column', () => {
+  const css = readFileSync('src/styles/app.css', 'utf8');
+
+  expect(css).toMatch(/\.secure-login__catalyst-discovery\s*{[^}]*position:\s*absolute[^}]*width:\s*1px[^}]*height:\s*1px[^}]*overflow:\s*hidden/s);
+  expect(css).toMatch(/\.secure-login__auth-link\s*{[^}]*min-height:\s*48px[^}]*display:\s*grid[^}]*border-radius:\s*12px/s);
+  expect(css).toMatch(/\.secure-login__managed\s*{[^}]*border-top:/s);
 });
 
 test('keeps the embedded identity form at a deliberate enterprise width', () => {
