@@ -21,6 +21,7 @@ test('persona search preserves other parameters and can return to presenter', ()
 
 test('command center is an allowlisted client presentation persona', () => {
   expect(readDemoPersona('?persona=COMMAND_CENTER')).toBe('COMMAND_CENTER');
+  expect(readDemoPersona('?persona=REGIONAL_LEADERSHIP')).toBeNull();
   expect(readDemoPersona('?persona=COMMAND%20CENTER')).toBeNull();
   expect(readDemoPersona('?persona=NOT_ALLOWED')).toBeNull();
 });

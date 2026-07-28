@@ -6,7 +6,7 @@ export function readRuntime(environment = import.meta.env) {
   return Object.freeze({ apiBase, authOrigin });
 }
 
-const demoPersonas = new Set(['COMMAND_CENTER', 'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']);
+const demoPersonas = new Set(['COMMAND_CENTER', 'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS']);
 
 export function readDemoPersona(search = globalThis.location?.search ?? '') {
   const persona = new URLSearchParams(search).get('persona');

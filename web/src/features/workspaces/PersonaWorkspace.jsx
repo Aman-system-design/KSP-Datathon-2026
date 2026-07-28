@@ -8,7 +8,6 @@ import { DistrictLeadershipDashboard } from './DistrictLeadershipDashboard.jsx';
 import { CrimeAnalystDashboard } from './CrimeAnalystDashboard.jsx';
 
 const definitions = {
-  REGIONAL_LEADERSHIP: ['Jurisdiction Intelligence Pulse', 'Regional evidence requiring coordinated review.'],
   DISTRICT_LEADERSHIP: ['Jurisdiction Intelligence Pulse', 'District and subordinate-unit signals within the current authorized scope.'],
   CRIME_ANALYST: ['Analyst Workbench', 'Prioritize, compare and document evidence without changing the original model output.'],
   STATION_OPERATIONS: ['Operational Intelligence', 'Local signals, assignments and evidence within the authorized station scope.'],
@@ -105,7 +104,6 @@ function GovernanceWorkspace({ role }) {
 export function PersonaWorkspace({ role, data = {} }) {
   if (role === 'STATE_LEADERSHIP') return <LeadershipView data={data} />;
   if (role === 'DISTRICT_LEADERSHIP') return <DistrictLeadershipDashboard data={data} />;
-  if (role === 'REGIONAL_LEADERSHIP') return <JurisdictionLeadershipWorkspace role={role} data={data} />;
   if (role === 'CRIME_ANALYST') return <CrimeAnalystDashboard data={data} />;
   if (role === 'STATION_OPERATIONS') return <StationWorkspace data={data} />;
   if (role === 'INVESTIGATOR') return <InvestigatorWorkspace data={data} />;

@@ -28,7 +28,6 @@ const commandCenterModules = Object.freeze([
 const roleDefinitions = Object.freeze({
   COMMAND_CENTER: { workspaceLabel: 'Operational Command Center', modules: commandCenterModules },
   STATE_LEADERSHIP: { workspaceLabel: 'State Intelligence Brief', modules: stateLeadershipModules },
-  REGIONAL_LEADERSHIP: { workspaceLabel: 'Jurisdiction Intelligence Pulse', modules: intelligenceModules },
   DISTRICT_LEADERSHIP: { workspaceLabel: 'Jurisdiction Intelligence Pulse', modules: intelligenceModules },
   CRIME_ANALYST: { workspaceLabel: 'Analyst Workbench', modules: intelligenceModules },
   STATION_OPERATIONS: {

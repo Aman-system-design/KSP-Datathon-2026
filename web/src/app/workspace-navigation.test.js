@@ -29,7 +29,7 @@ test('other personas retain their existing navigation without State Leadership c
 });
 
 test('operational workspaces expose utilities without adding another broad module', () => {
-  for (const role of ['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS', 'PLATFORM_ADMIN']) {
+  for (const role of ['STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS', 'PLATFORM_ADMIN']) {
     expect(paths(role)).toContain('/utilities');
   }
   expect(paths('INVESTIGATOR')).not.toContain('/utilities');
@@ -67,4 +67,7 @@ test('unknown roles use neutral UI copy while backend access remains fail-closed
 
 test('regional leadership is not offered as an MVP persona', () => {
   expect(getPersonaPresentation('REGIONAL_LEADERSHIP')).toBeNull();
+  expect(getWorkspaceNavigation({ role: 'REGIONAL_LEADERSHIP' })).toEqual({
+    workspaceLabel: 'Workspace', home: '/', modules: [{ to: '/', label: 'Home', icon: 'home' }],
+  });
 });

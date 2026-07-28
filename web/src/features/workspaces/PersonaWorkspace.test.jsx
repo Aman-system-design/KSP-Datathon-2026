@@ -25,6 +25,12 @@ test.each([
   expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
 });
 
+test('retired Regional Leadership has no configured home view', () => {
+  render(<MemoryRouter><PersonaWorkspace role="REGIONAL_LEADERSHIP" data={data} /></MemoryRouter>);
+  expect(screen.getByText('Workspace unavailable')).toBeInTheDocument();
+  expect(screen.getByText('No home view is configured for this profile.')).toBeInTheDocument();
+});
+
 test('analyst workspace keeps model output, limitations and evidence review visible', () => {
   render(<MemoryRouter><PersonaWorkspace role="CRIME_ANALYST" data={data} /></MemoryRouter>);
   expect(screen.getByText('Vehicle theft change')).toBeInTheDocument();

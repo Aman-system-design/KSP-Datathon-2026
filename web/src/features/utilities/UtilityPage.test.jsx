@@ -531,6 +531,18 @@ test('lets station operations inspect policies without exposing management or ev
   expect(screen.queryByRole('button', { name: 'Add alert setup' })).not.toBeInTheDocument();
 });
 
+test('retired Regional Leadership cannot manage or evaluate alert policies', async () => {
+  const api = { get: vi.fn(async path => path.startsWith('/v1/utilities/')
+    ? { data: patterns }
+    : { data: { items: [] } }) };
+  renderRoute(api, '/utilities/patterns', { role: 'REGIONAL_LEADERSHIP', scopeUnitId: 101 });
+  await screen.findByRole('heading', { name: patterns.name });
+  fireEvent.click(screen.getByRole('button', { name: 'Alert Policy' }));
+  expect(await screen.findByText('No alert policy is configured for this utility.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add alert policy' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
+});
+
 test('keeps Area Attention visual-only and explains why no alert editor is available', async () => {
   const api = { get: vi.fn(async () => ({ data: areaAttention })) };
   renderRoute(api);

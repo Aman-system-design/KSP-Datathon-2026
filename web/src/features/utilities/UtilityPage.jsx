@@ -20,7 +20,6 @@ function formatToken(value) {
 const recipientOptions = Object.freeze([
   ['COMMAND_CENTER', 'Command Centre'],
   ['STATE_LEADERSHIP', 'State leadership'],
-  ['REGIONAL_LEADERSHIP', 'Regional leadership'],
   ['DISTRICT_LEADERSHIP', 'District leadership'],
   ['CRIME_ANALYST', 'Crime analyst'],
 ]);
@@ -31,7 +30,7 @@ const thresholdLabels = Object.freeze({
 const severityOptions = Object.freeze(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 const recipientValues = new Set(recipientOptions.map(([value]) => value));
 const ruleManagerRoles = new Set([
-  'COMMAND_CENTER', 'STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'PLATFORM_ADMIN',
+  'COMMAND_CENTER', 'STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'PLATFORM_ADMIN',
 ]);
 
 function isRecord(value) {
@@ -287,7 +286,7 @@ function AlertPolicy({ utility, api, workspace, location }) {
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState(null);
-  const scopeLabel = getPersonaPresentation(workspace?.role).scope;
+  const scopeLabel = getPersonaPresentation(workspace?.role)?.scope ?? 'Assigned scope';
   const scopeUnitId = workspace?.scopeUnitId;
   const canManage = ruleManagerRoles.has(workspace?.role);
 

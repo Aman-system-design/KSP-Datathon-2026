@@ -19,7 +19,7 @@ const demoWorkspace = {
   },
   personaSwitch: {
     allowed: true,
-    personas: ['STATE_LEADERSHIP', 'REGIONAL_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS'],
+    personas: ['STATE_LEADERSHIP', 'DISTRICT_LEADERSHIP', 'CRIME_ANALYST', 'STATION_OPERATIONS'],
   },
 };
 
