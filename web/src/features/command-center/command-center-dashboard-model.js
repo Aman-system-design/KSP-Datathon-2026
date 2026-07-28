@@ -23,6 +23,54 @@ export function normalizeDashboard(value = {}) {
   });
 }
 
+const isGridPlacement = item => Number.isInteger(item?.column)
+  && item.column >= 1
+  && Number.isInteger(item?.row)
+  && item.row >= 1
+  && Number.isInteger(item?.width)
+  && item.width >= 1
+  && item.width <= 12
+  && Number.isInteger(item?.height)
+  && item.height >= 1
+  && item.column + item.width <= 13;
+
+export function compactDashboardItems(items = []) {
+  if (!Array.isArray(items) || items.some(item => !isGridPlacement(item))) {
+    return Array.isArray(items) ? items.map(item => ({ ...item })) : [];
+  }
+
+  const ordered = items
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => left.item.row - right.item.row
+      || left.item.column - right.item.column
+      || left.index - right.index);
+  const occupied = new Set();
+  const fits = (row, column, width, height) => {
+    if (column + width > 13) return false;
+    for (let y = row; y < row + height; y += 1) {
+      for (let x = column; x < column + width; x += 1) {
+        if (occupied.has(`${x}:${y}`)) return false;
+      }
+    }
+    return true;
+  };
+  const reserve = (row, column, width, height) => {
+    for (let y = row; y < row + height; y += 1) {
+      for (let x = column; x < column + width; x += 1) occupied.add(`${x}:${y}`);
+    }
+  };
+
+  return ordered.map(({ item }) => {
+    for (let row = 1; ; row += 1) {
+      for (let column = 1; column <= 13 - item.width; column += 1) {
+        if (!fits(row, column, item.width, item.height)) continue;
+        reserve(row, column, item.width, item.height);
+        return { ...item, column, row };
+      }
+    }
+  });
+}
+
 export function placementStyle(item) {
   return Object.freeze({
     left: `${((item.column - 1) / 12) * 100}%`,
