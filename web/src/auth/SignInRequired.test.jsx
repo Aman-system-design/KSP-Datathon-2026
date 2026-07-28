@@ -1,9 +1,14 @@
 import { readFileSync } from 'node:fs';
 
-import { render, screen } from '@testing-library/react';
-import { expect, test, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { SignInRequired } from './SignInRequired.jsx';
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 test('renders embedded Catalyst sign in on the application root', async () => {
   const auth = { mountSignIn: vi.fn(async () => {}) };
@@ -22,6 +27,42 @@ test('renders embedded Catalyst sign in on the application root', async () => {
   });
   expect(document.getElementById('catalystLogin')).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Continue to sign in' })).not.toBeInTheDocument();
+});
+
+test('shows judge demo credentials without changing Catalyst sign in', async () => {
+  const auth = { mountSignIn: vi.fn(async () => {}) };
+
+  render(<SignInRequired auth={auth} />);
+
+  expect(screen.getByRole('complementary', { name: 'Demo access credentials' })).toBeInTheDocument();
+  expect(screen.getByText('ksp.tech@zohomail.in')).toBeInTheDocument();
+  expect(screen.getByText('Mail@2026')).toBeInTheDocument();
+  expect(auth.mountSignIn).toHaveBeenCalledWith('catalystLogin', {
+    cssUrl: '/auth/catalyst-sign-in-v4.css', serviceUrl: '/',
+  });
+});
+
+test('copies each demo credential and clears success feedback', async () => {
+  vi.useFakeTimers();
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+
+  render(<SignInRequired auth={{ mountSignIn: vi.fn(async () => {}) }} />);
+
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Copy demo email' })));
+  expect(writeText).toHaveBeenCalledWith('ksp.tech@zohomail.in');
+  expect(screen.getByRole('status')).toHaveTextContent('Email copied');
+
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Copy demo password' })));
+  expect(writeText).toHaveBeenCalledWith('Mail@2026');
+  expect(screen.getByRole('status')).toHaveTextContent('Password copied');
+
+  await act(async () => vi.advanceTimersByTimeAsync(1200));
+  expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  vi.useRealTimers();
 });
 
 test('uses the approved premium glass shell without changing the Catalyst surface', () => {
