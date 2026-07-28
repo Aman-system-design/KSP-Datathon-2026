@@ -41,4 +41,3 @@ Move the authentication attribution into a compact final row inside the demo cre
 - Run auth, router, and viewport regression tests plus the production build.
 - On the live site, complete email and password authentication and confirm redirect to the workspace selector.
 - Verify the attribution remains inside the card at constrained desktop and mobile sizes.
-
