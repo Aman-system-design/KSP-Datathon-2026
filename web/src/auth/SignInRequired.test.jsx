@@ -108,7 +108,7 @@ test('keeps the safe Catalyst height when iframe measurement is inaccessible', a
   await waitFor(() => expect(host.style.getPropertyValue('--catalyst-frame-height')).toBe('360px'));
 });
 
-test('routes generated Catalyst account frames through the configured auth origin', async () => {
+test('preserves the Catalyst SDK generated account frame URL', async () => {
   const auth = {
     mountSignIn: vi.fn(async elementId => {
       const frame = document.createElement('iframe');
@@ -122,7 +122,7 @@ test('routes generated Catalyst account frames through the configured auth origi
   await waitFor(() => expect(document.querySelector('#catalystLogin iframe')).not.toBeNull());
   const frame = document.querySelector('#catalystLogin iframe');
   await waitFor(() => expect(frame.src).toBe(
-    'https://accounts.zohoportal.in/accounts/p/50043872568/signin?serviceurl=%2F',
+    `${window.location.origin}/accounts/p/50043872568/signin?serviceurl=%2F`,
   ));
   expect(auth.mountSignIn).toHaveBeenCalledOnce();
 });
