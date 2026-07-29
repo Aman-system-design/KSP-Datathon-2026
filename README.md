@@ -156,27 +156,7 @@ The interface is designed around semantic navigation and progressive disclosure 
 - Locally packaged fonts avoid a third-party font request during authenticated use.
 
 This prototype has extensive component-level accessibility assertions, but it has not completed an independent WCAG conformance audit or comprehensive screen-reader matrix. Automated Axe/Pa11y checks, contrast verification and browser-level keyboard journeys remain production-readiness work.
-
-## Verified engineering evidence
-
-The following results were observed from a clean export of GitHub `main` revision `6def76ab4b89074c7f2728b8d16be6a8959c10f8` on **29 July 2026**, with only this README candidate overlaid. They describe that reproducible baseline, not uncommitted local work or a production service-level objective.
-
-### Complete verification pipeline
-
-| Verification surface | Observed result |
-|---|---:|
-| Backend, analytics, schema and integration tests | **517 passed, 1 failed, 2 environment-gated skips** |
-| Frontend component and interaction tests | **533 passed, 0 failed** |
-| Total passing automated tests | **1,050** |
-| Complete verification gate | **Blocked by one Command Centre authorization-policy mismatch** |
-| Vite production build | **Passed** |
-| Web bundle budget | **Passed: main 97.5 KB gzip; Studio 5.1 KB gzip; 17 JavaScript chunks** |
-| Catalyst API Function | **Valid Node.js 24 bundle; 50 governed files** |
-| Catalyst refresh Function | **Valid Node.js 18 bundle; 43 governed files** |
-| Primary Catalyst schema | **29 tables and 26 FIR/PDF mappings valid** |
-| Intelligence backend schema | **33 tables valid** |
-
-The suite covers analytical positive and negative controls, authorization, geographic scope, safe errors, concurrency, idempotency, state transitions, report execution, bundle integrity, Node.js runtime isolation and schema relationships. The remaining failure is explicit: `POST /v1/utility-alert-rules` returns `200` for Command Centre while its read-only policy test expects `403`. The release gate remains red until the policy and implementation agree. The repository also does not yet enforce a numeric code-coverage threshold or automated accessibility conformance gate.
+.
 
 ### Deterministic scale benchmark
 
