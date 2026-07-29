@@ -1,152 +1,224 @@
 <p align="center">
-  <img src="web/public/brand/karnataka-state-police.webp" alt="Karnataka State Police" width="92" />
+  <img src="web/public/brand/karnataka-state-police.webp" alt="Karnataka State Police emblem" width="92" />
 </p>
 
 <h1 align="center">KSP ACE Intelligence Platform</h1>
 
 <p align="center">
-  <strong>A mission-adaptive analytics and visualization platform for explainable, role-aware and accountable policing.</strong>
+  <strong>Explainable, role-aware decision intelligence for accountable policing.</strong>
 </p>
 
 <p align="center">
-  Most dashboards answer only predefined questions. KSP ACE lets authorized police teams configure the next one.
+  KSP ACE connects fragmented FIR records to governed analytics, evidence-linked visualizations and human-owned action.
 </p>
 
 <p align="center">
-  <a href="https://ace.onslate.in"><img alt="Live Development Demo" src="https://img.shields.io/badge/LIVE_DEMO-OPEN_KSP_ACE-0A8F83?style=for-the-badge" /></a>
-  <a href="Architecture.md"><img alt="Architecture" src="https://img.shields.io/badge/ARCHITECTURE-VIEW_BLUEPRINT-1769AA?style=for-the-badge" /></a>
-  <a href="PRD.md"><img alt="Product Requirements" src="https://img.shields.io/badge/PRODUCT-READ_PRD-4F46E5?style=for-the-badge" /></a>
+  <a href="https://ace.onslate.in"><img alt="Open the Catalyst Development demo" src="https://img.shields.io/badge/LIVE_DEMO-CATALYST_DEVELOPMENT-0A8F83?style=for-the-badge" /></a>
+  <a href="Architecture.md"><img alt="Read the architecture" src="https://img.shields.io/badge/ARCHITECTURE-VIEW_BLUEPRINT-1769AA?style=for-the-badge" /></a>
+  <a href="PRD.md"><img alt="Read the product requirements" src="https://img.shields.io/badge/PRODUCT-READ_PRD-4F46E5?style=for-the-badge" /></a>
 </p>
 
 <p align="center">
-  <img alt="Development Status" src="https://img.shields.io/badge/status-functional_development-0F766E" />
-  <img alt="Challenge" src="https://img.shields.io/badge/KSP_Datathon_2026-Challenge_02-1D4ED8" />
-  <img alt="Data" src="https://img.shields.io/badge/data-deterministic_synthetic_only-C2410C" />
-  <img alt="Human Oversight" src="https://img.shields.io/badge/decisions-human_authoritative-7C3AED" />
+  <img alt="Status: functional development prototype" src="https://img.shields.io/badge/status-functional_development-0F766E" />
+  <img alt="KSP Datathon 2026 Challenge 02" src="https://img.shields.io/badge/KSP_Datathon_2026-Challenge_02-1D4ED8" />
+  <img alt="Data: deterministic synthetic only" src="https://img.shields.io/badge/data-deterministic_synthetic_only-C2410C" />
+  <img alt="Human decisions remain authoritative" src="https://img.shields.io/badge/decisions-human_authoritative-7C3AED" />
 </p>
 
 > [!IMPORTANT]
-> The live link is a functional Catalyst **Development** deployment using deterministic synthetic data. This repository is not certified for operational police use and contains no real KSP records.
+> The live site is a functional Zoho Catalyst **Development** deployment containing deterministic synthetic data only. It is not certified for operational policing, contains no real KSP records and must not be used to make decisions about real people.
 
-## Why KSP ACE
+## The problem
 
-KSP ACE is not a fixed dashboard or a collection of hard-coded charts. It combines a **configurable analytics utility layer** with a **composable visualization studio**, allowing authorized teams to create mission-specific analytics, reports, maps and dashboards without rebuilding the platform.
+Police information is distributed across cases, people, arrests, legal events, organizations, time and geography. Conventional reporting makes it difficult to detect patterns across those records, explain why a signal matters, deliver it within the correct jurisdiction and record what happened after review.
+
+KSP ACE implements one governed path from fragmented data to accountable action:
 
 ```text
-Authorized police data
-        → governed analytical utilities
-        → explainable findings and visualizations
-        → role-specific workspaces
-        → human review and accountable action
+Fragmented FIR-aligned records
+        -> validation, rejection and deterministic linking
+        -> versioned analytical runs
+        -> explainable findings with evidence and limitations
+        -> role- and geography-scoped workspaces
+        -> human verification, assignment, action and outcome
+        -> append-only audit history
 ```
 
-### What makes it different
+The platform is deliberately not a black-box predictive-policing system. Similarity is treated as an investigative lead, aggregate correlation is not presented as causation, and no model is permitted to autonomously determine guilt, predict individual future crime or initiate police action.
 
-| Conventional dashboard | KSP ACE platform |
+## What the prototype proves
+
+| Platform capability | Working evidence in this repository |
 |---|---|
-| Answers predefined questions | Supports new questions through configurable utilities |
-| Ships fixed reports | Builds and combines reports, maps and dashboards |
-| Gives every user a similar view | Adapts intelligence to role, unit and case scope |
-| Shows a score or alert | Preserves method, evidence, quality and limitations |
-| Ends at visualization | Continues through assignment, escalation and outcome |
-| Requires redevelopment for new use cases | Extends through governed custom analytics and AI/ML utilities |
+| **Governed ingestion** | Separate FIR-aligned source entities, semantic validation, redacted rejection records and deterministic relationship linking |
+| **Explainable analytics** | Hotspots, temporal anomalies, repeat identity, relationship networks, area risk and cross-district Pattern Fusion |
+| **Intelligence utilities** | Versioned utility catalogue, bounded rule configuration, manual evaluation and deterministic alert qualification |
+| **Report builder** | Governed semantic sources with typed filters, aggregation, sorting, tabular and visual report projections |
+| **Dashboard studio** | Private and shared dashboards, bounded layouts, role defaults, ownership checks and optimistic concurrency |
+| **Geospatial intelligence** | MapLibre/deck.gl rendering, governed layers, viewport filtering, evidence lineage and visible-feature tables |
+| **Alert-to-outcome workflow** | Acknowledge, assign, annotate, escalate, conclude and record outcomes without overwriting the original finding |
+| **Operational control** | Versioned refresh requests, idempotent retries, coherent publication groups, health checks and safe failure states |
+| **Auditability** | Correlated resource access events, append-only workflow records and verifiable HMAC audit chains |
 
-## Platform Capabilities
+## Challenge 02 alignment
 
-| Capability | What the prototype demonstrates |
+The implementation maps each challenge requirement to executable behavior and automated evidence rather than relying on screen labels or mock values.
+
+| ID | Challenge requirement | Implemented response |
+|---|---|---|
+| **CH02-01** | Unify fragmented records | Validates and links the supplied 26-entity FIR model while retaining ingestion quality and rejection evidence |
+| **CH02-02** | Produce actionable intelligence | Connects persisted findings to acknowledgement, assignment, analyst review, escalation and outcome |
+| **CH02-03** | Interactive dashboards and maps | Provides composable dashboards, governed reports, MapLibre maps and authorized evidence drill-down |
+| **CH02-04** | Crime hotspot detection | Uses bounded spatial candidate generation, active observation windows and positive/negative controls |
+| **CH02-05** | District-level drill-down | Applies the Unit hierarchy from State to district/station scope and preserves not-found semantics outside authority |
+| **CH02-06** | Trend alerts and anomaly detection | Compares observations with deterministic baselines and retains expected range, period, version and limitations |
+| **CH02-07** | Criminal network analysis | Builds evidence-labelled case-person, co-accused, legal, location and time relationships |
+| **CH02-08** | Repeat-offender tracking | Resolves repeated appearances through authoritative identifiers without treating name similarity as proof |
+| **CH02-09** | Socio-economic correlation | Restricts contextual analysis to aggregate district indicators with source, period and non-causation safeguards |
+| **CH02-10** | Predictive risk scoring | Produces explainable area-level attention scores from observable contributors, never person-level predictions |
+| **CH02-11** | AI/ML pattern detection | Runs bounded cross-district Pattern Fusion and grounded text similarity over accepted, versioned inputs |
+
+Detailed traceability is maintained in [docs/architecture/challenge-traceability.md](docs/architecture/challenge-traceability.md).
+
+## Role-aware experience
+
+The same analytical result is projected differently according to role, unit hierarchy, explicit permission and case assignment.
+
+| Persona | Default experience and authority boundary |
 |---|---|
-| **Intelligence Utility Studio** | Reusable utilities across patterns, spatial intelligence, trends, anomalies and risk prioritization |
-| **Explainable Analytics Engine** | Hotspots, temporal anomalies, repeat identity, networks, area risk and cross-district Pattern Fusion |
-| **Governed Report Builder** | Tables, bars, lines, pies, funnels, risk views and map-based reports over authorized semantic sources |
-| **Composable Dashboard Studio** | Add, remove, resize, arrange, share and assign role-default intelligence views |
-| **Geospatial Intelligence** | Hotspots, clusters, risk layers, visible-feature tables and evidence drill-down |
-| **Relationship Intelligence** | Evidence-labelled links across cases, persons, co-accused, locations, legal events and timelines |
-| **Alert-to-Outcome Workflow** | Acknowledge, assign, note, escalate, conclude and record operational outcomes |
-| **Governed Operations** | Versioned intelligence runs, optimistic concurrency, safe retries and traceable audit events |
+| **State Police Leadership** | Statewide trends, cross-boundary patterns and monitored outcomes with evidence summaries |
+| **District / Regional Leadership** | Authorized subordinate units, station comparisons, attention queues, assignments and escalation |
+| **Command Centre** | Development-only, aggregate and read-only operational presentation without investigation controls |
+| **Crime Analyst** | Maps, timelines, networks, evidence quality and structured conclusions while preserving original findings |
+| **Station Operations** | Station-scoped cases, local signals, pending actions and bounded operational reports |
+| **Investigator** | Assigned evidence, related cases and verification tasks only where explicitly authorized |
+| **Platform Administrator** | Technical configuration, job health and governed operations without automatic evidence access |
+| **Auditor** | Read-only activity, version, access and decision traceability |
 
-## One Platform, Multiple Policing Perspectives
-
-| Persona | Default intelligence experience |
-|---|---|
-| **State Police Leadership** | Statewide trends, cross-boundary patterns and monitored outcomes |
-| **District / Regional Leadership** | Station context, attention queues, assignments and escalation |
-| **Command Centre** | Aggregate, read-only operational overview for coordination |
-| **Crime Analyst** | Synchronized maps, timelines, networks, evidence and structured conclusions |
-| **Station Operations** | Local signals, pending actions and station-level intelligence |
-| **Investigator** | Assigned alerts, evidence verification and scoped case relationships |
-| **Administrator / Auditor** | Platform health, governed configuration and append-only traceability |
-
-## Architecture at a Glance
+## Architecture and code organization
 
 <p align="center">
-  <img src="KSP_ACE_Architecture_Jury_Simplified.png" alt="KSP ACE architecture: authorized data flows through the configurable intelligence platform into role-based views and accountable police action" width="100%" />
+  <img src="KSP_ACE_Architecture_Jury_Simplified.png" alt="KSP ACE architecture showing governed data flowing through explainable analytics into role-scoped views and accountable action" width="100%" />
 </p>
 
-The platform keeps five responsibilities separate: governed ingestion, analytical execution, evidence persistence, role-scoped delivery and human workflow. A user-interface card never invents intelligence; it renders a persisted result produced from an accepted batch.
+The code separates five responsibilities so that a visual component cannot invent intelligence or expand authority:
 
-For the complete technical design, see [Architecture.md](Architecture.md).
-
-## Prototype Performance
-
-The scale benchmark exercises deterministic feature records locally and does not load 50,000 FIRs into Catalyst Development.
-
-| Benchmark | Observed result |
-|---|---:|
-| Deterministic feature scale | **50,000** |
-| Theoretical feature pairs | **1,249,975,000** |
-| Pattern Fusion candidates | **669,412** |
-| Candidate reduction | **99.9464%** |
-| Local elapsed time | **10.60 seconds** |
-| Approximate Node.js heap | **256 MB** |
-
-The planted hotspot, repeat-identity and cross-district pattern remained detectable at 1K, 10K and 50K feature levels. This is engineering evidence against obvious quadratic growth—not a production SLA or statewide-capacity certification.
-
-## Technology Stack
-
-<p>
-  <img alt="Zoho Catalyst" src="https://img.shields.io/badge/Zoho_Catalyst-Platform-E42527?logo=zoho&logoColor=white" />
-  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=0B1F33" />
-  <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" />
-  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-18%20%7C%2024-339933?logo=nodedotjs&logoColor=white" />
-  <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?logo=javascript&logoColor=111827" />
-  <img alt="Leaflet" src="https://img.shields.io/badge/Leaflet-Geospatial-199900?logo=leaflet&logoColor=white" />
-  <img alt="Vitest" src="https://img.shields.io/badge/Vitest-Frontend_Testing-6E9F18?logo=vitest&logoColor=white" />
-  <img alt="CircleCI" src="https://img.shields.io/badge/CircleCI-CI%2FCD-343434?logo=circleci&logoColor=white" />
-</p>
-
-### Catalyst services
-
-| Service | Role in KSP ACE | Current boundary |
-|---|---|---|
-| **Catalyst Slate** | Hosts the React platform | Development deployment |
-| **Catalyst Authentication** | Resolves the current user and access profile | Implemented identity boundary |
-| **Catalyst Data Store** | Stores source, intelligence, workflow, configuration and audit records | Implemented |
-| **Catalyst Functions** | Runs authenticated APIs and intelligence refresh services | Implemented |
-| **Catalyst Job Scheduling** | Executes bounded, versioned refresh requests | Implemented workflow |
-| **Catalyst API Gateway** | Production routing, authentication and throttling boundary | Required before operational exposure |
-| **Catalyst Stratus** | Approved boundary for large evidence and geospatial objects | Production extension |
-| **Catalyst QuickML** | Governed custom AI/ML and multilingual evidence-assistance boundary | Provisioned future extension; not alert authority |
-
-## Repository Structure
+1. **Ingestion and validation** accept schema-aligned source data and record quality outcomes.
+2. **Analytical cores** remain deterministic, renderer-neutral and independently testable.
+3. **Repositories and Catalyst adapters** isolate storage, pagination, concurrency and SDK behavior.
+4. **Security and service layers** derive identity and effective scope on the server.
+5. **React workspaces** render governed API results, explicit asynchronous states and evidence links.
 
 ```text
-web/                         React role workspaces, reports, dashboards and maps
-src/backend/                 APIs, security, workflow, reporting and repositories
-packages/intelligence-core/  Explainable analytical engines
+web/                         React workspaces, reports, dashboards and maps
+src/backend/                 HTTP, security, services, workflows and repositories
+packages/intelligence-core/  Deterministic explainable analytical engines
 packages/geospatial-core/    Renderer-neutral geospatial contracts
-functions/                   Catalyst API and scheduled refresh Functions
-schema/                      PDF-aligned and Catalyst schema contracts
-fixtures/                    Deterministic synthetic records and hidden truth
-tests/                       Analytics, API, security, schema and workflow tests
-docs/                        Architecture, reviews, runbooks and evidence
+functions/                   Built Catalyst API and scheduled refresh Functions
+schema/                      FIR/PDF-aligned and Catalyst schema contracts
+fixtures/                    Deterministic synthetic inputs and hidden truth
+tests/                       Architecture, analytics, API, security and UI verification
+docs/                        Decisions, traceability, runbooks and release evidence
 ```
 
-## Run Locally
+Canonical source lives under `src/` and `packages/`. Function bundles are produced through the governed build script and inspected for manifest drift, unresolved imports and forbidden files.
+
+For the complete design, see [Architecture.md](Architecture.md).
+
+## Security, privacy and responsible use
+
+Security is enforced at the backend boundary, not inferred from hidden UI controls.
+
+- Catalyst Authentication supplies the current user; client-provided identity, role and scope are ignored.
+- Effective access combines role, explicit actions, assigned unit hierarchy and case assignment where required.
+- Cross-unit evidence is redacted or hidden unless a specific permission or assignment allows it.
+- Report, map and dashboard sharing is reauthorized for the current viewer at read and execution time.
+- Inputs, limits, pagination, workflow versions and idempotency keys are validated and bounded.
+- Public errors and structured logs exclude evidence payloads, personal details, tokens, SDK internals and stack traces.
+- Sensitive reads and workflow mutations create correlated audit records; audit-key material is not persisted.
+- Original analytical findings remain immutable while analyst and officer interpretations are recorded separately.
+- Included records, names, locations and outcomes are deterministic synthetic fixtures.
+
+> [!CAUTION]
+> Development demo access is shared for evaluation convenience and must never be reused for operational data. A production deployment requires individual identity federation, credential rotation, reviewed API Gateway policy, retention controls, incident response and an independent security assessment.
+
+## Inclusive and accessible interaction
+
+The interface is designed around semantic navigation and progressive disclosure rather than color or pointer interaction alone.
+
+- Semantic headings, landmarks, tables, forms and native controls are preferred.
+- Interactive icons receive accessible names and decorative icons are hidden from assistive technology.
+- Loading, empty, partial, forbidden and error states use appropriate status or alert announcements.
+- Keyboard users receive visible focus treatment on primary navigation and workspace controls.
+- Map evidence is also available through a visible-feature table rather than only through marks on a canvas.
+- Resizable geospatial panels expose keyboard-adjustable controls and value metadata.
+- Touch-oriented primary controls target at least 44px where the compact operational layout permits.
+- Locally packaged fonts avoid a third-party font request during authenticated use.
+
+This prototype has extensive component-level accessibility assertions, but it has not completed an independent WCAG conformance audit or comprehensive screen-reader matrix. Automated Axe/Pa11y checks, contrast verification and browser-level keyboard journeys remain production-readiness work.
+
+## Verified engineering evidence
+
+The following results were observed from a clean export of committed revision `1bd3c85a2c0e4c584a635d4a172cc19efa00c892` on **29 July 2026**. They describe that reproducible baseline, not uncommitted local work or a production service-level objective.
+
+### Complete verification pipeline
+
+| Verification surface | Observed result |
+|---|---:|
+| Backend, analytics, schema and integration tests | **514 passed, 0 failed, 2 environment-gated skips** |
+| Frontend component and interaction tests | **494 passed, 0 failed** |
+| Total passing automated tests | **1,008** |
+| Vite production build | **Passed** |
+| Web bundle budget | **Passed: main 96.7 KB gzip; Studio 5.1 KB gzip; 17 JavaScript chunks** |
+| Catalyst API Function | **Valid Node.js 24 bundle; 50 governed files** |
+| Catalyst refresh Function | **Valid Node.js 18 bundle; 43 governed files** |
+| Primary Catalyst schema | **29 tables and 26 FIR/PDF mappings valid** |
+| Intelligence backend schema | **33 tables valid** |
+
+The suite covers analytical positive and negative controls, authorization, geographic scope, safe errors, concurrency, idempotency, state transitions, report execution, bundle integrity, Node.js runtime isolation and schema relationships. The repository does not yet enforce a numeric code-coverage threshold or automated accessibility conformance gate.
+
+### Deterministic scale benchmark
+
+The benchmark runs locally over generated analytical feature records. It does not load 50,000 FIRs into Catalyst Development.
+
+| Feature records | Theoretical pairs | Pattern candidates | Candidate reduction | Elapsed time | Node.js heap |
+|---:|---:|---:|---:|---:|---:|
+| 1,000 | 499,500 | 15 | 99.9970% | 0.11 s | 8.6 MB |
+| 10,000 | 49,995,000 | 23,735 | 99.9525% | 1.65 s | 50.9 MB |
+| 50,000 | 1,249,975,000 | 669,412 | 99.9464% | 17.46 s | 247.6 MB |
+
+The planted hotspot, repeat-identity signal and cross-district pattern remained detectable at every scale. These results demonstrate bounded candidate generation and guard against obvious quadratic behavior; they are not a statewide-capacity certification or latency guarantee.
+
+## Technology stack
+
+| Layer | Technology |
+|---|---|
+| Cloud platform | Zoho Catalyst Slate, Authentication, Data Store, Functions and Job Scheduling |
+| Web application | React 19, React Router and Vite 8 |
+| Geospatial rendering | MapLibre GL, deck.gl, PMTiles, Supercluster and H3 |
+| Backend runtimes | Node.js 24 API Function and isolated Node.js 18 refresh Function |
+| Analytics | First-party deterministic JavaScript modules with versioned contracts |
+| Verification | Node test runner, Vitest, Testing Library, bundle/schema validators and CircleCI |
+
+### Catalyst service boundaries
+
+| Catalyst service | Current responsibility | Readiness boundary |
+|---|---|---|
+| **Slate** | Hosts the React client | Functional Development deployment |
+| **Authentication** | Resolves the current user and session | Implemented; production federation remains pending |
+| **Data Store** | Persists source, intelligence, workflow, configuration and audit records | Implemented Development boundary |
+| **Functions** | Serves authenticated APIs and scheduled intelligence refresh | Built and bundle-inspected |
+| **Job Scheduling** | Submits bounded, versioned refresh requests | Implemented workflow |
+| **API Gateway** | Intended production routing, authentication and throttling boundary | Required before operational exposure |
+| **Stratus** | Approved future boundary for large evidence/geospatial objects | Not required by the current prototype |
+| **QuickML** | Governed future custom AI/ML and multilingual assistance | Not an alert or police-action authority |
+
+## Run locally
 
 ### Requirements
 
 - Node.js 24 and npm
-- The deployed refresh Function is separately compatibility-tested for Node.js 18
+- The separately installed Node.js 18 compatibility runtime for the deployed refresh Function path
 
 ```bash
 git clone https://github.com/Aman-system-design/KSP-Datathon-2026.git
@@ -156,32 +228,25 @@ npm run verify
 npm run intelligence:benchmark
 ```
 
-`npm run verify` runs backend and frontend tests, the production web build, both Catalyst Function bundle checks and both schema validators.
+`npm run verify` executes backend tests, frontend tests, the production web build, bundle-budget checks, both Catalyst Function builds and inspections, and both schema validators.
 
-### Configuration
+Copy `.env.example` for local configuration. Runtime secrets belong in environment-managed configuration; never commit OAuth tokens, audit keys, private credentials or identifiable operational data.
 
-Copy `.env.example` for local setup. Runtime configuration is server-side and fail-closed; never commit OAuth tokens, audit keys, credentials or identifiable operational data.
+## Known boundaries and production roadmap
 
-## Responsible Policing and Security Boundaries
+This repository demonstrates a production-shaped architecture, not operational production certification. Before connecting real or identifiable data, the project requires:
 
-- Synthetic records remain visibly labelled.
-- Rank alone never grants access; effective scope combines role, unit, permission and case assignment.
-- Similarity is an investigative lead—not proof of identity, guilt or association.
-- No individual future-crime prediction or sensitive-demographic targeting is permitted.
-- Significant findings retain method version, period, evidence, quality and limitations.
-- Public errors and logs exclude evidence payloads, identities, tokens and credentials.
-- Human confirmation remains authoritative; AI/ML cannot autonomously create police action.
+- KSP-approved SSO and individual identity lifecycle management;
+- removal of shared demo access and formal credential rotation;
+- reviewed API Gateway, network and external-integration policies;
+- representative-volume capacity tests and monitored service objectives;
+- backup, recovery, retention, deletion and incident-response procedures;
+- independent security, privacy, accessibility and legal assessment;
+- formal analytical governance, drift monitoring and model-change approval;
+- approved integration with FIR, court, forensic and GIS systems;
+- user acceptance testing with leadership, analysts and station personnel.
 
-## Production Roadmap
-
-- Enterprise SSO confirmation and Microsoft Entra ID integration
-- Reviewed API Gateway policies and external integration contracts
-- Representative-volume capacity testing and monitored service objectives
-- Backup, recovery, retention, incident-response and security assessment
-- Formal analytical and model governance, including drift and quality monitoring
-- Governed integration with KSP-approved FIR, court, forensic and GIS systems
-- Kannada–English transcription, translation and evidence assistance
-- Secure responsive and offline-capable field workflows
+Potential extensions include governed Kannada-English transcription, translation and evidence assistance, plus secure responsive and offline-capable field workflows. These extensions cannot replace unfinished Challenge 02 evidence or bypass human review.
 
 ## Documentation
 
@@ -191,18 +256,18 @@ Copy `.env.example` for local setup. Runtime configuration is server-side and fa
 | [Architecture](Architecture.md) | Runtime flow, module boundaries and Catalyst mapping |
 | [Engineering Rules](Rules.md) | Security, data, AI, testing and delivery constraints |
 | [Delivery Phases](Phases.md) | Sequenced implementation and objective exit criteria |
-| [Visual Design](Design.md) | Experience, accessibility and visualization standards |
+| [Visual Design](Design.md) | Experience, responsive behavior and accessibility standards |
 | [Challenge Traceability](docs/architecture/challenge-traceability.md) | Challenge requirements mapped to implementation evidence |
+| [Business Architecture](docs/architecture/business-architecture-blueprint.md) | Problem, roles, decisions and intelligence-to-action flow |
+| [Role and Access Design](docs/architecture/role-access-and-experience-design.md) | Persona experiences, permitted actions and safeguards |
 | [Project Memory](docs/PROJECT_MEMORY.md) | Dated decisions, deployment state and verification evidence |
 
-## Data and Readiness Notice
+## Data and evaluation notice
 
-All included records and names are deterministic synthetic fixtures created for the challenge. Do not add real police records, company data, personal credentials or identifiable real-person information.
-
-Operational deployment still requires KSP-approved identity federation, integrations, capacity validation, security assessment, retention policy, backup/recovery and formal model governance.
+All included records and identities are deterministic synthetic fixtures created for KSP Datathon 2026. Do not add real police records, personal credentials, confidential company data or identifiable real-person information to this repository.
 
 ---
 
 <p align="center">
-  <strong>KSP ACE — Analyse anything. Visualize everything. Evolve for every policing need.</strong>
+  <strong>KSP ACE - Analyse anything. Visualize everything. Keep every decision explainable.</strong>
 </p>
